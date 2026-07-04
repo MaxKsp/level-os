@@ -395,8 +395,8 @@ require_login_page();
 
       <div class="dashgrid">
         <div class="dashcard">
-          <div class="dashcard-title">Despesas por dia</div>
-          <div class="dashcard-sub">Quanto mais escuro, mais foi gasto naquele dia. Mês atual.</div>
+          <div class="dashcard-title" id="heatTitle">Despesas por dia</div>
+          <div class="dashcard-sub" id="heatSub">Quanto mais escuro, mais foi gasto naquele dia. Mês atual.</div>
           <div id="wrapHeat"></div>
         </div>
         <div class="dashcard">
@@ -416,7 +416,7 @@ require_login_page();
         </div>
         <div class="dashcard" id="cardLine" style="display:none;">
           <div class="dashcard-title">Renda variável ao longo do tempo</div>
-          <div class="dashcard-sub">Ganhos lançados por dia, últimos 30 dias.</div>
+          <div class="dashcard-sub" id="lineSub">Ganhos lançados por dia, últimos 30 dias.</div>
           <div class="dashcanvas-wrap" id="wrapLine"><canvas id="chartLine"></canvas></div>
         </div>
       </div>
@@ -519,6 +519,7 @@ require_login_page();
       <div class="field"><label>Valor mensal (R$)</label><input type="number" id="emValue" step="0.01"></div>
       <div class="field"><label>Dia do gasto</label><input type="date" id="emDate"></div>
     </div>
+    <div class="field"><label>Horário do gasto</label><input type="time" id="emTime"></div>
     <div class="field" style="display:flex;align-items:center;gap:8px;">
       <input type="checkbox" id="emRecorrente" style="width:auto;">
       <label style="margin:0;text-transform:none;font-family:'Archivo',sans-serif;font-size:13px;color:var(--text);">Repete todo mês (mesmo dia)</label>
@@ -1257,6 +1258,7 @@ document.getElementById('btnOpenExpModal').onclick = ()=>{
   document.getElementById('emLabel').value = '';
   document.getElementById('emValue').value = '';
   document.getElementById('emDate').value = dkey(new Date());
+  document.getElementById('emTime').value = pad(new Date().getHours())+':'+pad(new Date().getMinutes());
   document.getElementById('emRecorrente').checked = false;
   document.getElementById('emCategoria').value = 'outros';
   document.getElementById('emMethod').value = 'pix';
@@ -1272,6 +1274,7 @@ document.getElementById('emSave').onclick = async ()=>{
   if (!label) return;
   const value = Number(document.getElementById('emValue').value||0);
   const date = document.getElementById('emDate').value || null;
+  const time = document.getElementById('emTime').value || '12:00';
   const recorrencia = document.getElementById('emRecorrente').checked ? 'mensal' : 'none';
   const categoria = document.getElementById('emCategoria').value;
   const method = document.getElementById('emMethod').value;
@@ -1279,9 +1282,9 @@ document.getElementById('emSave').onclick = async ()=>{
   let lines = await getExpenseLines();
   if (editingExpenseId){
     const l = lines.find(x=>x.id===editingExpenseId);
-    if (l){ l.label=label; l.value=value; l.date=date; l.recorrencia=recorrencia; l.categoria=categoria; l.method=method; l.bank=bank; }
+    if (l){ l.label=label; l.value=value; l.date=date; l.time=time; l.recorrencia=recorrencia; l.categoria=categoria; l.method=method; l.bank=bank; }
   } else {
-    lines.push({ id: genId(), label, value, date, recorrencia, categoria, method, bank, createdAt: Date.now() });
+    lines.push({ id: genId(), label, value, date, time, recorrencia, categoria, method, bank, createdAt: Date.now() });
   }
   await storeSet('expense_lines_v4', lines);
   document.getElementById('expenseModalOverlay').classList.remove('open');
@@ -1301,6 +1304,7 @@ function openExpenseEdit(line){
   document.getElementById('emLabel').value = line.label;
   document.getElementById('emValue').value = line.value;
   document.getElementById('emDate').value = line.date || '';
+  document.getElementById('emTime').value = expenseTimeOf(line);
   document.getElementById('emRecorrente').checked = line.recorrencia === 'mensal';
   document.getElementById('emCategoria').value = line.categoria || 'outros';
   document.getElementById('emMethod').value = line.method;
@@ -1452,6 +1456,42 @@ function expenseOccurrencesInRange(exp, range){
 function expenseTotalInRange(exp, range){
   return expenseOccurrencesInRange(exp, range).length * Number(exp.value||0);
 }
+function expenseTimeOf(exp){
+  if (exp.time) return exp.time;
+  if (exp.createdAt) { const d = new Date(exp.createdAt); return pad(d.getHours())+':'+pad(d.getMinutes()); }
+  return '12:00';
+}
+function expenseHourOf(exp){
+  return Number(expenseTimeOf(exp).split(':')[0]);
+}
+/** Lista achatada de {exp, date} pra cada ocorrência de cada despesa dentro do período (só despesas com data). */
+function expenseOccurrenceEntries(expLines, range){
+  const out = [];
+  expLines.forEach(e=>{
+    if (!e.date) return;
+    expenseOccurrencesInRange(e, range).forEach(date=> out.push({ exp: e, date }));
+  });
+  return out;
+}
+/**
+ * Soma o valor de cada despesa dentro do período, agrupado pela chave de keyFn.
+ * Despesas com data contam pelo número real de ocorrências no período; despesas
+ * sem data (fixas mensais sem dia definido) entram prorateadas pro período,
+ * do mesmo jeito que já acontece no resumo do topo.
+ */
+function bucketPeriodTotals(expLines, range, period, keyFn){
+  const totals = {};
+  expLines.forEach(e=>{
+    const key = keyFn(e);
+    if (e.date){
+      const occ = expenseOccurrencesInRange(e, range).length;
+      if (occ>0) totals[key] = (totals[key]||0) + occ*Number(e.value||0);
+    } else {
+      totals[key] = (totals[key]||0) + prorate(Number(e.value||0), period);
+    }
+  });
+  return totals;
+}
 
 const CATEGORIA_LABEL = { moradia:'Moradia', transporte:'Transporte', alimentacao:'Alimentação', lazer:'Lazer', saude:'Saúde', educacao:'Educação', assinaturas:'Assinaturas', financiamento:'Financiamento', outros:'Outros' };
 
@@ -1522,7 +1562,7 @@ async function renderFinance(){
       });
     }
 
-    renderDashCharts(entries, expLines, incLines, ifoodTotal, now);
+    renderDashCharts(entries, expLines, incLines, ifoodTotal, now, finPeriod, range);
   }
 
   if (activePage === 'fpage-entradas'){
@@ -1604,44 +1644,110 @@ function chartBaseOptions(extra){
   }, extra||{});
 }
 
-function renderExpenseHeatmap(expLines, now){
+function heatCellStyle(val, maxVal, extraClass, isCurrent){
+  let bg = 'var(--surface-2)';
+  let textColor = '';
+  if (val>0 && maxVal>0){
+    const t = 0.12 + 0.85*(val/maxVal);
+    bg = `rgba(124,110,242,${t.toFixed(2)})`;
+    textColor = t > 0.42 ? '#fff' : 'var(--text)';
+  }
+  return `class="heatcell ${extraClass||''} ${isCurrent?'today':''}" style="background:${bg};${textColor?`color:${textColor};font-weight:600;`:''}"`;
+}
+
+function renderExpenseHeatmap(expLines, now, period, range){
   const wrap = document.getElementById('wrapHeat');
-  const monthRange = { start: new Date(now.getFullYear(), now.getMonth(), 1), end: new Date(now.getFullYear(), now.getMonth()+1, 0) };
-  const byDate = {};
-  expLines.forEach(e=>{
-    if (!e.date) return;
-    expenseOccurrencesInRange(e, monthRange).forEach(occ=>{
-      const k = dkey(occ);
-      byDate[k] = (byDate[k]||0) + Number(e.value||0);
+  const titleEl = document.getElementById('heatTitle');
+  const subEl = document.getElementById('heatSub');
+
+  if (period === 'day'){
+    titleEl.textContent = 'Despesas por hora';
+    subEl.textContent = 'Quanto mais escuro, mais foi gasto naquele horário. Hoje, ' + pad(now.getDate())+'/'+pad(now.getMonth()+1) + '.';
+    const byHour = {};
+    expenseOccurrenceEntries(expLines, range).forEach(({exp})=>{
+      const h = expenseHourOf(exp);
+      byHour[h] = (byHour[h]||0) + Number(exp.value||0);
     });
+    const maxVal = Math.max(...Object.values(byHour), 0);
+    const nowHour = now.getHours();
+    let html = '<div class="heatgrid" style="grid-template-columns:repeat(6,1fr);">';
+    for (let h=0; h<24; h++){
+      const val = byHour[h] || 0;
+      html += `<div ${heatCellStyle(val, maxVal, '', h===nowHour)} title="${pad(h)}h: ${fmtMoney(val)}">${pad(h)}h</div>`;
+    }
+    html += '</div>';
+    wrap.innerHTML = html;
+    return;
+  }
+
+  if (period === 'week'){
+    titleEl.textContent = 'Despesas por dia';
+    subEl.textContent = 'Semana de ' + dkeyDisp(range.start) + ' a ' + dkeyDisp(range.end) + '.';
+    const byDate = {};
+    expenseOccurrenceEntries(expLines, range).forEach(({exp, date})=>{
+      const k = dkey(date);
+      byDate[k] = (byDate[k]||0) + Number(exp.value||0);
+    });
+    const maxVal = Math.max(...Object.values(byDate), 0);
+    let html = '<div class="heatgrid">' + WEEKDAY_MIN.map(d=>`<div class="heat-head">${d}</div>`).join('');
+    for (let i=0;i<7;i++){
+      const d = addDays(range.start, i);
+      const k = dkey(d);
+      const val = byDate[k] || 0;
+      html += `<div ${heatCellStyle(val, maxVal, '', k===dkey(now))} title="${d.getDate()}/${d.getMonth()+1}: ${fmtMoney(val)}">${d.getDate()}</div>`;
+    }
+    html += '</div>';
+    wrap.innerHTML = html;
+    return;
+  }
+
+  if (period === 'year'){
+    titleEl.textContent = 'Despesas por mês';
+    subEl.textContent = 'Quanto mais escuro, mais foi gasto naquele mês. Ano de ' + now.getFullYear() + '.';
+    const byMonth = {};
+    expenseOccurrenceEntries(expLines, range).forEach(({exp, date})=>{
+      const m = date.getMonth();
+      byMonth[m] = (byMonth[m]||0) + Number(exp.value||0);
+    });
+    const maxVal = Math.max(...Object.values(byMonth), 0);
+    let html = '<div class="heatgrid" style="grid-template-columns:repeat(6,1fr);">';
+    for (let m=0; m<12; m++){
+      const val = byMonth[m] || 0;
+      html += `<div ${heatCellStyle(val, maxVal, '', m===now.getMonth())} title="${MONTH_ABBR[m]}: ${fmtMoney(val)}">${MONTH_ABBR[m]}</div>`;
+    }
+    html += '</div>';
+    wrap.innerHTML = html;
+    return;
+  }
+
+  // period === 'month' (padrão)
+  titleEl.textContent = 'Despesas por dia';
+  subEl.textContent = 'Quanto mais escuro, mais foi gasto naquele dia. Mês atual.';
+  const byDate = {};
+  expenseOccurrenceEntries(expLines, range).forEach(({exp, date})=>{
+    const k = dkey(date);
+    byDate[k] = (byDate[k]||0) + Number(exp.value||0);
   });
   const maxVal = Math.max(...Object.values(byDate), 0);
 
-  const first = new Date(now.getFullYear(), now.getMonth(), 1);
+  const first = range.start;
   const gridStart = new Date(first); gridStart.setDate(gridStart.getDate() - gridStart.getDay());
   let html = '<div class="heatgrid">' + WEEKDAY_MIN.map(d=>`<div class="heat-head">${d}</div>`).join('');
   for (let i=0;i<42;i++){
     const d = new Date(gridStart); d.setDate(gridStart.getDate()+i);
-    const inMonth = d.getMonth()===now.getMonth();
+    const inMonth = d.getMonth()===first.getMonth();
     if (!inMonth && i>=35) continue;
     const k = dkey(d);
     const val = byDate[k] || 0;
-    const isToday = k===dkey(now);
-    let bg = 'var(--surface-2)';
-    let textColor = '';
-    if (val>0 && maxVal>0){
-      const t = 0.12 + 0.85*(val/maxVal);
-      bg = `rgba(124,110,242,${t.toFixed(2)})`;
-      textColor = t > 0.42 ? '#fff' : 'var(--text)';
-    }
-    html += `<div class="heatcell ${inMonth?'':'outmonth'} ${isToday?'today':''}" style="background:${bg};${textColor?`color:${textColor};font-weight:600;`:''}" title="${d.getDate()}/${d.getMonth()+1}: ${fmtMoney(val)}">${d.getDate()}</div>`;
+    html += `<div ${heatCellStyle(val, maxVal, inMonth?'':'outmonth', k===dkey(now))} title="${d.getDate()}/${d.getMonth()+1}: ${fmtMoney(val)}">${d.getDate()}</div>`;
   }
   html += '</div>';
   wrap.innerHTML = html;
 }
+function dkeyDisp(d){ return pad(d.getDate())+'/'+pad(d.getMonth()+1); }
 
-function renderDashCharts(entries, expLines, incLines, ifoodTotal, now){
-  renderExpenseHeatmap(expLines, now);
+function renderDashCharts(entries, expLines, incLines, ifoodTotal, now, period, range){
+  renderExpenseHeatmap(expLines, now, period, range);
 
   if (typeof Chart === 'undefined'){
     ['wrapLine','wrapBank','wrapMethod','wrapCategoria'].forEach(id=>{
@@ -1655,7 +1761,7 @@ function renderDashCharts(entries, expLines, incLines, ifoodTotal, now){
   if (chartCategoria) { chartCategoria.destroy(); chartCategoria=null; }
 
   const wrapBank = document.getElementById('wrapBank');
-  const byBank = {}; expLines.forEach(e=>{ byBank[e.bank]=(byBank[e.bank]||0)+Number(e.value||0); });
+  const byBank = bucketPeriodTotals(expLines, range, period, e=>e.bank);
   const bankEntries = Object.entries(byBank);
   if (bankEntries.length===0){
     wrapBank.innerHTML = '<div class="dashempty">Nenhuma despesa cadastrada ainda.<br>Vá em Saídas pra registrar.</div>';
@@ -1671,7 +1777,7 @@ function renderDashCharts(entries, expLines, incLines, ifoodTotal, now){
   }
 
   const wrapMethod = document.getElementById('wrapMethod');
-  const byMethod = {}; expLines.forEach(e=>{ byMethod[e.method]=(byMethod[e.method]||0)+Number(e.value||0); });
+  const byMethod = bucketPeriodTotals(expLines, range, period, e=>e.method);
   const methodEntries = Object.entries(byMethod);
   if (methodEntries.length===0){
     wrapMethod.innerHTML = '<div class="dashempty">Nenhuma despesa cadastrada ainda.</div>';
@@ -1687,7 +1793,7 @@ function renderDashCharts(entries, expLines, incLines, ifoodTotal, now){
   }
 
   const wrapCategoria = document.getElementById('wrapCategoria');
-  const byCategoria = {}; expLines.forEach(e=>{ const c=e.categoria||'outros'; byCategoria[c]=(byCategoria[c]||0)+Number(e.value||0); });
+  const byCategoria = bucketPeriodTotals(expLines, range, period, e=>e.categoria||'outros');
   const categoriaEntries = Object.entries(byCategoria).sort((a,b)=>b[1]-a[1]);
   if (categoriaEntries.length===0){
     wrapCategoria.innerHTML = '<div class="dashempty">Nenhuma despesa cadastrada ainda.</div>';
@@ -1709,12 +1815,23 @@ function renderDashCharts(entries, expLines, incLines, ifoodTotal, now){
   if (hasVariableIncome){
     const wrapLine = document.getElementById('wrapLine');
     wrapLine.innerHTML = '<canvas id="chartLine"></canvas>';
+    const lineSubMap = { day:'Ganhos lançados hoje.', week:'Ganhos lançados por dia, semana atual.', month:'Ganhos lançados por dia, mês atual.', year:'Ganhos lançados por mês, ano atual.' };
+    document.getElementById('lineSub').textContent = lineSubMap[period] || lineSubMap.month;
     try {
-      const days=[]; for(let i=29;i>=0;i--){ const d=new Date(now); d.setDate(now.getDate()-i); days.push(d); }
-      const totals = days.map(d=>{ const k=dkey(d); return entries.filter(e=>e.date===k).reduce((s,e)=>s+Number(e.valor||0),0); });
+      let days, labels, totals;
+      if (period === 'year'){
+        days = Array.from({length:12}, (_,m)=> new Date(now.getFullYear(), m, 1));
+        totals = days.map(d=> entries.filter(e=>{ const ed=new Date(e.date+'T00:00:00'); return ed.getFullYear()===d.getFullYear() && ed.getMonth()===d.getMonth(); }).reduce((s,e)=>s+Number(e.valor||0),0));
+        labels = days.map(d=>MONTH_ABBR[d.getMonth()]);
+      } else {
+        const spanDays = Math.round((range.end - range.start)/86400000) + 1;
+        days = Array.from({length:spanDays}, (_,i)=> addDays(range.start, i));
+        totals = days.map(d=>{ const k=dkey(d); return entries.filter(e=>e.date===k).reduce((s,e)=>s+Number(e.valor||0),0); });
+        labels = days.map(d=>pad(d.getDate())+'/'+pad(d.getMonth()+1));
+      }
       chartLine = new Chart(document.getElementById('chartLine'), {
         type:'line',
-        data:{ labels: days.map(d=>pad(d.getDate())+'/'+pad(d.getMonth()+1)),
+        data:{ labels,
           datasets:[{ data: totals, borderColor: CHART_PURPLE, backgroundColor: CHART_PURPLE_SOFT, fill:true, tension:0.35, pointRadius:0, borderWidth:2 }] },
         options: chartBaseOptions({ scales:{ x:{ grid:{display:false}, ticks:{color:'#6A6A6E', font:{size:9}, maxTicksLimit:8} }, y:{ grid:{color:'#1E1E1E'}, ticks:{color:'#6A6A6E', font:{size:10}} } } })
       });
