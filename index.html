@@ -508,6 +508,10 @@
       <div class="field"><label>Valor mensal (R$)</label><input type="number" id="emValue" step="0.01"></div>
       <div class="field"><label>Dia do gasto</label><input type="date" id="emDate"></div>
     </div>
+    <div class="field" style="display:flex;align-items:center;gap:8px;">
+      <input type="checkbox" id="emRecorrente" style="width:auto;">
+      <label style="margin:0;text-transform:none;font-family:'Archivo',sans-serif;font-size:13px;color:var(--text);">Repete todo mês (mesmo dia)</label>
+    </div>
     <div class="field"><label>Categoria</label>
       <select id="emCategoria">
         <option value="moradia">Moradia</option>
@@ -1076,8 +1080,8 @@ document.querySelectorAll('.sectiontab').forEach(t=>{
 });
 
 const DEFAULT_EXPENSES = [
-  {label:'Financiamento do apê', value:1400, method:'ted', bank:'outro', categoria:'financiamento', dayOfMonth:15},
-  {label:'Marmitas LivUp', value:254.83, method:'pix', bank:'outro', categoria:'alimentacao', dayOfMonth:20},
+  {label:'Financiamento do apê', value:1400, method:'ted', bank:'outro', categoria:'financiamento', recorrencia:'mensal', dayOfMonth:15},
+  {label:'Marmitas LivUp', value:254.83, method:'pix', bank:'outro', categoria:'alimentacao', recorrencia:'mensal', dayOfMonth:20},
 ];
 async function getExpenseLines(){
   const saved = await storeGet('expense_lines_v4', null);
@@ -1186,6 +1190,7 @@ document.getElementById('btnOpenExpModal').onclick = ()=>{
   document.getElementById('emLabel').value = '';
   document.getElementById('emValue').value = '';
   document.getElementById('emDate').value = dkey(new Date());
+  document.getElementById('emRecorrente').checked = false;
   document.getElementById('emCategoria').value = 'outros';
   document.getElementById('emMethod').value = 'pix';
   renderMethodPicker('emMethodPicker', 'emMethod', 'pix');
@@ -1200,15 +1205,16 @@ document.getElementById('emSave').onclick = async ()=>{
   if (!label) return;
   const value = Number(document.getElementById('emValue').value||0);
   const date = document.getElementById('emDate').value || null;
+  const recorrencia = document.getElementById('emRecorrente').checked ? 'mensal' : 'none';
   const categoria = document.getElementById('emCategoria').value;
   const method = document.getElementById('emMethod').value;
   const bank = document.getElementById('emBank').value;
   let lines = await getExpenseLines();
   if (editingExpenseId){
     const l = lines.find(x=>x.id===editingExpenseId);
-    if (l){ l.label=label; l.value=value; l.date=date; l.categoria=categoria; l.method=method; l.bank=bank; }
+    if (l){ l.label=label; l.value=value; l.date=date; l.recorrencia=recorrencia; l.categoria=categoria; l.method=method; l.bank=bank; }
   } else {
-    lines.push({ id: genId(), label, value, date, categoria, method, bank, createdAt: Date.now() });
+    lines.push({ id: genId(), label, value, date, recorrencia, categoria, method, bank, createdAt: Date.now() });
   }
   await storeSet('expense_lines_v4', lines);
   document.getElementById('expenseModalOverlay').classList.remove('open');
@@ -1228,6 +1234,7 @@ function openExpenseEdit(line){
   document.getElementById('emLabel').value = line.label;
   document.getElementById('emValue').value = line.value;
   document.getElementById('emDate').value = line.date || '';
+  document.getElementById('emRecorrente').checked = line.recorrencia === 'mensal';
   document.getElementById('emCategoria').value = line.categoria || 'outros';
   document.getElementById('emMethod').value = line.method;
   renderMethodPicker('emMethodPicker', 'emMethod', line.method);
@@ -1344,6 +1351,41 @@ function inRange(dateStr, range){
   return dnum(d) >= dnum(range.start) && dnum(d) <= dnum(range.end);
 }
 
+function clampDayOfMonth(year, month, day){
+  const lastDay = new Date(year, month+1, 0).getDate();
+  return Math.min(day, lastDay);
+}
+/**
+ * Retorna as datas em que uma despesa efetivamente ocorre dentro de um período.
+ * Despesas sem recorrência: só a própria data, se cair no período.
+ * Despesas mensais: uma ocorrência por mês do período, no mesmo dia (ajustado se o mês for mais curto).
+ */
+function expenseOccurrencesInRange(exp, range){
+  if (!exp.date) return [];
+  const anchor = new Date(exp.date+'T00:00:00');
+  if (exp.recorrencia !== 'mensal'){
+    return inRange(exp.date, range) ? [anchor] : [];
+  }
+  const dayOfMonth = anchor.getDate();
+  const occurrences = [];
+  let cursor = new Date(range.start.getFullYear(), range.start.getMonth(), 1);
+  const endCursor = new Date(range.end.getFullYear(), range.end.getMonth(), 1);
+  let guard = 0;
+  while (dnum(cursor) <= dnum(endCursor) && guard < 600){
+    guard++;
+    const occDay = clampDayOfMonth(cursor.getFullYear(), cursor.getMonth(), dayOfMonth);
+    const occDate = new Date(cursor.getFullYear(), cursor.getMonth(), occDay);
+    if (dnum(occDate) >= dnum(anchor) && dnum(occDate) >= dnum(range.start) && dnum(occDate) <= dnum(range.end)){
+      occurrences.push(occDate);
+    }
+    cursor.setMonth(cursor.getMonth()+1);
+  }
+  return occurrences;
+}
+function expenseTotalInRange(exp, range){
+  return expenseOccurrencesInRange(exp, range).length * Number(exp.value||0);
+}
+
 const CATEGORIA_LABEL = { moradia:'Moradia', transporte:'Transporte', alimentacao:'Alimentação', lazer:'Lazer', saude:'Saúde', educacao:'Educação', assinaturas:'Assinaturas', financiamento:'Financiamento', outros:'Outros' };
 
 async function renderFinance(){
@@ -1366,7 +1408,7 @@ async function renderFinance(){
   if (activePage === 'fpage-inicio'){
     const range = periodRange(finPeriod, now);
     const ifoodPeriod = entries.filter(e=>inRange(e.date, range)).reduce((s,e)=>s+Number(e.valor||0),0);
-    const datedExpPeriod = expLines.filter(e=>e.date && inRange(e.date, range)).reduce((s,e)=>s+Number(e.value||0),0);
+    const datedExpPeriod = expLines.filter(e=>e.date).reduce((s,e)=>s+expenseTotalInRange(e, range),0);
     const undatedExpMonthly = expLines.filter(e=>!e.date).reduce((s,e)=>s+Number(e.value||0),0);
     const incomeFixedPeriod = incLines.filter(l=>isIncomeActive(l,now) && l.type!=='variavel').reduce((s,l)=>s+prorate(Number(l.value||0), finPeriod),0);
     const incomeVariavelLinePeriod = incLines.filter(l=>isIncomeActive(l,now) && l.type==='variavel').reduce((s,l)=>s+prorate(Number(l.value||0), finPeriod),0);
@@ -1464,10 +1506,11 @@ async function renderFinance(){
       expBox.innerHTML = expLines.map(e=>{
         const bank = bankById(e.bank);
         const dateDisp = e.date ? e.date.split('-').reverse().join('/') : 'sem data';
+        const recBadge = e.recorrencia==='mensal' ? '<span class="badge b-fixa">Mensal</span>' : '';
         return `<div class="expcard" data-id="${e.id}">
           ${bankAvatarHtml(e.bank)}
           <div class="info"><div class="ttl">${e.label}</div>
-            <div class="metarow"><span class="badge">${dateDisp}</span><span class="badge">${CATEGORIA_LABEL[e.categoria]||'Outros'}</span><span class="badge">${METHODS[e.method]}</span><span class="badge">${bank.name}</span></div>
+            <div class="metarow"><span class="badge">${dateDisp}</span>${recBadge}<span class="badge">${CATEGORIA_LABEL[e.categoria]||'Outros'}</span><span class="badge">${METHODS[e.method]}</span><span class="badge">${bank.name}</span></div>
           </div>
           <div class="val">${fmtMoney(e.value)}</div>
         </div>`;
@@ -1496,8 +1539,15 @@ function chartBaseOptions(extra){
 
 function renderExpenseHeatmap(expLines, now){
   const wrap = document.getElementById('wrapHeat');
+  const monthRange = { start: new Date(now.getFullYear(), now.getMonth(), 1), end: new Date(now.getFullYear(), now.getMonth()+1, 0) };
   const byDate = {};
-  expLines.forEach(e=>{ if (e.date) byDate[e.date] = (byDate[e.date]||0) + Number(e.value||0); });
+  expLines.forEach(e=>{
+    if (!e.date) return;
+    expenseOccurrencesInRange(e, monthRange).forEach(occ=>{
+      const k = dkey(occ);
+      byDate[k] = (byDate[k]||0) + Number(e.value||0);
+    });
+  });
   const maxVal = Math.max(...Object.values(byDate), 0);
 
   const first = new Date(now.getFullYear(), now.getMonth(), 1);
