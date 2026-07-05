@@ -41,6 +41,15 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   [data-theme="ambar"]{ --accent:#F59E0B; --accent-2:#EF4444; --accent-soft:rgba(245,158,11,.12); --glow:rgba(245,158,11,.32); --aurora-a:rgba(245,158,11,.08); --aurora-b:rgba(239,68,68,.06); }
   [data-theme="rosa"]{ --accent:#EC4899; --accent-2:#8B5CF6; --accent-soft:rgba(236,72,153,.12); --glow:rgba(236,72,153,.35); --aurora-a:rgba(236,72,153,.09); --aurora-b:rgba(139,92,246,.07); }
   [data-bg="preto"]{ --bg:#000000; --surface:#101013; --surface-2:#17171C; --surface-3:#202027; }
+  [data-bg="claro"]{
+    --bg:#F2F3F7; --surface:#FFFFFF; --surface-2:#EDEFF4; --surface-3:#DFE3EB;
+    --line:rgba(15,18,30,.09); --line-strong:rgba(15,18,30,.16);
+    --text:#171821; --text-2:#5A5E6D; --text-3:#9AA0AF;
+    --shadow-card:0 1px 2px rgba(18,22,40,.06), 0 8px 24px rgba(18,22,40,.07);
+    --shadow-pop:0 12px 40px rgba(18,22,40,.18);
+    --aurora-a:rgba(79,141,249,.07); --aurora-b:rgba(139,92,246,.06);
+  }
+  [data-bg="claro"] input[type=date], [data-bg="claro"] input[type=time]{color-scheme:light;}
   *{box-sizing:border-box;}
   html{scrollbar-color:var(--surface-3) transparent;}
   body{
@@ -324,6 +333,20 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .field-row{display:flex;gap:10px;}
   .field-row .field{flex:1;}
   .modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;}
+  /* metas por categoria */
+  .goalrow{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:8px;}
+  .goalrow .toprow{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
+  .goalrow .cat{font-size:13.5px;font-weight:600;}
+  .goalrow .nums{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--text-2);font-variant-numeric:tabular-nums;}
+  .goalbar{height:7px;border-radius:99px;background:var(--surface-3);overflow:hidden;}
+  .goalbar > div{height:100%;border-radius:99px;background:var(--grad);transition:width .3s ease;}
+  .goalrow.warn .goalbar > div{background:#F59E0B;}
+  .goalrow.over .goalbar > div{background:var(--brick);}
+  .goalrow.over .nums{color:var(--brick);font-weight:600;}
+  .goalinput-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;}
+  .goalinput-row label{font-size:13px;color:var(--text);margin:0;text-transform:none;font-family:'Archivo',sans-serif;letter-spacing:0;}
+  .goalinput-row input{width:130px;text-align:right;font-family:'IBM Plex Mono',monospace;}
+
   /* perfil */
   .profilecard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;margin-bottom:14px;box-shadow:var(--shadow-card);}
   .profilecard-title{font-size:15px;font-weight:600;margin-bottom:12px;}
@@ -340,7 +363,7 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .themegrid{display:flex;gap:10px;}
   .themedot{width:38px;height:38px;border-radius:50%;border:2px solid transparent;cursor:pointer;background:linear-gradient(135deg,var(--dot1),var(--dot2));transition:transform .12s,border-color .15s,box-shadow .15s;}
   .themedot:hover{transform:scale(1.08);}
-  .themedot.sel{border-color:#fff;box-shadow:0 0 0 3px var(--accent-soft), 0 4px 14px rgba(0,0,0,.4);}
+  .themedot.sel{border-color:var(--text);box-shadow:0 0 0 3px var(--accent-soft), 0 4px 14px rgba(0,0,0,.4);}
   .bgpick{display:flex;gap:8px;}
   .bgopt{padding:8px 16px;border-radius:999px;border:1px solid var(--line-strong);background:transparent;color:var(--text-2);font-size:12.5px;cursor:pointer;font-family:'Archivo',sans-serif;transition:all .15s;}
   .bgopt.sel{background:var(--grad);color:#fff;border-color:transparent;box-shadow:0 2px 10px var(--glow);}
@@ -482,6 +505,10 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
       <div id="accTotalLine" style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:var(--sage);margin-bottom:12px;">R$ 0,00</div>
       <div id="accountLines"></div>
 
+      <div class="fpage-head"><h2 style="margin:26px 0 0;">Metas do mês</h2><button class="addbtn-sm" id="btnEditGoals" title="Editar metas">✎</button></div>
+      <div class="dashcard-sub" style="margin:2px 0 10px;">Limite de gasto por categoria. A barra mostra quanto do limite já foi usado neste mês.</div>
+      <div id="goalsList"></div>
+
       <div class="dashgrid">
         <div class="dashcard">
           <div class="dashcard-title" id="heatTitle">Despesas por dia</div>
@@ -513,6 +540,7 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
 
     <div class="fpage" id="fpage-entradas">
       <div class="fpage-head"><h2 style="margin:0;">Rendas fixas e temporárias</h2><button class="addbtn-sm" id="btnOpenIncModal">+</button></div>
+      <input type="search" id="incSearch" placeholder="Buscar renda por nome ou tipo..." style="width:100%;margin-bottom:10px;">
       <div id="incomeLines"></div>
       <h2>Renda variável — lançar ganho (ex: iFood)</h2>
       <div class="form-row">
@@ -526,6 +554,7 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
 
     <div class="fpage" id="fpage-saidas">
       <div class="fpage-head"><h2 style="margin:0;">Despesas</h2><button class="addbtn-sm" id="btnOpenExpModal">+</button></div>
+      <input type="search" id="expSearch" placeholder="Buscar por nome, categoria ou banco..." style="width:100%;margin-bottom:10px;">
       <div id="expenseLines"></div>
     </div>
   </div>
@@ -568,6 +597,7 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
       <div class="bgpick" id="bgPick">
         <button class="bgopt" data-b="">Grafite</button>
         <button class="bgopt" data-b="preto">Preto puro</button>
+        <button class="bgopt" data-b="claro">Claro</button>
       </div>
     </div>
 
@@ -609,6 +639,7 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn-ghost" id="btnExportBackup" style="flex:1;min-width:160px;">Baixar backup (.json)</button>
         <button class="btn-ghost" id="btnImportBackup" style="flex:1;min-width:160px;">Restaurar backup</button>
+        <button class="btn-ghost" id="btnExportCsv" style="flex:1;min-width:160px;">Exportar CSV (planilha)</button>
       </div>
       <input type="file" id="importBackupFile" accept="application/json" style="display:none;">
     </div>
@@ -741,6 +772,7 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
       <div class="field"><label>Limite total (R$)</label><input type="number" id="acLimite" step="0.01"></div>
       <div class="field"><label>Fatura atual (R$)</label><input type="number" id="acFatura" step="0.01"></div>
     </div>
+    <button class="btn-ghost" id="acPayFatura" style="display:none;width:100%;margin-bottom:14px;">Pagar fatura (zera e registra a saída)</button>
     <div class="field">
       <label>Banco</label>
       <input type="hidden" id="acBank">
@@ -754,6 +786,18 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
       <button class="btn-ghost" id="acDelete" style="display:none;margin-right:auto;color:var(--brick);border-color:var(--brick);">Excluir</button>
       <button class="btn-ghost" id="acCancel">Cancelar</button>
       <button class="btn-primary" id="acSave">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="goalsModalOverlay">
+  <div class="modal">
+    <h3>Metas de gasto por categoria</h3>
+    <p style="font-size:12.5px;color:var(--text-2);margin:0 0 14px;">Deixe em branco as categorias sem meta. O limite vale pro mês.</p>
+    <div id="goalsInputs"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="goalsCancel">Cancelar</button>
+      <button class="btn-primary" id="goalsSave">Salvar</button>
     </div>
   </div>
 </div>
@@ -990,6 +1034,9 @@ function renderAgenda(){
 /* ---------- Início da Agenda: dashboard de conclusão ---------- */
 /* Cores dos gráficos seguem o tema escolhido no Perfil (variáveis CSS). */
 function accentHex(){ return (getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()) || '#4F8DF9'; }
+function themeVar(name, fallback){ return (getComputedStyle(document.documentElement).getPropertyValue(name).trim()) || fallback; }
+function chartGridCol(){ return themeVar('--line', '#1E1E1E'); }
+function chartTickCol(){ return themeVar('--text-3', '#6A6A6E'); }
 function accentRGBStr(){
   let h = accentHex().replace('#','');
   if (h.length===3) h = h.split('').map(c=>c+c).join('');
@@ -1073,7 +1120,7 @@ function renderHomeCharts(){
       type:'line',
       data:{ labels: days.map(d=>pad(d.getDate())+'/'+pad(d.getMonth()+1)),
         datasets:[{ data: comps.map(c=>c===null?null:Math.round(c*100)), borderColor: accentHex(), backgroundColor: `rgba(${accentRGBStr()},0.18)`, fill:true, tension:0.35, pointRadius:0, borderWidth:2, spanGaps:true }] },
-      options: chartBaseOptions({ scales:{ x:{ grid:{display:false}, ticks:{color:'#6A6A6E', font:{size:9}, maxTicksLimit:8} }, y:{ grid:{color:'#1E1E1E'}, ticks:{color:'#6A6A6E', font:{size:10}}, min:0, max:100 } } })
+      options: chartBaseOptions({ scales:{ x:{ grid:{display:false}, ticks:{color:chartTickCol(), font:{size:9}, maxTicksLimit:8} }, y:{ grid:{color:chartGridCol()}, ticks:{color:chartTickCol(), font:{size:10}}, min:0, max:100 } } })
     });
   } catch(err){ console.error('chartTaskLine falhou', err); wrapLine.innerHTML = '<div class="dashempty">Não consegui desenhar este gráfico agora.</div>'; }
 
@@ -1091,7 +1138,7 @@ function renderHomeCharts(){
     chartTaskCat = new Chart(document.getElementById('chartTaskCat'), {
       type:'bar',
       data:{ labels: catKeys.map(k=>CATS[k]), datasets:[{ data: catPct, backgroundColor: accentHex(), borderRadius:6, maxBarThickness:50 }] },
-      options: chartBaseOptions({ scales:{ x:{ grid:{display:false}, ticks:{color:'#6A6A6E', font:{size:10}} }, y:{ grid:{color:'#1E1E1E'}, ticks:{color:'#6A6A6E', font:{size:10}}, min:0, max:100 } } })
+      options: chartBaseOptions({ scales:{ x:{ grid:{display:false}, ticks:{color:chartTickCol(), font:{size:10}} }, y:{ grid:{color:chartGridCol()}, ticks:{color:chartTickCol(), font:{size:10}}, min:0, max:100 } } })
     });
   } catch(err){ console.error('chartTaskCat falhou', err); wrapCat.innerHTML = '<div class="dashempty">Não consegui desenhar este gráfico agora.</div>'; }
 }
@@ -1492,6 +1539,7 @@ document.getElementById('btnOpenAccModal').onclick = ()=>{
   toggleAccountFields('conta');
   renderBankPicker('acBankPicker', 'acBank', 'outro');
   document.getElementById('acDelete').style.display = 'none';
+  document.getElementById('acPayFatura').style.display = 'none';
   document.getElementById('accountModalOverlay').classList.add('open');
 };
 document.getElementById('acCancel').onclick = ()=> document.getElementById('accountModalOverlay').classList.remove('open');
@@ -1537,8 +1585,29 @@ function openAccountEdit(acc){
   toggleAccountFields(acc.tipo || 'conta');
   renderBankPicker('acBankPicker', 'acBank', acc.bank);
   document.getElementById('acDelete').style.display = '';
+  document.getElementById('acPayFatura').style.display = (acc.tipo==='cartao' && Number(acc.fatura)>0) ? '' : 'none';
   document.getElementById('accountModalOverlay').classList.add('open');
 }
+
+document.getElementById('acPayFatura').onclick = async ()=>{
+  if (!editingAccountId) return;
+  const accounts = await getAccounts();
+  const acc = accounts.find(a=>a.id===editingAccountId);
+  if (!acc || Number(acc.fatura)<=0) return;
+  const valor = Number(acc.fatura);
+  if (!confirm(`Pagar a fatura de ${fmtMoney(valor)} do cartão "${acc.label}"?\n\nIsso zera a fatura e registra a saída de hoje nas despesas.`)) return;
+  acc.fatura = 0;
+  const lines = await getExpenseLines();
+  lines.push({
+    id: genId(), label: 'Pagamento fatura — ' + acc.label, value: valor,
+    date: dkey(new Date()), time: pad(new Date().getHours())+':'+pad(new Date().getMinutes()),
+    recorrencia: 'none', categoria: 'outros', method: 'pix', bank: acc.bank, createdAt: Date.now()
+  });
+  await storeSet('accounts_v2', accounts);
+  await storeSet('expense_lines_v4', lines);
+  document.getElementById('accountModalOverlay').classList.remove('open');
+  renderFinance();
+};
 
 /* ---- Período do Financeiro (Dia/Semana/Mês/Ano) ---- */
 let finPeriod = 'month';
@@ -1659,6 +1728,47 @@ function bucketPeriodTotals(expLines, range, period, keyFn, now){
 
 const CATEGORIA_LABEL = { moradia:'Moradia', transporte:'Transporte', alimentacao:'Alimentação', lazer:'Lazer', saude:'Saúde', educacao:'Educação', assinaturas:'Assinaturas', financiamento:'Financiamento', outros:'Outros' };
 
+/* ---- Metas de gasto por categoria ---- */
+async function renderGoals(expLines, now){
+  const box = document.getElementById('goalsList');
+  const goals = await storeGet('budget_goals', {});
+  const keys = Object.keys(goals).filter(k=>Number(goals[k])>0);
+  if (keys.length===0){
+    box.innerHTML = '<div class="empty">Nenhuma meta definida ainda — clique no lápis pra criar limites por categoria.</div>';
+    return;
+  }
+  const monthRange = clampRangeToToday(periodRange('month', now), now);
+  const spentByCat = bucketPeriodTotals(expLines, monthRange, 'month', e=>e.categoria||'outros', now);
+  box.innerHTML = keys.map(k=>{
+    const goal = Number(goals[k]);
+    const spent = spentByCat[k]||0;
+    const pct = Math.min(100, Math.round(spent/goal*100));
+    const cls = spent>goal ? 'over' : (spent>=goal*0.8 ? 'warn' : '');
+    return `<div class="goalrow ${cls}">
+      <div class="toprow"><div class="cat">${CATEGORIA_LABEL[k]||k}</div><div class="nums">${fmtMoney(spent)} / ${fmtMoney(goal)}${spent>goal?' · estourou':''}</div></div>
+      <div class="goalbar"><div style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+}
+document.getElementById('btnEditGoals').onclick = async ()=>{
+  const goals = await storeGet('budget_goals', {});
+  document.getElementById('goalsInputs').innerHTML = Object.entries(CATEGORIA_LABEL).map(([k,label])=>
+    `<div class="goalinput-row"><label>${label}</label><input type="number" step="0.01" min="0" data-goal="${k}" placeholder="sem meta" value="${goals[k]||''}"></div>`
+  ).join('');
+  document.getElementById('goalsModalOverlay').classList.add('open');
+};
+document.getElementById('goalsCancel').onclick = ()=> document.getElementById('goalsModalOverlay').classList.remove('open');
+document.getElementById('goalsSave').onclick = async ()=>{
+  const goals = {};
+  document.querySelectorAll('#goalsInputs input[data-goal]').forEach(inp=>{
+    const v = Number(inp.value);
+    if (v>0) goals[inp.dataset.goal] = v;
+  });
+  await storeSet('budget_goals', goals);
+  document.getElementById('goalsModalOverlay').classList.remove('open');
+  renderFinance();
+};
+
 async function renderFinance(){
   const entries = await storeGet('ifood-entries', []);
   const expLines = await getExpenseLines();
@@ -1727,14 +1837,20 @@ async function renderFinance(){
       });
     }
 
+    await renderGoals(expLines, now);
     renderDashCharts(entries, expLines, incLines, ifoodTotal, now, finPeriod, range, aggRange);
   }
 
   if (activePage === 'fpage-entradas'){
     const incBox = document.getElementById('incomeLines');
+    const incQ = (document.getElementById('incSearch').value||'').toLowerCase().trim();
+    const incShown = incQ
+      ? incLines.filter(l=> (l.label||'').toLowerCase().includes(incQ) || (TYPE_LABEL[l.type]||'').toLowerCase().includes(incQ))
+      : incLines;
     if (incLines.length===0){ incBox.innerHTML = '<div class="empty">Nenhuma renda cadastrada.</div>'; }
+    else if (incShown.length===0){ incBox.innerHTML = '<div class="empty">Nada encontrado pra "' + esc(incQ) + '".</div>'; }
     else {
-      incBox.innerHTML = incLines.map(l=>{
+      incBox.innerHTML = incShown.map(l=>{
         const active = isIncomeActive(l, now);
         let sub = '';
         if (l.type==='temporaria'){
@@ -1750,7 +1866,7 @@ async function renderFinance(){
         </div>`;
       }).join('');
       incBox.querySelectorAll('.inccard').forEach(card=>{
-        card.onclick = ()=>{ const l = incLines.find(x=>x.id===card.dataset.id); if (l) openIncomeEdit(l); };
+        card.onclick = ()=>{ const l = incShown.find(x=>x.id===card.dataset.id); if (l) openIncomeEdit(l); };
       });
     }
 
@@ -1773,9 +1889,17 @@ async function renderFinance(){
 
   if (activePage === 'fpage-saidas'){
     const expBox = document.getElementById('expenseLines');
+    const expQ = (document.getElementById('expSearch').value||'').toLowerCase().trim();
+    const expShown = expQ
+      ? expLines.filter(e=> (e.label||'').toLowerCase().includes(expQ)
+          || (CATEGORIA_LABEL[e.categoria]||'').toLowerCase().includes(expQ)
+          || bankById(e.bank).name.toLowerCase().includes(expQ)
+          || (METHODS[e.method]||'').toLowerCase().includes(expQ))
+      : expLines;
     if (expLines.length===0){ expBox.innerHTML = '<div class="empty">Nenhuma despesa cadastrada.</div>'; }
+    else if (expShown.length===0){ expBox.innerHTML = '<div class="empty">Nada encontrado pra "' + esc(expQ) + '".</div>'; }
     else {
-      expBox.innerHTML = expLines.map(e=>{
+      expBox.innerHTML = expShown.map(e=>{
         const bank = bankById(e.bank);
         const dateDisp = e.date ? e.date.split('-').reverse().join('/') : 'sem data';
         const recBadge = e.recorrencia==='mensal' ? '<span class="badge b-fixa">Mensal</span>' : '';
@@ -1788,11 +1912,13 @@ async function renderFinance(){
         </div>`;
       }).join('');
       expBox.querySelectorAll('.expcard').forEach(card=>{
-        card.onclick = ()=>{ const l = expLines.find(x=>x.id===card.dataset.id); if (l) openExpenseEdit(l); };
+        card.onclick = ()=>{ const l = expShown.find(x=>x.id===card.dataset.id); if (l) openExpenseEdit(l); };
       });
     }
   }
 }
+document.getElementById('expSearch').oninput = ()=> renderFinance();
+document.getElementById('incSearch').oninput = ()=> renderFinance();
 
 let chartLine=null, chartBank=null, chartMethod=null, chartCategoria=null;
 function chartAccent(){ return accentHex(); }
@@ -1803,8 +1929,8 @@ function chartBaseOptions(extra){
     responsive:true, maintainAspectRatio:false,
     plugins:{ legend:{display:false} },
     scales:{
-      x:{ grid:{color:'#1E1E1E'}, ticks:{color:'#6A6A6E', font:{size:10} } },
-      y:{ grid:{color:'#1E1E1E'}, ticks:{color:'#6A6A6E', font:{size:10} }, beginAtZero:true }
+      x:{ grid:{color:chartGridCol()}, ticks:{color:chartTickCol(), font:{size:10} } },
+      y:{ grid:{color:chartGridCol()}, ticks:{color:chartTickCol(), font:{size:10} }, beginAtZero:true }
     }
   }, extra||{});
 }
@@ -1998,7 +2124,7 @@ function renderDashCharts(entries, expLines, incLines, ifoodTotal, now, period, 
         type:'line',
         data:{ labels,
           datasets:[{ data: totals, borderColor: accentHex(), backgroundColor: `rgba(${accentRGBStr()},0.18)`, fill:true, tension:0.35, pointRadius:0, borderWidth:2 }] },
-        options: chartBaseOptions({ scales:{ x:{ grid:{display:false}, ticks:{color:'#6A6A6E', font:{size:9}, maxTicksLimit:8} }, y:{ grid:{color:'#1E1E1E'}, ticks:{color:'#6A6A6E', font:{size:10}} } } })
+        options: chartBaseOptions({ scales:{ x:{ grid:{display:false}, ticks:{color:chartTickCol(), font:{size:9}, maxTicksLimit:8} }, y:{ grid:{color:chartGridCol()}, ticks:{color:chartTickCol(), font:{size:10}} } } })
       });
     } catch(err){ console.error('chartLine falhou', err); wrapLine.innerHTML = '<div class="dashempty">Não consegui desenhar este gráfico agora.</div>'; }
   }
@@ -2141,6 +2267,24 @@ document.getElementById('btnExportBackup').onclick = async ()=>{
     URL.revokeObjectURL(url);
     showSettingsMsg('Backup baixado com sucesso.', false);
   } catch(e){ showSettingsMsg('Não consegui gerar o backup agora.', true); }
+};
+document.getElementById('btnExportCsv').onclick = async ()=>{
+  const expLines = await getExpenseLines();
+  const incLines = await getIncomeLines();
+  const entries = await storeGet('ifood-entries', []);
+  const csvCell = v => '"' + String(v??'').replace(/"/g,'""') + '"';
+  const num = v => String(Number(v||0)).replace('.', ',');
+  const rows = [['tipo','descricao','valor','data','hora','categoria','forma_pagamento','banco','recorrencia']];
+  expLines.forEach(e=> rows.push(['despesa', e.label, num(e.value), e.date||'', expenseTimeOf(e), CATEGORIA_LABEL[e.categoria]||'Outros', METHODS[e.method]||'', bankById(e.bank).name, e.recorrencia==='mensal'?'mensal':'']));
+  incLines.forEach(l=> rows.push(['renda', l.label, num(l.value), l.endDate||'', '', TYPE_LABEL[l.type]||'', '', '', l.type==='temporaria'?'':'mensal']));
+  entries.forEach(e=> rows.push(['renda variavel', e.km?('iFood '+e.km+' km'):'lançamento', num(e.valor), e.date||'', '', '', '', '', '']));
+  const csv = '﻿' + rows.map(r=>r.map(csvCell).join(';')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
+  const a = document.createElement('a');
+  a.href = url; a.download = 'orby-relatorio-' + dkey(new Date()) + '.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  showSettingsMsg('CSV exportado — abre direto no Excel/Planilhas.', false);
 };
 document.getElementById('btnImportBackup').onclick = ()=> document.getElementById('importBackupFile').click();
 document.getElementById('importBackupFile').onchange = async (ev)=>{
