@@ -18,10 +18,10 @@ própria e um PR separado.
 
 - [x] **Pagar fatura do cartão** — botão no cartão zera a fatura e registra
       a saída automaticamente.
-- [ ] **Conciliação automática** — registrar uma despesa numa conta debita
-      o saldo dela; hoje saldo e lançamentos vivem separados.
-- [ ] **Histórico entre meses** — snapshot de fechamento mensal pra comparar
-      mês a mês (hoje tudo é "do período atual").
+- [x] **Conciliação automática** — despesa avulsa pode movimentar conta
+      (debita saldo) ou cartão (soma fatura), com estorno em edição/exclusão.
+- [x] **Histórico entre meses** — gráfico entradas × saídas dos últimos 6
+      meses, calculado direto dos lançamentos.
 - [ ] **Rendas com recorrência visível** — ocorrências de renda no mapa de
       calor e nos gráficos, como as despesas recorrentes já têm.
 - [x] **Metas por categoria** — limites em "Metas do mês" com barra de
@@ -35,8 +35,8 @@ própria e um PR separado.
 
 - [x] **Busca/filtro nos lançamentos** — em Saídas e Entradas.
 - [x] **Exportar relatório em CSV** — em Perfil → Backup.
-- [ ] **Backup automático agendado** — cron semanal que envia o JSON por
-      e-mail (rede de segurança sem ação manual).
+- [x] **Backup automático agendado** — aos domingos o cron envia o JSON em
+      anexo pra quem tem aviso por e-mail ligado.
 - [x] **Tema claro** — terceira opção de fundo no Perfil.
 - [ ] **Testes automatizados** — PHPUnit pra auth/TOTP/rate-limit e um
       smoke E2E do fluxo login → lançamento → backup.
