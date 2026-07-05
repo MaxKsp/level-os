@@ -72,8 +72,8 @@ foreach ($users as $user) {
     $lines = array_map(fn($t) => '- ' . $t['time'] . ' — ' . $t['title'], $due);
     $bodyTxt = "Olá, {$user['username']}!\n\nVocê tem tarefa começando:\n\n"
         . implode("\n", $lines)
-        . "\n\n— Painel Max";
-    @mail($user['email'], 'Painel Max — tarefa começando', $bodyTxt);
+        . "\n\n— Orby";
+    @mail($user['email'], 'Orby — tarefa começando', $bodyTxt);
     $sent += count($due);
 
     $up = $db->prepare('INSERT INTO kv_store (user_id, data_key, data_value) VALUES (?, ?, ?)

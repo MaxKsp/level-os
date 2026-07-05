@@ -19,10 +19,8 @@ body{
 }
 ::selection{background:var(--accent);color:#fff;}
 .brand{display:flex;align-items:center;gap:12px;margin-bottom:26px;animation:fadeDown .5s ease-out;}
-.brandmark{width:44px;height:44px;border-radius:13px;background:var(--grad);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 28px var(--glow);}
-.brandmark svg{width:23px;height:23px;color:#fff;}
-.brandname{font-family:'IBM Plex Mono',monospace;font-size:15px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);}
-.brandname b{color:var(--text);}
+.orbymark{width:54px;height:54px;flex-shrink:0;filter:drop-shadow(0 4px 18px var(--glow));}
+.brandname{font-family:'Archivo',sans-serif;font-size:26px;font-weight:700;letter-spacing:-.02em;color:var(--text);}
 .card{
   width:100%;max-width:392px;padding:34px 32px;border-radius:22px;position:relative;
   background:linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,0) 40%), var(--surface);

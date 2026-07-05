@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $userId = (int)$db->lastInsertId();
 
                 $verifyUrl = (!empty($_SERVER['HTTPS']) ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . '/verify-email.php?token=' . $token;
-                @mail($email, 'Confirme seu e-mail — Painel Max', "Clique para confirmar seu e-mail:\n\n$verifyUrl\n\nSe você não criou essa conta, ignore este e-mail.");
+                @mail($email, 'Confirme seu e-mail — Orby', "Clique para confirmar seu e-mail:\n\n$verifyUrl\n\nSe você não criou essa conta, ignore este e-mail.");
 
                 reset_attempts();
                 complete_login($userId);
@@ -57,15 +57,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Painel Max — Criar conta</title>
+<title>Orby — Criar conta</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/auth.css">
 </head>
 <body>
   <div class="brand">
-    <div class="brandmark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5l8 9 8-9v14"/></svg></div>
-    <div class="brandname"><b>Painel</b> Max</div>
+    <svg class="orbymark" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="obg" x1="0" y1="48" x2="48" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--accent-2)"/></linearGradient></defs>
+      <g transform="rotate(-18 24 24)"><path d="M3 24a21 7.5 0 0 1 42 0" stroke="url(#obg)" stroke-width="3.4" stroke-linecap="round"/></g>
+      <circle cx="24" cy="24" r="12.5" stroke="var(--text)" stroke-width="7"/>
+      <g transform="rotate(-18 24 24)"><path d="M45 24a21 7.5 0 0 1 -42 0" stroke="url(#obg)" stroke-width="3.4" stroke-linecap="round"/></g>
+      <circle cx="40" cy="7.5" r="3.1" fill="#2DD4BF"/>
+    </svg>
+    <div class="brandname">Orby</div>
   </div>
   <form class="card" method="POST" autocomplete="off">
     <?= csrf_field() ?>

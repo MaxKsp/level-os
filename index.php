@@ -7,7 +7,7 @@ require_login_page();
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Painel Max</title>
+<title>Orby</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#050507">
 <link rel="apple-touch-icon" href="assets/icon-192.png">
@@ -67,11 +67,9 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
     backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
     border-bottom:1px solid var(--line);
   }
-  .brand{display:flex;align-items:center;gap:10px;}
-  .brandmark{width:30px;height:30px;border-radius:9px;background:var(--grad);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px var(--glow);flex-shrink:0;}
-  .brandmark svg{width:16px;height:16px;color:#fff;}
-  .wordmark{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:.2em;color:var(--text-3);text-transform:uppercase;white-space:nowrap;}
-  .wordmark b{color:var(--text);}
+  .brand{display:flex;align-items:center;gap:9px;}
+  .orbymark{width:32px;height:32px;flex-shrink:0;filter:drop-shadow(0 2px 10px var(--glow));}
+  .wordmark{font-family:'Archivo',sans-serif;font-size:17px;font-weight:700;letter-spacing:-.02em;color:var(--text);white-space:nowrap;}
   .sectiontabs{display:flex;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px;}
   .sectiontab{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--text-3);cursor:pointer;background:transparent;transition:color .15s,background .15s,transform .12s;}
   .sectiontab:hover{color:var(--text-2);}
@@ -362,8 +360,14 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
 <div class="wrap">
   <div class="topbar">
     <div class="brand">
-      <div class="brandmark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5l8 9 8-9v14"/></svg></div>
-      <div class="wordmark"><b>Painel</b> Max</div>
+      <svg class="orbymark" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="obg" x1="0" y1="48" x2="48" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--accent-2)"/></linearGradient></defs>
+        <g transform="rotate(-18 24 24)"><path d="M3 24a21 7.5 0 0 1 42 0" stroke="url(#obg)" stroke-width="3.4" stroke-linecap="round"/></g>
+        <circle cx="24" cy="24" r="12.5" stroke="var(--text)" stroke-width="7"/>
+        <g transform="rotate(-18 24 24)"><path d="M45 24a21 7.5 0 0 1 -42 0" stroke="url(#obg)" stroke-width="3.4" stroke-linecap="round"/></g>
+        <circle cx="40" cy="7.5" r="3.1" fill="#2DD4BF"/>
+      </svg>
+      <div class="wordmark">Orby</div>
     </div>
     <div class="sectiontabs" id="sectiontabs">
       <div class="sectiontab active" data-page="agenda" title="Agenda">
@@ -1224,7 +1228,7 @@ function renderHero(){
         firedAlarms[ak]=true;
         hero.classList.add('alarm'); setTimeout(()=>hero.classList.remove('alarm'),8000);
         if ('Notification' in window && Notification.permission==='granted' && localStorage.getItem('pm_notif')==='1'){
-          try{ new Notification('Hora de: ' + todays[nextIdx].title, { body: todays[nextIdx].time + ' — Painel Max', icon: 'assets/icon-192.png', tag: ak }); }catch(e){}
+          try{ new Notification('Hora de: ' + todays[nextIdx].title, { body: todays[nextIdx].time + ' — Orby', icon: 'assets/icon-192.png', tag: ak }); }catch(e){}
         }
       }
     }
@@ -2049,7 +2053,7 @@ document.getElementById('tglNotifBrowser').onchange = async (ev)=>{
     const perm = await Notification.requestPermission();
     if (perm !== 'granted'){ tgl.checked = false; showSettingsMsg('Permissão de notificação não concedida.', true); return; }
     localStorage.setItem('pm_notif', '1');
-    new Notification('Painel Max', { body: 'Notificações ativadas! Você será avisado quando uma tarefa começar.', icon: 'assets/icon-192.png' });
+    new Notification('Orby', { body: 'Notificações ativadas! Você será avisado quando uma tarefa começar.', icon: 'assets/icon-192.png' });
   } else {
     localStorage.setItem('pm_notif', '0');
   }
@@ -2074,7 +2078,7 @@ document.getElementById('btnExportBackup').onclick = async ()=>{
     const blob = await r.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'painel-max-backup-' + dkey(new Date()) + '.json';
+    a.href = url; a.download = 'orby-backup-' + dkey(new Date()) + '.json';
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
     showSettingsMsg('Backup baixado com sucesso.', false);

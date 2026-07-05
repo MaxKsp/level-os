@@ -1,7 +1,7 @@
 {
-  "name": "Painel Max",
-  "short_name": "Painel Max",
-  "description": "Rotina e finanças num painel só.",
+  "name": "Orby",
+  "short_name": "Orby",
+  "description": "Sua rotina e suas finanças, num painel só.",
   "start_url": "index.php",
   "display": "standalone",
   "background_color": "#050507",

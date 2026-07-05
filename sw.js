@@ -1,4 +1,4 @@
-// Service worker minimo do Painel Max: cacheia so assets estaticos.
+// Service worker minimo do Orby: cacheia so assets estaticos.
 // NUNCA cacheia paginas PHP nem a API (dados sempre frescos e atras de login).
 const CACHE = 'pm-static-v1';
 const STATIC = [

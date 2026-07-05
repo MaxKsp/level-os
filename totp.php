@@ -60,7 +60,7 @@ function totp_verify_code(string $secret, string $code, int $window = 1): bool {
     return false;
 }
 
-function totp_provisioning_uri(string $secret, string $username, string $issuer = 'Painel Max'): string {
+function totp_provisioning_uri(string $secret, string $username, string $issuer = 'Orby'): string {
     return 'otpauth://totp/' . rawurlencode($issuer) . ':' . rawurlencode($username)
         . '?secret=' . $secret
         . '&issuer=' . rawurlencode($issuer)

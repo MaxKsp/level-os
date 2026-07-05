@@ -1,4 +1,4 @@
-# Painel Max
+# Orby (ex-Painel Max)
 
 App pessoal de rotina (Agenda) e finanças (Financeiro). Front-end de página
 única (`index.php`, HTML + CSS + JS) com um backend PHP + MySQL simples por

@@ -14,5 +14,5 @@ foreach ($stmt->fetchAll() as $row) {
 }
 
 header('Content-Type: application/json; charset=utf-8');
-header('Content-Disposition: attachment; filename="painel-max-backup-' . date('Y-m-d') . '.json"');
+header('Content-Disposition: attachment; filename="orby-backup-' . date('Y-m-d') . '.json"');
 echo json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
