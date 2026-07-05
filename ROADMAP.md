@@ -1,62 +1,69 @@
-# Roadmap — Painel Max
+# Roadmap — Orby
 
-Backlog organizado por prioridade. Cada item deve virar uma branch
-`feature/...` própria e um PR separado.
+Backlog organizado por prioridade. Cada item vira uma branch `feature/...`
+própria e um PR separado.
 
-## 🔴 Crítico (risco de perda de dado)
+## 🔴 Fundação (destrava o resto)
 
-- [x] **Exportar/importar backup em JSON** — ícone de Configurações no topo,
-      baixa um `.json` com tudo e outro botão restaura a partir de um arquivo.
-- [x] **Sair do artefato do Claude / persistência real** — trocado
-      `window.storage` por backend próprio em PHP + MySQL, hospedado na
-      Hostinger, atrás de login com sessão, CSRF e rate-limit.
-- [x] **Performance ao trocar de aba** — front-end carregava cada chave com
-      um request HTTP separado (4-8 por troca de aba). Agora carrega tudo de
-      uma vez no login (`api/data.php?all=1`) e mantém em cache em memória.
+- [ ] **Domínio próprio** — sair do subdomínio temporário da Hostinger.
+      Destrava: e-mail confiável, recuperação de senha, URL estável pro
+      Google OAuth e identidade de marca de verdade.
+- [ ] **E-mail transacional confiável** — trocar `mail()` pelo SMTP da
+      própria hospedagem (com SPF/DKIM configurados no domínio). Hoje a
+      entrega de confirmação/aviso é loteria; depende do item acima.
+- [ ] **Recuperação de senha por e-mail** — fluxo de "esqueci a senha" com
+      token de uso único e expiração. Depende dos dois itens acima.
 
-## 🟠 Funcionalidade importante
+## 🟠 Funcionalidade
 
-- [x] **Despesas recorrentes mensais** — mergeado na `master`.
-- [ ] **Rendas com recorrência mais clara** — hoje "Fixa" e "Temporária" já
-      são recorrentes por natureza, mas não aparecem no mapa de calor nem
-      geram "ocorrências" visíveis como as despesas agora geram.
 - [ ] **Pagar fatura do cartão** — botão na conta tipo "Cartão" que zera a
-      fatura atual e, opcionalmente, registra o pagamento como uma despesa
-      (saída) na conta que pagou.
-- [ ] **Histórico entre meses** — hoje tudo é "do mês atual". Guardar um
-      fechamento mensal (snapshot de saldo) permite comparar mês a mês.
-- [ ] **Diagnóstico com IA de verdade** — hoje é só maquete. Só funciona
-      depois que a Edge Function do Gemini estiver publicada na VPS.
-- [ ] **Testar o alarme de tarefas** — confirmar que ainda dispara certinho
-      depois de tantas mudanças de estrutura na Agenda.
-
-## 🟡 Polimento
-
-- [ ] **Metas por categoria** — ex: limite de R$300 em Lazer, com barra de
-      progresso mostrando quanto já foi gasto.
-- [ ] **Busca/filtro nos lançamentos** — hoje só dá pra rolar a lista.
-- [ ] **Exportar relatório em CSV** — pra abrir numa planilha.
-- [ ] **Separar `index.php` em arquivos** (`style.css`, `app.js`) — hoje
-      tudo está num arquivo só; bom pra simplicidade, ruim pra diffs de PR
-      conforme o projeto cresce.
-- [x] **Multiusuário com cadastro por e-mail** — `register.php`, cada
-      usuário só vê seus próprios dados.
-- [x] **2FA (TOTP) no login** — ativa/desativa em Configurações → Segurança,
-      com QR code local e códigos de backup.
-- [x] **Login com Google** — precisa configurar `GOOGLE_CLIENT_ID`/
-      `GOOGLE_CLIENT_SECRET` no `config.php` (ver README).
-- [ ] **Recuperação de senha por e-mail** — fica pra quando houver domínio
-      próprio conectado (e-mail não é confiável no domínio temporário da
-      Hostinger).
+      fatura e, opcionalmente, registra a saída na conta pagadora.
+- [ ] **Conciliação automática** — registrar uma despesa numa conta debita
+      o saldo dela; hoje saldo e lançamentos vivem separados.
+- [ ] **Histórico entre meses** — snapshot de fechamento mensal pra comparar
+      mês a mês (hoje tudo é "do período atual").
+- [ ] **Rendas com recorrência visível** — ocorrências de renda no mapa de
+      calor e nos gráficos, como as despesas recorrentes já têm.
+- [ ] **Metas por categoria** — limite mensal por categoria com barra de
+      progresso e aviso ao estourar.
 - [ ] **Web Push (VAPID)** — notificação nativa com o app fechado. Exige
-      biblioteca de criptografia via composer; hoje o caminho pro app
-      fechado é o aviso por e-mail (cron-notify.php).
-- [ ] **Endurecer verificação de e-mail** — hoje é só um selo (não bloqueia
-      login); revisar quando o e-mail for confiável.
+      lib de criptografia via composer; hoje o caminho é o aviso por e-mail.
+- [ ] **Diagnóstico com IA de verdade** — endpoint PHP chamando uma API de
+      LLM com os últimos 14 dias de agenda e caixa (hoje é maquete).
+
+## 🟡 Qualidade e polimento
+
+- [ ] **Busca/filtro nos lançamentos** — hoje só rolagem.
+- [ ] **Exportar relatório em CSV** — além do backup JSON.
+- [ ] **Backup automático agendado** — cron semanal que envia o JSON por
+      e-mail (rede de segurança sem ação manual).
+- [ ] **Tema claro** — as variáveis CSS já suportam; falta a paleta light e
+      o toggle no Perfil.
+- [ ] **Testes automatizados** — PHPUnit pra auth/TOTP/rate-limit e um
+      smoke E2E do fluxo login → lançamento → backup.
+- [ ] **Trilha de auditoria** — registrar logins (data, IP, método) e
+      mostrar "última atividade" no Perfil.
+- [ ] **Separar `index.php` em módulos** (`style.css`, `app.js`) — o
+      arquivo único já passa de 2k linhas; ruim pra diff e review.
+- [ ] **Endurecer verificação de e-mail** — hoje é só um selo; tornar
+      obrigatória quando o e-mail for confiável.
+- [ ] **Testar o alarme de tarefas no dia a dia** — confirmar precisão do
+      disparo após as mudanças de estrutura da Agenda.
+
+## ✅ Entregue
+
+- Backend próprio PHP + MySQL com deploy automático (GitHub Actions + FTPS)
+- Multiusuário com dados isolados, 2FA (TOTP + códigos de backup), login
+  com Google
+- CSRF em formulários e API, rate-limit de login/2FA/cadastro, CSP + HSTS,
+  escape de conteúdo do usuário
+- Bootstrap único + cache em memória (troca de aba sem rede), gzip
+- Despesas recorrentes; gráficos e mapas de calor respeitando o período
+- Redesign completo, temas de cor, página Perfil
+- PWA instalável, notificação do navegador, aviso por e-mail via cron
+- Backup/restauração em JSON
 
 ## Convenção de commits
 
-- `feat: ...` — nova funcionalidade
-- `fix: ...` — correção de bug
-- `chore: ...` — manutenção, sem mudança de comportamento
-- `docs: ...` — documentação
+`feat:` nova funcionalidade · `fix:` correção · `sec:` segurança ·
+`chore:` manutenção · `docs:` documentação
