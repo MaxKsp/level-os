@@ -16,15 +16,15 @@ própria e um PR separado.
 
 ## 🟠 Funcionalidade
 
-- [ ] **Pagar fatura do cartão** — botão na conta tipo "Cartão" que zera a
-      fatura e, opcionalmente, registra a saída na conta pagadora.
+- [x] **Pagar fatura do cartão** — botão no cartão zera a fatura e registra
+      a saída automaticamente.
 - [ ] **Conciliação automática** — registrar uma despesa numa conta debita
       o saldo dela; hoje saldo e lançamentos vivem separados.
 - [ ] **Histórico entre meses** — snapshot de fechamento mensal pra comparar
       mês a mês (hoje tudo é "do período atual").
 - [ ] **Rendas com recorrência visível** — ocorrências de renda no mapa de
       calor e nos gráficos, como as despesas recorrentes já têm.
-- [ ] **Metas por categoria** — limite mensal por categoria com barra de
+- [x] **Metas por categoria** — limites em "Metas do mês" com barra de
       progresso e aviso ao estourar.
 - [ ] **Web Push (VAPID)** — notificação nativa com o app fechado. Exige
       lib de criptografia via composer; hoje o caminho é o aviso por e-mail.
@@ -33,12 +33,11 @@ própria e um PR separado.
 
 ## 🟡 Qualidade e polimento
 
-- [ ] **Busca/filtro nos lançamentos** — hoje só rolagem.
-- [ ] **Exportar relatório em CSV** — além do backup JSON.
+- [x] **Busca/filtro nos lançamentos** — em Saídas e Entradas.
+- [x] **Exportar relatório em CSV** — em Perfil → Backup.
 - [ ] **Backup automático agendado** — cron semanal que envia o JSON por
       e-mail (rede de segurança sem ação manual).
-- [ ] **Tema claro** — as variáveis CSS já suportam; falta a paleta light e
-      o toggle no Perfil.
+- [x] **Tema claro** — terceira opção de fundo no Perfil.
 - [ ] **Testes automatizados** — PHPUnit pra auth/TOTP/rate-limit e um
       smoke E2E do fluxo login → lançamento → backup.
 - [ ] **Trilha de auditoria** — registrar logins (data, IP, método) e
