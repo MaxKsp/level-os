@@ -1570,14 +1570,15 @@ function inRange(dateStr, range){
   return dnum(d) >= dnum(range.start) && dnum(d) <= dnum(range.end);
 }
 /**
- * Totais e gráficos mostram só o REALIZADO: o período selecionado é
- * cortado em "hoje" — nada de despesa futura inflando o mês/ano.
+ * Totais e gráficos consideram o compromisso do período corrente, sem
+ * inflar com meses futuros: Dia/Semana/Mês mostram o período completo
+ * (inclusive o que ainda vai cair até o fim dele), e o Ano é cortado no
+ * fim do MÊS atual — agosto em diante só entra quando chegar.
  */
 function clampRangeToToday(range, now){
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  if (dnum(range.end) <= dnum(today)) return range;
-  if (dnum(range.start) > dnum(today)) return { start: range.start, end: range.start };
-  return { start: range.start, end: today };
+  const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth()+1, 0);
+  if (dnum(range.end) <= dnum(endOfCurrentMonth)) return range;
+  return { start: range.start, end: endOfCurrentMonth };
 }
 /** Prorata de valores mensais sem data, respeitando só o tempo já decorrido do período. */
 function prorateElapsed(monthlyValue, period, now){
