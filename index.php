@@ -49,7 +49,6 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
     --shadow-pop:0 12px 40px rgba(18,22,40,.18);
     --aurora-a:rgba(79,141,249,.07); --aurora-b:rgba(139,92,246,.06);
   }
-  [data-bg="claro"] input[type=date], [data-bg="claro"] input[type=time]{color-scheme:light;}
   *{box-sizing:border-box;}
   html{scrollbar-color:var(--surface-3) transparent;}
   body{
@@ -85,6 +84,8 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .sectiontab:active{transform:scale(.92);}
   .sectiontab svg{width:18px;height:18px;}
   .sectiontab.active{background:var(--grad);color:#fff;box-shadow:0 2px 10px var(--glow);}
+  .sectiontab .tab-avatar{width:26px;height:26px;border-radius:50%;object-fit:cover;display:block;}
+  .sectiontab.active .tab-avatar{box-shadow:0 0 0 2px #fff;}
   .topbar-actions{display:flex;align-items:center;gap:10px;margin-left:10px;}
   .icon-btn{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--text-3);cursor:pointer;background:transparent;border:none;transition:color .15s,background .15s;}
   .icon-btn svg{width:18px;height:18px;}
@@ -156,7 +157,8 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .mm-day{text-align:center;font-size:10px;padding:3px 0;color:var(--text-2);cursor:pointer;border-radius:50%;}
   .mm-day.outmonth{color:var(--text-3);opacity:.3;}
   .mm-day.weekend{color:var(--accent);}
-  .mm-day.today{background:var(--accent);color:#fff;font-weight:700;}
+  .mm-day.today:not(.selected){box-shadow:inset 0 0 0 1.5px var(--accent);color:var(--accent);font-weight:700;}
+  .mm-day.selected{background:var(--accent);color:#fff;font-weight:700;}
   @media (max-width:760px){ .yeargrid{grid-template-columns:repeat(2,1fr);} }
 
   /* lista de agenda (cards) */
@@ -271,18 +273,28 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
 
   h2{font-size:12px;font-weight:600;margin:26px 0 12px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-2);}
   .form-row{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;}
-  input,select{background:var(--surface-2);border:1px solid var(--line);color:var(--text);padding:9px 10px;font-size:13px;font-family:'Archivo',sans-serif;border-radius:var(--r-sm);transition:border-color .15s,box-shadow .15s;}
+  input,select{
+    background:var(--surface-2);border:1px solid var(--line-strong);color:var(--text);
+    padding:11px 12px;font-size:13.5px;font-family:'Archivo',sans-serif;border-radius:12px;
+    transition:border-color .15s,box-shadow .15s,background .15s;
+  }
+  input:hover,select:hover{border-color:var(--accent);}
   input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
   input::placeholder{color:var(--text-3);}
   select{
     appearance:none; -webkit-appearance:none; -moz-appearance:none;
-    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238891A3' stroke-width='2'><path d='M6 9l6 6 6-6'/></svg>");
-    background-repeat:no-repeat; background-position:right 10px center; background-size:14px;
-    padding-right:32px; cursor:pointer;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238891A3' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat:no-repeat; background-position:right 12px center; background-size:15px;
+    padding-right:36px; cursor:pointer;
   }
-  select:focus{outline:none;border-color:var(--accent);}
-  input:focus{outline:none;border-color:var(--accent);}
-  input[type=date], input[type=time]{color-scheme:dark;font-family:'IBM Plex Mono',monospace;}
+  select option{background:var(--surface);color:var(--text);}
+  input[type=date], input[type=time]{color-scheme:dark;font-family:'IBM Plex Mono',monospace;cursor:pointer;}
+  [data-bg="claro"] input[type=date], [data-bg="claro"] input[type=time]{color-scheme:light;}
+  input[type=search]{
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238891A3' stroke-width='2'><circle cx='11' cy='11' r='7'/><path d='M21 21l-4.3-4.3'/></svg>");
+    background-repeat:no-repeat; background-position:left 12px center; background-size:15px;
+    padding-left:36px;
+  }
   input[type=date]::-webkit-calendar-picker-indicator, input[type=time]::-webkit-calendar-picker-indicator{filter:invert(0.7);cursor:pointer;}
   input::placeholder{color:var(--text-3);}
   button.action{background:transparent;border:1px solid var(--accent);color:var(--accent);padding:8px 16px;font-size:12px;cursor:pointer;font-weight:600;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.05em;border-radius:999px;}
@@ -407,7 +419,7 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
       <div class="sectiontab" data-page="diagnostico" title="Diagnóstico">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h4l2-7 4 14 2-7h6"/></svg>
       </div>
-      <div class="sectiontab" data-page="perfil" title="Perfil">
+      <div class="sectiontab" data-page="perfil" title="Perfil" id="tabPerfil">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg>
       </div>
     </div>
@@ -1018,7 +1030,7 @@ function renderAgenda(){
 
   if (calView==='year'){
     document.getElementById('agendaTitle').textContent = viewDate.getFullYear();
-    document.getElementById('agendaSub').textContent = viewDate.getFullYear()===today.getFullYear() ? 'ano atual' : '';
+    document.getElementById('agendaSub').textContent = viewDate.getDate() + ' de ' + MONTH_NAMES[viewDate.getMonth()] + ' selecionado';
     body.innerHTML = buildYearHtml();
     bindYearClicks(body);
   } else if (calView==='month'){
@@ -1213,8 +1225,9 @@ function buildYearHtml(){
       const inMonth = d.getMonth()===m;
       if (!inMonth && i>=35) continue;
       const isToday = dnum(d)===dnum(today);
+      const isSelected = dnum(d)===dnum(viewDate);
       const isWeekend = d.getDay()===0 || d.getDay()===6;
-      html += `<div class="mm-day ${inMonth?'':'outmonth'} ${isToday?'today':''} ${isWeekend?'weekend':''}" data-date="${dkey(d)}">${d.getDate()}</div>`;
+      html += `<div class="mm-day ${inMonth?'':'outmonth'} ${isToday?'today':''} ${isSelected?'selected':''} ${isWeekend?'weekend':''}" data-date="${dkey(d)}">${d.getDate()}</div>`;
     }
     html += '</div></div>';
   }
@@ -1223,10 +1236,9 @@ function buildYearHtml(){
 function bindYearClicks(box){
   box.querySelectorAll('.mm-day').forEach(c=>{
     c.onclick = ()=>{
+      // seleciona o dia sem sair da visão de ano; a lista de tarefas
+      // abaixo do calendário passa a mostrar o dia escolhido
       viewDate = new Date(c.dataset.date+'T00:00:00');
-      calView='day';
-      document.querySelectorAll('#calSubnav .apill').forEach(x=>x.classList.remove('active'));
-      document.querySelector('#calSubnav .apill[data-view="day"]').classList.add('active');
       renderAgenda();
     };
   });
@@ -2292,12 +2304,18 @@ async function renderPerfil(){
       document.getElementById('pfUsername').textContent = me.username;
       document.getElementById('pfEmail').textContent = me.email || 'sem e-mail cadastrado';
       renderAvatar(me);
+      setTopbarAvatar(me.avatar);
       document.getElementById('tglNotifEmail').checked = !!me.notify_email;
       document.getElementById('tglNotifEmail').disabled = !me.email;
     }
   }catch(e){}
 }
 
+function setTopbarAvatar(avatar){
+  if (!avatar) return;
+  const src = avatar.startsWith('http') ? avatar : avatar + '?v=' + Date.now();
+  document.getElementById('tabPerfil').innerHTML = `<img class="tab-avatar" src="${esc(src)}" alt="Perfil">`;
+}
 function renderAvatar(me){
   const el = document.getElementById('pfAvatar');
   if (me.avatar){
@@ -2321,6 +2339,7 @@ document.getElementById('avatarFile').onchange = async (ev)=>{
     const j = await r.json();
     if (!r.ok) throw new Error(j.error || 'upload failed');
     renderAvatar({ avatar: j.avatar });
+    setTopbarAvatar(j.avatar);
     showSettingsMsg('Foto de perfil atualizada.', false);
   } catch(e){ showSettingsMsg('Não consegui enviar a foto: ' + (e.message||''), true); }
 };
@@ -2482,6 +2501,7 @@ async function init(){
   renderAgenda();
   setInterval(()=>{ renderHero(); if (document.getElementById('apage-inicio').classList.contains('active')) renderHomeCharts(); }, 20000);
   if ('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+  fetch('api/me.php').then(r=>r.ok?r.json():null).then(me=>{ if(me) setTopbarAvatar(me.avatar); }).catch(()=>{});
 }
 init();
 </script>
