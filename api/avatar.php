@@ -44,6 +44,7 @@ $dst = imagecreatetruecolor(256, 256);
 imagecopyresampled($dst, $src, 0, 0, $sx, $sy, 256, 256, $side, $side);
 imagedestroy($src);
 
+try {
 $dir = __DIR__ . '/../uploads/avatars';
 if (!is_dir($dir)) mkdir($dir, 0755, true);
 // o deploy não versiona uploads/, então o .htaccess de proteção é garantido aqui
@@ -72,3 +73,8 @@ if ($old && str_starts_with($old, 'uploads/avatars/')) {
 }
 
 echo json_encode(['ok' => true, 'avatar' => $path]);
+} catch (Throwable $e) {
+    error_log('avatar.php: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode(['error' => 'erro no servidor — o banco de dados está atualizado? (ver schema.sql)']);
+}
