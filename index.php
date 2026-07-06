@@ -290,6 +290,53 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   select option{background:var(--surface);color:var(--text);}
   input[type=date], input[type=time]{color-scheme:dark;font-family:'IBM Plex Mono',monospace;cursor:pointer;}
   [data-bg="claro"] input[type=date], [data-bg="claro"] input[type=time]{color-scheme:light;}
+  /* sem setinhas nativas no campo numérico */
+  input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  input[type=number]{-moz-appearance:textfield;appearance:textfield;}
+  /* icone nativo do date/time some — os pickers são do Orby */
+  input[type=date]::-webkit-calendar-picker-indicator, input[type=time]::-webkit-calendar-picker-indicator{display:none;}
+  input[type=date], input[type=time]{cursor:pointer;}
+
+  /* pickers do Orby (select, calendário, hora) */
+  .pickbtn{
+    width:100%;text-align:left;background:var(--surface-2);border:1px solid var(--line-strong);
+    border-radius:12px;padding:11px 36px 11px 12px;color:var(--text);font-size:13.5px;
+    font-family:'Archivo',sans-serif;cursor:pointer;transition:border-color .15s,box-shadow .15s;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238891A3' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+    background-repeat:no-repeat;background-position:right 12px center;background-size:15px;
+  }
+  .pickbtn:hover{border-color:var(--accent);}
+  .pickbtn:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .pickbtn:disabled{opacity:.45;cursor:not-allowed;}
+  .orby-pop{
+    position:fixed;z-index:300;background:var(--surface-2);border:1px solid var(--line-strong);
+    border-radius:14px;box-shadow:var(--shadow-pop);animation:pageIn .13s ease-out;overflow:hidden;
+  }
+  .pop-list{max-height:250px;overflow-y:auto;padding:6px;}
+  .pop-opt{padding:10px 12px;font-size:13.5px;cursor:pointer;color:var(--text);border-radius:9px;}
+  .pop-opt:hover{background:var(--surface-3);}
+  .pop-opt.sel{background:var(--accent-soft);color:var(--accent);font-weight:600;}
+  .cal-wrap{padding:12px;width:272px;}
+  .cal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .cal-title{font-weight:600;font-size:13.5px;text-transform:capitalize;color:var(--text);}
+  .cal-nav{display:flex;gap:5px;}
+  .cal-nav button{width:28px;height:28px;border-radius:50%;border:1px solid var(--line-strong);background:transparent;color:var(--text-2);cursor:pointer;font-size:13px;line-height:1;}
+  .cal-nav button:hover{border-color:var(--accent);color:var(--accent);}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+  .cal-dh{text-align:center;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text-3);padding:3px 0;}
+  .cal-d{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:12.5px;border-radius:50%;cursor:pointer;color:var(--text);}
+  .cal-d:hover{background:var(--surface-3);}
+  .cal-d.out{color:var(--text-3);opacity:.4;}
+  .cal-d.today:not(.sel){box-shadow:inset 0 0 0 1.5px var(--accent);color:var(--accent);}
+  .cal-d.sel{background:var(--grad);color:#fff;font-weight:700;}
+  .cal-foot{display:flex;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:1px solid var(--line);}
+  .cal-foot button{background:none;border:none;color:var(--accent);font-size:12.5px;cursor:pointer;font-weight:600;font-family:'Archivo',sans-serif;}
+  .time-wrap{display:flex;gap:6px;padding:10px;width:190px;}
+  .time-col{flex:1;max-height:216px;overflow-y:auto;scrollbar-width:thin;}
+  .time-col .pop-opt{text-align:center;font-family:'IBM Plex Mono',monospace;padding:8px 0;}
+  .time-foot{padding:0 10px 10px;text-align:center;}
+  .time-foot button{background:none;border:none;color:var(--accent);font-size:12.5px;cursor:pointer;font-weight:600;font-family:'Archivo',sans-serif;}
+
   input[type=search]{
     background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238891A3' stroke-width='2'><circle cx='11' cy='11' r='7'/><path d='M21 21l-4.3-4.3'/></svg>");
     background-repeat:no-repeat; background-position:left 12px center; background-size:15px;
@@ -335,9 +382,9 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .footnote{font-size:11px;color:var(--text-3);margin-top:8px;line-height:1.6;}
 
   /* modal */
-  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:50;align-items:center;justify-content:center;padding:20px;}
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:50;align-items:center;justify-content:center;padding:20px;overflow-y:auto;}
   .modal-overlay.open{display:flex;}
-  .modal{background:var(--surface);border:1px solid var(--line-strong);width:100%;max-width:420px;padding:24px;border-radius:18px;box-shadow:var(--shadow-pop);animation:pageIn .16s ease-out;}
+  .modal{background:var(--surface);border:1px solid var(--line-strong);width:100%;max-width:420px;padding:24px;border-radius:18px;box-shadow:var(--shadow-pop);animation:pageIn .16s ease-out;max-height:calc(100vh - 40px);overflow-y:auto;margin:auto;}
   .modal h3{margin:0 0 18px;font-size:15px;font-weight:600;}
   .field{margin-bottom:14px;}
   .field label{display:block;font-size:11px;color:var(--text-2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;font-family:'IBM Plex Mono',monospace;}
@@ -2541,20 +2588,192 @@ document.getElementById('btnConfirmDisable2fa').onclick = async ()=>{
   } catch(e){ showSettingsMsg('Senha incorreta ou falha ao desativar.', true); }
 };
 
+/* ---- Pickers do Orby: substituem os popups nativos de select/data/hora ---- */
+function closePickers(){ document.querySelectorAll('.orby-pop').forEach(p=>p.remove()); }
+document.addEventListener('mousedown', (e)=>{
+  if (!e.target.closest('.orby-pop') && !e.target.closest('.pick-trigger')) closePickers();
+});
+function placePop(pop, anchor){
+  document.body.appendChild(pop);
+  const r = anchor.getBoundingClientRect();
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let left = Math.max(8, Math.min(r.left, window.innerWidth - pw - 8));
+  let top = r.bottom + 6;
+  if (top + ph > window.innerHeight - 8) top = r.top - ph - 6;
+  top = Math.max(8, Math.min(top, window.innerHeight - ph - 8));
+  pop.style.left = left + 'px';
+  pop.style.top = top + 'px';
+}
+
+function enhanceSelects(){
+  document.querySelectorAll('.modal select').forEach(sel=>{
+    if (sel.dataset.enhanced) return;
+    sel.dataset.enhanced = '1';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pickbtn pick-trigger';
+    sel.parentNode.insertBefore(btn, sel.nextSibling);
+    sel.style.display = 'none';
+    const sync = ()=>{
+      btn.textContent = sel.options[sel.selectedIndex]?.text || '—';
+      btn.disabled = sel.disabled;
+    };
+    sel.__syncPick = sync;
+    sync();
+    sel.addEventListener('change', sync);
+    new MutationObserver(sync).observe(sel, {childList:true, attributes:true});
+    btn.onclick = ()=>{
+      sync();
+      if (document.querySelector('.orby-pop')) { closePickers(); return; }
+      const pop = document.createElement('div');
+      pop.className = 'orby-pop';
+      const list = document.createElement('div');
+      list.className = 'pop-list';
+      [...sel.options].forEach(opt=>{
+        const o = document.createElement('div');
+        o.className = 'pop-opt' + (opt.value===sel.value ? ' sel' : '');
+        o.textContent = opt.text;
+        o.onclick = ()=>{
+          sel.value = opt.value;
+          sel.dispatchEvent(new Event('change'));
+          closePickers();
+        };
+        list.appendChild(o);
+      });
+      pop.appendChild(list);
+      placePop(pop, btn);
+      pop.style.minWidth = btn.getBoundingClientRect().width + 'px';
+      list.querySelector('.sel')?.scrollIntoView({block:'center'});
+    };
+  });
+}
+function syncAllPickBtns(){
+  document.querySelectorAll('.modal select[data-enhanced]').forEach(sel=> sel.__syncPick && sel.__syncPick());
+}
+
+function openCalPop(inp){
+  closePickers();
+  let view = inp.value ? new Date(inp.value+'T00:00:00') : new Date();
+  const pop = document.createElement('div');
+  pop.className = 'orby-pop';
+  function draw(){
+    const y = view.getFullYear(), m = view.getMonth();
+    const first = new Date(y, m, 1);
+    const gridStart = startOfWeek(first);
+    const today = dkey(new Date());
+    let html = '<div class="cal-wrap"><div class="cal-head"><div class="cal-title">' + MONTH_NAMES[m] + ' de ' + y + '</div>'
+      + '<div class="cal-nav"><button type="button" data-nav="-1">‹</button><button type="button" data-nav="1">›</button></div></div>'
+      + '<div class="cal-grid">' + WEEKDAY_MIN.map(d=>'<div class="cal-dh">'+d+'</div>').join('');
+    for (let i=0;i<42;i++){
+      const d = addDays(gridStart, i);
+      const k = dkey(d);
+      const out = d.getMonth()!==m;
+      if (out && i>=35) continue;
+      html += '<div class="cal-d'+(out?' out':'')+(k===today?' today':'')+(k===inp.value?' sel':'')+'" data-d="'+k+'">'+d.getDate()+'</div>';
+    }
+    html += '</div><div class="cal-foot"><button type="button" data-act="clear">Limpar</button><button type="button" data-act="today">Hoje</button></div></div>';
+    pop.innerHTML = html;
+    pop.querySelectorAll('[data-nav]').forEach(b=>{ b.onclick = ()=>{ view.setMonth(view.getMonth()+Number(b.dataset.nav)); draw(); }; });
+    pop.querySelectorAll('.cal-d').forEach(c=>{ c.onclick = ()=>{ setVal(c.dataset.d); }; });
+    pop.querySelector('[data-act="clear"]').onclick = ()=> setVal('');
+    pop.querySelector('[data-act="today"]').onclick = ()=> setVal(dkey(new Date()));
+  }
+  function setVal(v){
+    inp.value = v;
+    inp.dispatchEvent(new Event('input'));
+    inp.dispatchEvent(new Event('change'));
+    closePickers();
+  }
+  draw();
+  placePop(pop, inp);
+}
+
+function openTimePop(inp){
+  closePickers();
+  const cur = (inp.value || '12:00').split(':');
+  let selH = cur[0], selM = cur[1];
+  const pop = document.createElement('div');
+  pop.className = 'orby-pop';
+  const wrap = document.createElement('div');
+  wrap.className = 'time-wrap';
+  const colH = document.createElement('div'); colH.className = 'time-col';
+  const colM = document.createElement('div'); colM.className = 'time-col';
+  function setVal(){
+    inp.value = selH + ':' + selM;
+    inp.dispatchEvent(new Event('input'));
+    inp.dispatchEvent(new Event('change'));
+  }
+  for (let h=0; h<24; h++){
+    const v = pad(h);
+    const o = document.createElement('div');
+    o.className = 'pop-opt' + (v===selH?' sel':'');
+    o.textContent = v;
+    o.onclick = ()=>{ selH = v; colH.querySelectorAll('.pop-opt').forEach(x=>x.classList.toggle('sel', x.textContent===v)); setVal(); };
+    colH.appendChild(o);
+  }
+  for (let mn=0; mn<60; mn+=5){
+    const v = pad(mn);
+    const o = document.createElement('div');
+    o.className = 'pop-opt' + (v===selM?' sel':'');
+    o.textContent = v;
+    o.onclick = ()=>{ selM = v; setVal(); closePickers(); };
+    colM.appendChild(o);
+  }
+  wrap.appendChild(colH); wrap.appendChild(colM);
+  pop.appendChild(wrap);
+  const foot = document.createElement('div');
+  foot.className = 'time-foot';
+  const now = document.createElement('button');
+  now.type = 'button'; now.textContent = 'Agora';
+  now.onclick = ()=>{ const n = new Date(); selH = pad(n.getHours()); selM = pad(n.getMinutes()); setVal(); closePickers(); };
+  foot.appendChild(now);
+  pop.appendChild(foot);
+  placePop(pop, inp);
+  colH.querySelector('.sel')?.scrollIntoView({block:'center'});
+  colM.querySelector('.sel')?.scrollIntoView({block:'center'});
+}
+
+function enhanceDateTimeInputs(){
+  document.querySelectorAll('input[type=date]').forEach(inp=>{
+    if (inp.dataset.enhanced) return;
+    inp.dataset.enhanced = '1';
+    inp.readOnly = true;
+    inp.classList.add('pick-trigger');
+    inp.addEventListener('click', ()=> openCalPop(inp));
+  });
+  document.querySelectorAll('input[type=time]').forEach(inp=>{
+    if (inp.dataset.enhanced) return;
+    inp.dataset.enhanced = '1';
+    inp.readOnly = true;
+    inp.classList.add('pick-trigger');
+    inp.addEventListener('click', ()=> openTimePop(inp));
+  });
+}
+enhanceSelects();
+enhanceDateTimeInputs();
+
 document.getElementById('fabNew').onclick = ()=> document.getElementById('btnOpenExpModal').click();
 
 /* modais: Esc fecha, clique no fundo fecha, foco no primeiro campo, Enter salva */
 document.querySelectorAll('.modal-overlay').forEach(ov=>{
-  ov.addEventListener('mousedown', (e)=>{ if (e.target===ov) ov.classList.remove('open'); });
+  ov.addEventListener('mousedown', (e)=>{
+    if (e.target!==ov) return;
+    if (document.querySelector('.orby-pop')){ closePickers(); return; }
+    ov.classList.remove('open');
+  });
   new MutationObserver(()=>{
     if (ov.classList.contains('open')){
-      const f = ov.querySelector('input:not([type=hidden]):not([type=file]):not([type=checkbox]), select, textarea');
+      syncAllPickBtns();
+      const f = ov.querySelector('input:not([type=hidden]):not([type=file]):not([type=checkbox]):not([type=date]):not([type=time])');
       if (f) setTimeout(()=>f.focus(), 60);
+    } else {
+      closePickers();
     }
   }).observe(ov, {attributes:true, attributeFilter:['class']});
 });
 document.addEventListener('keydown', (e)=>{
   if (e.key !== 'Escape') return;
+  if (document.querySelector('.orby-pop')){ closePickers(); return; }
   const open = document.querySelector('.modal-overlay.open');
   if (open) open.classList.remove('open');
 });
