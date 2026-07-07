@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../auth.php';
+require_once __DIR__ . '/../finance.php';
 
 header('Content-Type: application/json; charset=utf-8');
 $uid = require_login();
@@ -34,8 +35,15 @@ try {
     $stmt = $db->prepare('INSERT INTO kv_store (user_id, data_key, data_value) VALUES (?, ?, ?)
         ON DUPLICATE KEY UPDATE data_value = VALUES(data_value)');
     foreach ($data as $key => $value) {
-        $stmt->execute([$uid, (string)$key, json_encode($value)]);
+        if (isset(FINANCE_SETS[$key]) && is_array($value)) {
+            // financeiro vai pras tabelas, nao pro kv
+            finance_save_set($db, $uid, FINANCE_SETS[$key], $value);
+        } else {
+            $stmt->execute([$uid, (string)$key, json_encode($value)]);
+        }
     }
+    // marca migrado pra o bootstrap nao re-migrar por cima do import
+    $stmt->execute([$uid, '_finance_migrated', json_encode(date('c'))]);
     $db->commit();
     echo json_encode(['ok' => true]);
 } catch (Throwable $e) {

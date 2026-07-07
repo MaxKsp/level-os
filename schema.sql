@@ -87,6 +87,46 @@ CREATE TABLE IF NOT EXISTS subscription_events (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Financeiro relacional (ver migrations/2026-07-06-transactions.sql)
+CREATE TABLE IF NOT EXISTS transactions (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id INT UNSIGNED NOT NULL,
+  kind ENUM('expense','income','income_var') NOT NULL,
+  client_id VARCHAR(32) NOT NULL,
+  label VARCHAR(255) NULL,
+  value DECIMAL(12,2) NOT NULL DEFAULT 0,
+  tx_date DATE NULL,
+  tx_time TIME NULL,
+  category VARCHAR(48) NULL,
+  method VARCHAR(24) NULL,
+  bank VARCHAR(48) NULL,
+  recurrence VARCHAR(16) NULL,
+  income_type VARCHAR(16) NULL,
+  end_date DATE NULL,
+  account_id VARCHAR(32) NULL,
+  km INT NULL,
+  created_at BIGINT NULL,
+  INDEX idx_user_kind (user_id, kind),
+  INDEX idx_user_date (user_id, tx_date),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS accounts (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id INT UNSIGNED NOT NULL,
+  client_id VARCHAR(32) NOT NULL,
+  label VARCHAR(255) NULL,
+  tipo VARCHAR(16) NULL,
+  saldo DECIMAL(12,2) NOT NULL DEFAULT 0,
+  limite DECIMAL(12,2) NOT NULL DEFAULT 0,
+  fatura DECIMAL(12,2) NOT NULL DEFAULT 0,
+  bank VARCHAR(48) NULL,
+  principal TINYINT(1) NOT NULL DEFAULT 0,
+  created_at BIGINT NULL,
+  INDEX idx_user (user_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Depois de criar as tabelas, gere o hash da sua senha localmente com:
 --   php -r "echo password_hash('SUA_SENHA_AQUI', PASSWORD_DEFAULT), PHP_EOL;"
 -- e insira o usuário (troque 'admin' e o hash gerado):

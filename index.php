@@ -1188,11 +1188,15 @@ async function storeGet(key, fallback){
   if (!__cache || !(key in __cache) || __cache[key] === null || __cache[key] === undefined) return fallback;
   return __cache[key];
 }
+// chaves financeiras vao pras tabelas relacionais (api/finance.php),
+// nao pro kv. O bootstrap ja traz elas das tabelas nas mesmas chaves.
+const FINANCE_KEYS = new Set(['expense_lines_v4','income_lines','ifood-entries','accounts_v2']);
 async function storeSet(key, value){
   await __bootstrap;
   if (__cache) __cache[key] = value;
+  const endpoint = FINANCE_KEYS.has(key) ? 'api/finance.php' : 'api/data.php';
   try{
-    const r = await fetch('api/data.php', {
+    const r = await fetch(endpoint, {
       method: 'POST',
       headers: {'Content-Type':'application/json', 'X-CSRF-Token': window.CSRF_TOKEN},
       body: JSON.stringify({key, value})
