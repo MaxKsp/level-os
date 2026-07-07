@@ -68,6 +68,25 @@ CREATE TABLE IF NOT EXISTS rate_hits (
   PRIMARY KEY (bucket, subject)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Assinatura (ver migrations/2026-07-06-subscriptions.sql)
+CREATE TABLE IF NOT EXISTS subscriptions (
+  user_id INT UNSIGNED NOT NULL PRIMARY KEY,
+  plan ENUM('free','individual','family') NOT NULL DEFAULT 'free',
+  status ENUM('active','canceled','past_due') NOT NULL DEFAULT 'active',
+  current_period_end DATETIME NULL,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS subscription_events (
+  id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id INT UNSIGNED NOT NULL,
+  event VARCHAR(48) NOT NULL,
+  detail VARCHAR(255) NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Depois de criar as tabelas, gere o hash da sua senha localmente com:
 --   php -r "echo password_hash('SUA_SENHA_AQUI', PASSWORD_DEFAULT), PHP_EOL;"
 -- e insira o usuário (troque 'admin' e o hash gerado):
