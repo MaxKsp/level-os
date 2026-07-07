@@ -178,9 +178,10 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
 
 
   .fin-subnav, .agenda-subnav{display:flex;gap:0;border:1px solid var(--line);border-radius:999px;width:fit-content;margin-bottom:20px;overflow:hidden;}
-  .fsub, .apill{padding:7px 16px;font-size:12px;color:var(--text-2);cursor:pointer;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.04em;transition:color .15s,background .15s;}
-  .fsub:hover, .apill:hover{color:var(--text);}
-  .fsub.active, .apill.active{background:var(--grad);color:#fff;box-shadow:0 2px 10px var(--glow);}
+  .fsub, .apill, .tsub{padding:7px 16px;font-size:12px;color:var(--text-2);cursor:pointer;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.04em;transition:color .15s,background .15s;}
+  .fsub:hover, .apill:hover, .tsub:hover{color:var(--text);}
+  .fsub.active, .apill.active, .tsub.active{background:var(--grad);color:#fff;box-shadow:0 2px 10px var(--glow);}
+  .tpage{display:none;} .tpage.active{display:block;}
   .apage{display:none;} .apage.active{display:block;}
   .fpage{display:none;} .fpage.active{display:block;}
   .fpage-head{display:flex;justify-content:space-between;align-items:center;margin:26px 0 12px;}
@@ -469,6 +470,12 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .wocard .ttl{font-size:14px;font-weight:600;}
   .wocard .sub{font-size:11.5px;color:var(--text-3);font-family:'IBM Plex Mono',monospace;margin-top:2px;}
   .wo-done-badge{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--sage);background:rgba(79,176,122,.14);padding:2px 8px;border-radius:99px;font-family:'IBM Plex Mono',monospace;}
+  .measgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:10px;margin-top:16px;}
+  .measchip{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;}
+  .measchip .mv{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;}
+  .measchip .mu{font-size:10px;color:var(--text-3);margin-left:2px;}
+  .measchip .ml{font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-top:2px;}
+  #bmiCard .big{font-family:'IBM Plex Mono',monospace;font-size:32px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1;}
 
   /* perfil */
   .profilecard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;margin-bottom:14px;box-shadow:var(--shadow-card);}
@@ -691,30 +698,50 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   </div>
 
   <div class="page" id="page-treinos">
-    <div class="instrument" id="workoutHero">
-      <div class="instrument-head"><span class="eyebrow">Treino de hoje</span></div>
-      <div class="instrument-body">
-        <div class="field" style="margin-bottom:0;">
-          <label>Qual treino você vai fazer hoje?</label>
-          <select id="todayWorkout"><option value="">— escolher treino —</option></select>
+    <div class="agenda-subnav" id="treinosSubnav">
+      <div class="tsub active" data-tsub="hoje">Hoje</div>
+      <div class="tsub" data-tsub="treinos">Treinos</div>
+      <div class="tsub" data-tsub="medidas">Medidas</div>
+    </div>
+
+    <div class="tpage active" id="tpage-hoje">
+      <div class="instrument" id="workoutHero">
+        <div class="instrument-head"><span class="eyebrow">Treino de hoje</span></div>
+        <div class="instrument-body">
+          <div class="field" style="margin-bottom:0;">
+            <label>Qual treino você vai fazer hoje?</label>
+            <select id="todayWorkout"><option value="">— escolher treino —</option></select>
+          </div>
+          <div id="todayExercises" style="margin-top:14px;"></div>
         </div>
-        <div id="todayExercises" style="margin-top:14px;"></div>
+      </div>
+      <div class="finrow3" id="workoutStatRow"></div>
+      <div class="dashgrid" style="margin-top:18px;">
+        <div class="dashcard">
+          <div class="dashcard-title">Dias treinados</div>
+          <div class="dashcard-sub">Cada dia com treino concluído fica marcado. Mês atual.</div>
+          <div id="wrapWorkoutHeat"></div>
+        </div>
       </div>
     </div>
 
-    <div class="finrow3" id="workoutStatRow"></div>
-
-    <div class="dashgrid" style="margin-top:18px;">
-      <div class="dashcard">
-        <div class="dashcard-title">Dias treinados</div>
-        <div class="dashcard-sub">Cada dia com treino concluído fica marcado. Mês atual.</div>
-        <div id="wrapWorkoutHeat"></div>
+    <div class="tpage" id="tpage-treinos">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+        <button class="btn-primary" id="btnGenWorkout" style="flex:1;min-width:180px;">⚡ Gerar treino automático</button>
+        <button class="btn-ghost" id="btnNewWorkout" style="flex:1;min-width:150px;">+ Criar treino manual</button>
       </div>
+      <div class="dashcard-sub" style="margin:0 0 10px;">Seus modelos de treino. Toque pra editar os exercícios.</div>
+      <div id="workoutList"></div>
     </div>
 
-    <div class="fpage-head"><h2 style="margin:26px 0 0;">Meus treinos</h2><button class="addbtn-sm" id="btnNewWorkout">+</button></div>
-    <div class="dashcard-sub" style="margin:2px 0 10px;">Modelos de treino com seus exercícios. Toque pra editar.</div>
-    <div id="workoutList"></div>
+    <div class="tpage" id="tpage-medidas">
+      <div id="bmiCard"></div>
+      <div class="fpage-head"><h2 style="margin:22px 0 0;">Evolução do peso</h2></div>
+      <div class="dashcard" style="margin-top:10px;"><div class="dashcanvas-wrap" id="wrapWeight"><canvas id="chartWeight"></canvas></div></div>
+      <div class="fpage-head"><h2 style="margin:22px 0 0;">Histórico de medidas</h2><button class="addbtn-sm" id="btnNewMeasure">+</button></div>
+      <div class="dashcard-sub" style="margin:2px 0 10px;">Registre peso e circunferências pra acompanhar a evolução.</div>
+      <div id="measureList"></div>
+    </div>
   </div>
 
   <div class="page" id="page-perfil">
@@ -957,6 +984,70 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
     <div class="modal-actions">
       <button class="btn-ghost" id="goalsCancel">Cancelar</button>
       <button class="btn-primary" id="goalsSave">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="genModalOverlay">
+  <div class="modal">
+    <h3>Gerar treino automático</h3>
+    <p style="font-size:12.5px;color:var(--text-2);margin:0 0 14px;">Responda 3 coisas e o Orby monta uma divisão de treino com exercícios e séries×reps adequados ao seu objetivo.</p>
+    <div class="field"><label>Quantos dias por semana você treina?</label>
+      <select id="genDays">
+        <option value="2">2 dias</option>
+        <option value="3" selected>3 dias</option>
+        <option value="4">4 dias</option>
+        <option value="5">5 dias</option>
+        <option value="6">6 dias</option>
+      </select>
+    </div>
+    <div class="field"><label>Objetivo</label>
+      <select id="genGoal">
+        <option value="hipertrofia" selected>Hipertrofia (ganhar músculo)</option>
+        <option value="forca">Força</option>
+        <option value="definicao">Definição</option>
+        <option value="resistencia">Resistência</option>
+      </select>
+    </div>
+    <div class="field"><label>Nível</label>
+      <select id="genLevel">
+        <option value="iniciante">Iniciante</option>
+        <option value="intermediario" selected>Intermediário</option>
+        <option value="avancado">Avançado</option>
+      </select>
+    </div>
+    <div id="genPreview"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="genCancel">Cancelar</button>
+      <button class="btn-primary" id="genConfirm">Gerar e adicionar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="measureModalOverlay">
+  <div class="modal">
+    <h3 id="measureModalTitle">Registrar medidas</h3>
+    <div class="field-row">
+      <div class="field"><label>Data</label><input type="date" id="meDate"></div>
+      <div class="field"><label>Peso (kg)</label><input type="number" id="meWeight" step="0.1" min="0" placeholder="ex: 78.5"></div>
+    </div>
+    <div class="field"><label>Altura (cm) — usada no IMC</label><input type="number" id="meHeight" step="0.5" min="0" placeholder="ex: 178"></div>
+    <div class="field-row">
+      <div class="field"><label>Peito (cm)</label><input type="number" id="meChest" step="0.5" min="0"></div>
+      <div class="field"><label>Cintura (cm)</label><input type="number" id="meWaist" step="0.5" min="0"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Quadril (cm)</label><input type="number" id="meHip" step="0.5" min="0"></div>
+      <div class="field"><label>Braço (cm)</label><input type="number" id="meArm" step="0.5" min="0"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Coxa (cm)</label><input type="number" id="meThigh" step="0.5" min="0"></div>
+      <div class="field"><label>Panturrilha (cm)</label><input type="number" id="meCalf" step="0.5" min="0"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="meDelete" style="display:none;margin-right:auto;color:var(--brick);border-color:var(--brick);">Excluir</button>
+      <button class="btn-ghost" id="meCancel">Cancelar</button>
+      <button class="btn-primary" id="meSave">Salvar</button>
     </div>
   </div>
 </div>
@@ -1522,8 +1613,99 @@ document.querySelectorAll('.sectiontab').forEach(t=>{
 });
 
 /* ============ Treinos ============ */
+let treinoSub = 'hoje';
+document.querySelectorAll('#treinosSubnav .tsub').forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll('#treinosSubnav .tsub').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('#page-treinos .tpage').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    treinoSub = b.dataset.tsub;
+    document.getElementById('tpage-'+treinoSub).classList.add('active');
+    renderTreinos();
+  };
+});
 async function getWorkouts(){ return await storeGet('workouts', []); }
 async function getWorkoutLog(){ return await storeGet('workout_log', {}); }
+
+/* ---- Gerador de treino: biblioteca, splits e esquemas ---- */
+const EX_DB = {
+  peito:   ['Supino reto', 'Supino inclinado', 'Crucifixo', 'Crossover', 'Flexão de braço'],
+  costas:  ['Puxada frontal', 'Remada curvada', 'Remada baixa', 'Barra fixa', 'Pulldown'],
+  ombro:   ['Desenvolvimento', 'Elevação lateral', 'Elevação frontal', 'Remada alta'],
+  biceps:  ['Rosca direta', 'Rosca alternada', 'Rosca martelo', 'Rosca scott'],
+  triceps: ['Tríceps corda', 'Tríceps testa', 'Tríceps francês', 'Mergulho no banco'],
+  perna:   ['Agachamento livre', 'Leg press', 'Cadeira extensora', 'Mesa flexora', 'Stiff', 'Panturrilha em pé'],
+  abdomen: ['Prancha', 'Abdominal supra', 'Elevação de pernas'],
+};
+const SPLIT_DAYS = {
+  2: [['Full Body A', ['peito','costas','perna','ombro']], ['Full Body B', ['perna','costas','peito','abdomen']]],
+  3: [['Push (empurrar)', ['peito','ombro','triceps']], ['Pull (puxar)', ['costas','biceps']], ['Legs (pernas)', ['perna','abdomen']]],
+  4: [['Upper A', ['peito','costas','ombro','triceps']], ['Lower A', ['perna','abdomen']], ['Upper B', ['costas','peito','ombro','biceps']], ['Lower B', ['perna','abdomen']]],
+  5: [['Push', ['peito','ombro','triceps']], ['Pull', ['costas','biceps']], ['Legs', ['perna','abdomen']], ['Upper', ['peito','costas','ombro']], ['Lower', ['perna','abdomen']]],
+  6: [['Push A', ['peito','ombro','triceps']], ['Pull A', ['costas','biceps']], ['Legs A', ['perna','abdomen']], ['Push B', ['ombro','peito','triceps']], ['Pull B', ['costas','biceps']], ['Legs B', ['perna','abdomen']]],
+};
+const GOAL_SCHEME = {
+  hipertrofia: { sets:4, reps:10, label:'Hipertrofia' },
+  forca:       { sets:5, reps:5,  label:'Força' },
+  definicao:   { sets:3, reps:12, label:'Definição' },
+  resistencia: { sets:3, reps:15, label:'Resistência' },
+};
+const SPLIT_NAME = { 2:'Full Body', 3:'Push / Pull / Legs', 4:'Upper / Lower', 5:'PPL + Upper/Lower', 6:'PPL (2x)' };
+
+function buildGeneratedWorkouts(days, goal, level){
+  const scheme = GOAL_SCHEME[goal] || GOAL_SCHEME.hipertrofia;
+  const perGroup = level==='iniciante' ? 1 : (level==='avancado' ? 2 : 1);
+  const maxEx = level==='iniciante' ? 5 : (level==='avancado' ? 8 : 6);
+  const template = SPLIT_DAYS[days] || SPLIT_DAYS[3];
+  return template.map(([dayName, groups])=>{
+    const exercises = [];
+    // distribui exercícios pelos grupos do dia, sem repetir
+    let gi = 0, guard = 0;
+    const used = {};
+    while (exercises.length < maxEx && guard < 40){
+      guard++;
+      const g = groups[gi % groups.length]; gi++;
+      const pool = EX_DB[g] || [];
+      used[g] = used[g] || 0;
+      if (used[g] >= Math.min(perGroup+1, pool.length)) continue;
+      const ex = pool[used[g]];
+      used[g]++;
+      if (ex && !exercises.some(e=>e.name===ex)){
+        exercises.push({ id: genId(), name: ex, sets: scheme.sets, reps: scheme.reps });
+      }
+      if (Object.keys(used).length>=groups.length && groups.every(g=>(used[g]||0)>=Math.min(perGroup+1, (EX_DB[g]||[]).length))) break;
+    }
+    return { id: genId(), name: dayName, exercises, createdAt: Date.now() };
+  });
+}
+function renderGenPreview(){
+  const days = Number(document.getElementById('genDays').value);
+  const goal = document.getElementById('genGoal').value;
+  const level = document.getElementById('genLevel').value;
+  const workouts = buildGeneratedWorkouts(days, goal, level);
+  const scheme = GOAL_SCHEME[goal];
+  const box = document.getElementById('genPreview');
+  box.innerHTML = `<div style="background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:6px;">
+    <div style="font-size:12px;color:var(--text-2);margin-bottom:8px;">Divisão recomendada: <b style="color:var(--text);">${SPLIT_NAME[days]}</b> · ${scheme.sets}×${scheme.reps} (${scheme.label})</div>
+    ${workouts.map(w=>`<div style="font-size:12.5px;margin-bottom:6px;"><b>${esc(w.name)}</b> <span style="color:var(--text-3);">— ${w.exercises.map(e=>esc(e.name)).join(', ')}</span></div>`).join('')}
+  </div>`;
+  return workouts;
+}
+document.getElementById('btnGenWorkout').onclick = ()=>{
+  document.getElementById('genModalOverlay').classList.add('open');
+  renderGenPreview();
+};
+['genDays','genGoal','genLevel'].forEach(id=> document.getElementById(id).addEventListener('change', renderGenPreview));
+document.getElementById('genCancel').onclick = ()=> document.getElementById('genModalOverlay').classList.remove('open');
+document.getElementById('genConfirm').onclick = async ()=>{
+  const generated = renderGenPreview();
+  const workouts = await getWorkouts();
+  generated.forEach(w=> workouts.push(w));
+  await storeSet('workouts', workouts);
+  document.getElementById('genModalOverlay').classList.remove('open');
+  renderTreinos();
+  toast(generated.length + ' treinos adicionados');
+};
 function exMeta(ex){ return (ex.sets||'?') + ' × ' + (ex.reps||'?'); }
 
 /** peso mais recente registrado pra um exercício antes de hoje (progressão) */
@@ -1553,31 +1735,31 @@ function workoutStreak(log, now){
 }
 
 async function renderTreinos(){
+  const now = new Date();
+  if (treinoSub === 'medidas'){ await renderMedidas(now); return; }
+
   const workouts = await getWorkouts();
   const log = await getWorkoutLog();
-  const now = new Date();
   const todayKey = dkey(now);
-
-  // ---- treino de hoje ----
-  const sel = document.getElementById('todayWorkout');
   const todayEntry = log[todayKey] || null;
-  const selectedId = (todayEntry && todayEntry.workoutId) || '';
-  sel.innerHTML = '<option value="">— escolher treino —</option>' +
-    workouts.map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('');
-  sel.value = selectedId;
-  if (sel.__syncPick) sel.__syncPick();
-  renderTodayExercises(workouts, log, now);
 
-  // ---- stats ----
-  renderWorkoutStats(log, workouts.length, now);
+  if (treinoSub === 'hoje'){
+    const sel = document.getElementById('todayWorkout');
+    const selectedId = (todayEntry && todayEntry.workoutId) || '';
+    sel.innerHTML = '<option value="">— escolher treino —</option>' +
+      workouts.map(w=>`<option value="${w.id}">${esc(w.name)}</option>`).join('');
+    sel.value = selectedId;
+    if (sel.__syncPick) sel.__syncPick();
+    renderTodayExercises(workouts, log, now);
+    renderWorkoutStats(log, workouts.length, now);
+    renderWorkoutHeatmap(log, now);
+    return;
+  }
 
-  // ---- heatmap ----
-  renderWorkoutHeatmap(log, now);
-
-  // ---- lista de treinos ----
+  // treinoSub === 'treinos'
   const box = document.getElementById('workoutList');
   if (workouts.length===0){
-    box.innerHTML = emptyCta('Monte seu primeiro treino com os exercícios que você faz.', '+ Criar treino', 'btnNewWorkout');
+    box.innerHTML = emptyCta('Sem treinos ainda. Gere um automático pelo objetivo ou crie o seu.', '⚡ Gerar treino', 'btnGenWorkout');
   } else {
     box.innerHTML = workouts.map(w=>{
       const doneToday = todayEntry && todayEntry.workoutId===w.id && todayEntry.done && todayEntry.done.length>0;
@@ -1588,7 +1770,7 @@ async function renderTreinos(){
       </div>`;
     }).join('');
     box.querySelectorAll('.wocard').forEach(card=>{
-      card.onclick = ()=>{ const w = workouts.find(x=>x.id===card.dataset.id); if (w) openWorkoutEdit(w); };
+      card.onclick = async ()=>{ const w = (await getWorkouts()).find(x=>x.id===card.dataset.id); if (w) openWorkoutEdit(w); };
     });
   }
 }
@@ -1751,6 +1933,143 @@ document.getElementById('woDelete').onclick = async ()=>{
     cur.push(removed);
     await storeSet('workouts', cur);
     renderTreinos();
+  }});
+};
+
+/* ---- Medidas corporais + IMC ---- */
+let chartWeight = null;
+const MEASURE_FIELDS = [['weight','Peso','kg'],['chest','Peito','cm'],['waist','Cintura','cm'],['hip','Quadril','cm'],['arm','Braço','cm'],['thigh','Coxa','cm'],['calf','Panturrilha','cm']];
+function bmiClass(bmi){
+  if (bmi < 18.5) return { label:'Abaixo do peso', color:'#F59E0B' };
+  if (bmi < 25) return { label:'Peso normal', color:'var(--sage)' };
+  if (bmi < 30) return { label:'Sobrepeso', color:'#F59E0B' };
+  return { label:'Obesidade', color:'var(--brick)' };
+}
+async function renderMedidas(now){
+  const height = await storeGet('body_height', null);
+  const logs = (await storeGet('body_log', [])).slice().sort((a,b)=> (a.date||'').localeCompare(b.date||''));
+  const latest = logs[logs.length-1] || null;
+  const prev = logs[logs.length-2] || null;
+
+  // ---- card IMC ----
+  const card = document.getElementById('bmiCard');
+  if (!latest){
+    card.innerHTML = emptyCta('Registre seu peso e medidas pra calcular o IMC e acompanhar a evolução.', '+ Registrar medidas', 'btnNewMeasure');
+  } else {
+    let bmiHtml = '';
+    if (height && latest.weight){
+      const bmi = latest.weight / Math.pow(height/100, 2);
+      const c = bmiClass(bmi);
+      bmiHtml = `<div style="display:flex;align-items:baseline;gap:10px;">
+        <div class="big" style="color:${c.color};">${bmi.toFixed(1)}</div>
+        <div><div style="font-weight:600;color:${c.color};">${c.label}</div><div style="font-size:11px;color:var(--text-3);">IMC · ${latest.weight}kg / ${height}cm</div></div>
+      </div>`;
+    } else {
+      bmiHtml = `<div style="font-size:12.5px;color:var(--text-2);">Informe peso e altura pra calcular o IMC.</div>`;
+    }
+    const chips = MEASURE_FIELDS.filter(([k])=> latest[k]!=null && latest[k]!=='').map(([k,label,unit])=>{
+      let delta = '';
+      if (prev && prev[k]!=null && prev[k]!==''){
+        const d = Number(latest[k]) - Number(prev[k]);
+        if (Math.abs(d) >= 0.05) delta = `<span style="color:${d>0?'var(--sage)':'var(--brick)'};font-size:10px;"> ${d>0?'▲':'▼'}${Math.abs(d).toFixed(1)}</span>`;
+      }
+      return `<div class="measchip"><div class="mv">${latest[k]}<span class="mu">${unit}</span>${delta}</div><div class="ml">${label}</div></div>`;
+    }).join('');
+    card.innerHTML = `<div class="dashcard"><div class="dashcard-title" style="margin-bottom:12px;">Situação atual</div>${bmiHtml}<div class="measgrid">${chips}</div></div>`;
+  }
+
+  // ---- gráfico de peso ----
+  const wrap = document.getElementById('wrapWeight');
+  const weightPts = logs.filter(l=>l.weight!=null && l.weight!=='');
+  if (typeof Chart==='undefined' || weightPts.length<1){
+    wrap.innerHTML = '<div class="dashempty">Registre pelo menos um peso pra ver a evolução.</div>';
+  } else {
+    wrap.innerHTML = '<canvas id="chartWeight"></canvas>';
+    if (chartWeight){ chartWeight.destroy(); chartWeight=null; }
+    try{
+      chartWeight = new Chart(document.getElementById('chartWeight'), {
+        type:'line',
+        data:{ labels: weightPts.map(l=>l.date.split('-').reverse().slice(0,2).join('/')),
+          datasets:[{ data: weightPts.map(l=>Number(l.weight)), borderColor: accentHex(), backgroundColor:`rgba(${accentRGBStr()},0.15)`, fill:true, tension:.35, pointRadius:3, borderWidth:2 }] },
+        options: chartBaseOptions({ scales:{ x:{ grid:{display:false}, ticks:{color:chartTickCol(), font:{size:9}, maxTicksLimit:8} }, y:{ grid:{color:chartGridCol()}, ticks:{color:chartTickCol(), font:{size:10}} } } })
+      });
+    }catch(e){ wrap.innerHTML = '<div class="dashempty">Não consegui desenhar o gráfico agora.</div>'; }
+  }
+
+  // ---- histórico ----
+  const list = document.getElementById('measureList');
+  if (logs.length===0){ list.innerHTML=''; }
+  else {
+    list.innerHTML = logs.slice().reverse().map(l=>{
+      const parts = MEASURE_FIELDS.filter(([k])=>l[k]!=null && l[k]!=='').map(([k,label,unit])=>`${label} ${l[k]}${unit}`);
+      return `<div class="wocard" data-mid="${l.id}">
+        <div class="info"><div class="ttl">${relDate(l.date)}</div><div class="sub">${parts.join(' · ')||'sem dados'}</div></div>
+      </div>`;
+    }).join('');
+    list.querySelectorAll('[data-mid]').forEach(card=>{
+      card.onclick = async ()=>{ const l = (await storeGet('body_log', [])).find(x=>x.id===card.dataset.mid); if (l) openMeasureEdit(l); };
+    });
+  }
+}
+
+let editingMeasureId = null;
+function setMeasureFields(l, height){
+  document.getElementById('meDate').value = (l&&l.date) || dkey(new Date());
+  document.getElementById('meHeight').value = height || '';
+  document.getElementById('meWeight').value = (l&&l.weight) || '';
+  document.getElementById('meChest').value = (l&&l.chest) || '';
+  document.getElementById('meWaist').value = (l&&l.waist) || '';
+  document.getElementById('meHip').value = (l&&l.hip) || '';
+  document.getElementById('meArm').value = (l&&l.arm) || '';
+  document.getElementById('meThigh').value = (l&&l.thigh) || '';
+  document.getElementById('meCalf').value = (l&&l.calf) || '';
+}
+document.getElementById('btnNewMeasure').onclick = async ()=>{
+  editingMeasureId = null;
+  document.getElementById('measureModalTitle').textContent = 'Registrar medidas';
+  setMeasureFields(null, await storeGet('body_height', null));
+  document.getElementById('meDelete').style.display = 'none';
+  document.getElementById('measureModalOverlay').classList.add('open');
+};
+async function openMeasureEdit(l){
+  editingMeasureId = l.id;
+  document.getElementById('measureModalTitle').textContent = 'Editar medidas';
+  setMeasureFields(l, await storeGet('body_height', null));
+  document.getElementById('meDelete').style.display = '';
+  document.getElementById('measureModalOverlay').classList.add('open');
+}
+document.getElementById('meCancel').onclick = ()=> document.getElementById('measureModalOverlay').classList.remove('open');
+function numOrNull(id){ const v = document.getElementById(id).value; return v==='' ? null : Number(v); }
+document.getElementById('meSave').onclick = async ()=>{
+  const height = numOrNull('meHeight');
+  if (height) await storeSet('body_height', height);
+  const entry = {
+    id: editingMeasureId || genId(),
+    date: document.getElementById('meDate').value || dkey(new Date()),
+    weight: numOrNull('meWeight'), chest: numOrNull('meChest'), waist: numOrNull('meWaist'),
+    hip: numOrNull('meHip'), arm: numOrNull('meArm'), thigh: numOrNull('meThigh'), calf: numOrNull('meCalf'),
+  };
+  let logs = await storeGet('body_log', []);
+  if (editingMeasureId){ const i = logs.findIndex(x=>x.id===editingMeasureId); if (i>=0) logs[i] = entry; }
+  else logs.push(entry);
+  await storeSet('body_log', logs);
+  document.getElementById('measureModalOverlay').classList.remove('open');
+  renderMedidas(new Date());
+  toast(editingMeasureId ? 'Medidas atualizadas' : 'Medidas registradas');
+};
+document.getElementById('meDelete').onclick = async ()=>{
+  if (!editingMeasureId) return;
+  let logs = await storeGet('body_log', []);
+  const removed = logs.find(x=>x.id===editingMeasureId);
+  logs = logs.filter(x=>x.id!==editingMeasureId);
+  await storeSet('body_log', logs);
+  document.getElementById('measureModalOverlay').classList.remove('open');
+  renderMedidas(new Date());
+  toast('Registro excluído', { undo: async ()=>{
+    const cur = await storeGet('body_log', []);
+    cur.push(removed);
+    await storeSet('body_log', cur);
+    renderMedidas(new Date());
   }});
 };
 
