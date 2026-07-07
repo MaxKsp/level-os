@@ -16,6 +16,19 @@ própria e um PR separado.
 - [ ] **Expiração de sessão por inatividade** — hoje só morre no fechar do
       navegador.
 
+## 💳 Assinatura (modelo pago)
+
+- [x] **Esqueleto subscriptions + `require_plan()`** — tabelas
+      `subscriptions`/`subscription_events`, helpers em `plan.php`
+      (`user_plan`, `plan_allows`, `require_plan` → HTTP 402), leitura em
+      `api/subscription.php`. Acesso lido sempre do banco, nunca do cliente.
+      Plano só muda server-side. SQL em `migrations/2026-07-06-subscriptions.sql`.
+- [ ] **Gateway + webhook** — checkout (Stripe/Mercado Pago), validar
+      assinatura do webhook, idempotência, tratar cancelamento/falha.
+      Atualiza `subscriptions`; `require_plan` já lê dela.
+- [ ] **Gate nas features pagas** — aplicar `require_plan('individual')`
+      nos endpoints/telas de feature paga conforme forem nascendo.
+
 ## 🔴 Fundação (destrava o resto)
 
 - [ ] **Domínio próprio** — sair do subdomínio temporário da Hostinger.
