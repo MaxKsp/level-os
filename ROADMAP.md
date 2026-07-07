@@ -3,6 +3,19 @@
 Backlog organizado por prioridade. Cada item vira uma branch `feature/...`
 própria e um PR separado.
 
+## 🔒 Segurança (Fase 0)
+
+- [x] **Rate limiting geral nos endpoints** — limiter reutilizável
+      (`rate_ok`/`require_rate_limit` em `auth.php`, tabela `rate_hits`)
+      aplicado em todos os `api/*.php`: data 200/min, export 10/min,
+      import 5/min, avatar 10/min, me/prefs 60/min, totp 20/min. HTTP 429
+      + `Retry-After` ao estourar. SQL em `migrations/2026-07-06-rate-limit.sql`.
+- [ ] **Backup por e-mail cifrado** — o cron manda os dados financeiros em
+      JSON puro; cifrar o anexo antes de ligar o cron em produção.
+- [ ] **Remover `X-Powered-By`** — versão do PHP vaza no header.
+- [ ] **Expiração de sessão por inatividade** — hoje só morre no fechar do
+      navegador.
+
 ## 🔴 Fundação (destrava o resto)
 
 - [ ] **Domínio próprio** — sair do subdomínio temporário da Hostinger.

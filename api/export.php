@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../auth.php';
 
 $uid = require_login();
+require_rate_limit('export', 10, 60);
 session_write_close();
 $stmt = get_db()->prepare("SELECT data_key, data_value FROM kv_store WHERE user_id = ? AND data_key NOT LIKE '\\_%'");
 $stmt->execute([$uid]);

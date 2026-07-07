@@ -5,6 +5,7 @@ require_once __DIR__ . '/../auth.php';
 
 header('Content-Type: application/json; charset=utf-8');
 $uid = require_login();
+require_rate_limit('me', 60, 60);
 session_write_close();
 
 try {
