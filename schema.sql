@@ -59,6 +59,15 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   locked_until DATETIME NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Rate limiting geral por endpoint (ver migrations/2026-07-06-rate-limit.sql)
+CREATE TABLE IF NOT EXISTS rate_hits (
+  bucket VARCHAR(48) NOT NULL,
+  subject VARCHAR(64) NOT NULL,
+  window_start INT UNSIGNED NOT NULL,
+  hits INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (bucket, subject)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Depois de criar as tabelas, gere o hash da sua senha localmente com:
 --   php -r "echo password_hash('SUA_SENHA_AQUI', PASSWORD_DEFAULT), PHP_EOL;"
 -- e insira o usuário (troque 'admin' e o hash gerado):

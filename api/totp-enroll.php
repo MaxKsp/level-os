@@ -6,6 +6,7 @@ require_once __DIR__ . '/../totp.php';
 
 header('Content-Type: application/json; charset=utf-8');
 $uid = require_login();
+require_rate_limit('totp', 20, 60);
 require_csrf();
 
 $db = get_db();

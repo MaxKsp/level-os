@@ -5,6 +5,7 @@ require_once __DIR__ . '/../auth.php';
 
 header('Content-Type: application/json; charset=utf-8');
 $uid = require_login();
+require_rate_limit('avatar', 10, 60);
 require_csrf();
 
 if (empty($_FILES['avatar']) || $_FILES['avatar']['error'] !== UPLOAD_ERR_OK) {

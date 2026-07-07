@@ -5,6 +5,7 @@ require_once __DIR__ . '/../auth.php';
 
 header('Content-Type: application/json; charset=utf-8');
 $uid = require_login();
+require_rate_limit('data', 200, 60);
 $db = get_db();
 $method = $_SERVER['REQUEST_METHOD'];
 

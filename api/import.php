@@ -5,6 +5,7 @@ require_once __DIR__ . '/../auth.php';
 
 header('Content-Type: application/json; charset=utf-8');
 $uid = require_login();
+require_rate_limit('import', 5, 60);
 require_csrf();
 
 $raw = file_get_contents('php://input', false, null, 0, 10 * 1024 * 1024 + 1);

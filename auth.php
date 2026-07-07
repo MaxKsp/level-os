@@ -79,6 +79,39 @@ function client_ip(): string {
     return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
 }
 
+/**
+ * Rate limit generico por janela fixa. bucket = nome do endpoint.
+ * subject = usuario logado, senao IP. Retorna true se dentro do limite.
+ */
+function rate_ok(string $bucket, int $max, int $windowSec): bool {
+    $subject = current_user_id() !== null ? ('u' . current_user_id()) : ('ip:' . client_ip());
+    $now = time();
+    $db = get_db();
+    $stmt = $db->prepare('SELECT window_start, hits FROM rate_hits WHERE bucket = ? AND subject = ?');
+    $stmt->execute([$bucket, $subject]);
+    $row = $stmt->fetch();
+    if (!$row || ($now - (int)$row['window_start']) >= $windowSec) {
+        $up = $db->prepare('INSERT INTO rate_hits (bucket, subject, window_start, hits) VALUES (?, ?, ?, 1)
+            ON DUPLICATE KEY UPDATE window_start = VALUES(window_start), hits = 1');
+        $up->execute([$bucket, $subject, $now]);
+        return true;
+    }
+    if ((int)$row['hits'] >= $max) return false;
+    $db->prepare('UPDATE rate_hits SET hits = hits + 1 WHERE bucket = ? AND subject = ?')->execute([$bucket, $subject]);
+    return true;
+}
+
+/** Corta com HTTP 429 se estourar o limite. Chame depois de require_login, antes de processar. */
+function require_rate_limit(string $bucket, int $max, int $windowSec): void {
+    if (!rate_ok($bucket, $max, $windowSec)) {
+        http_response_code(429);
+        header('Content-Type: application/json');
+        header('Retry-After: ' . $windowSec);
+        echo json_encode(['error' => 'too many requests']);
+        exit;
+    }
+}
+
 function is_locked_out(): bool {
     $stmt = get_db()->prepare('SELECT locked_until FROM login_attempts WHERE ip = ?');
     $stmt->execute([client_ip()]);
