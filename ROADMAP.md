@@ -16,6 +16,13 @@ própria e um PR separado.
 - [ ] **Expiração de sessão por inatividade** — hoje só morre no fechar do
       navegador.
 
+## 🗄️ Dados
+
+- [x] **Financeiro relacional (transactions/accounts)** — cutover do blob
+      kv pra tabelas consultáveis, contrato de array preservado. Migração
+      automática no 1º bootstrap. Destrava conciliação/PDF/anomalia (queries
+      por período/categoria). SQL em `migrations/2026-07-06-transactions.sql`.
+
 ## 💳 Assinatura (modelo pago)
 
 - [x] **Esqueleto subscriptions + `require_plan()`** — tabelas
