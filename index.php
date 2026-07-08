@@ -236,6 +236,12 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .acc-summary .sv.sage{color:var(--sage);} .acc-summary .sv.brick{color:var(--brick);}
   .acc-summary .sh{font-size:10px;color:var(--text-3);margin-top:2px;}
   .od-alert{background:rgba(225,92,86,.08);border:1px solid rgba(225,92,86,.35);border-radius:var(--r-sm);padding:10px 13px;margin-bottom:12px;font-size:12px;color:var(--brick);}
+  .projcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 14px;margin-bottom:12px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+  .projcard .pj-l{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3);}
+  .projcard .pj-v{font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:600;}
+  .projcard .pj-v.sage{color:var(--sage);} .projcard .pj-v.brick{color:var(--brick);}
+  .projcard .pj-h{font-size:11px;color:var(--text-3);width:100%;font-family:'IBM Plex Mono',monospace;}
+  .projcard .pj-h .sage{color:var(--sage);} .projcard .pj-h .brick{color:var(--brick);}
   .ad-sec{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3);margin:14px 0 4px;}
   .ad-row{display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--line);}
   .ad-row .adi{flex:1;min-width:0;}
@@ -735,6 +741,7 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
       </div>
       <div class="dashcard-sub" style="margin:2px 0 10px;">Sem Open Finance ainda — você registra o saldo manualmente. Visão geral das suas contas e cartões.</div>
       <div id="accSummary" class="acc-summary"></div>
+      <div id="accProjection"></div>
       <div id="accOverdraftAlert"></div>
       <div id="accViewToggle" class="acc-viewtoggle" style="display:none;">
         <button data-accview="conta" class="active">Por conta</button>
@@ -3448,6 +3455,23 @@ async function renderFinance(){
         <div class="sumcard"><div class="sl">Saldo em contas</div><div class="sv ${saldoTotal<0?'brick':''}">${fmtMoney(saldoTotal)}</div></div>
         <div class="sumcard"><div class="sl">Fatura dos cartões</div><div class="sv brick">${fmtMoney(faturaTotal)}</div></div>
         <div class="sumcard"><div class="sl">Crédito disponível</div><div class="sv sage">${fmtMoney(creditoDisp)}</div></div>`;
+    }
+    // Projeção de saldo do fim do mês
+    const projBox = document.getElementById('accProjection');
+    if (contas.length===0){ projBox.innerHTML=''; }
+    else {
+      const today = now.getDate();
+      const endMonth = new Date(now.getFullYear(), now.getMonth()+1, 0);
+      const remRange = { start: addDays(new Date(now.getFullYear(), now.getMonth(), today), 1), end: endMonth };
+      const aReceber = incLines.filter(l=> isIncomeActive(l,now) && l.payday && l.payday>=today)
+        .reduce((s,l)=>s+Number(l.value||0),0);
+      const aPagar = (today>=endMonth.getDate()) ? 0 : expLines.reduce((s,e)=>s+expenseTotalInRange(e, remRange),0);
+      const projetado = saldoTotal + aReceber - aPagar;
+      projBox.innerHTML = `<div class="projcard">
+        <div class="pj-l">Projeção fim do mês</div>
+        <div class="pj-v ${projetado<0?'brick':'sage'}">${fmtMoney(projetado)}</div>
+        <div class="pj-h">hoje ${fmtMoney(saldoTotal)}${aReceber>0?' · <span class="sage">+'+fmtMoney(aReceber).replace('R$ ','')+'</span> a receber':''}${aPagar>0?' · <span class="brick">−'+fmtMoney(aPagar).replace('R$ ','')+'</span> a pagar':''}</div>
+      </div>`;
     }
     const odBox = document.getElementById('accOverdraftAlert');
     odBox.innerHTML = overdraft.length ? `<div class="od-alert">⚠︎ ${overdraft.length===1?'A conta':'As contas'} ${overdraft.map(a=>esc(a.label)).join(', ')} ${overdraft.length===1?'está':'estão'} no cheque especial · ${fmtMoney(chequeUsadoTotal)} usado${chequeDisp>0?' · '+fmtMoney(chequeDisp)+' ainda disponível':''}</div>` : '';
