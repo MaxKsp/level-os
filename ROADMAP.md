@@ -55,6 +55,11 @@ própria e um PR separado.
       (debita saldo) ou cartão (soma fatura), com estorno em edição/exclusão.
 - [x] **Histórico entre meses** — gráfico entradas × saídas dos últimos 6
       meses, calculado direto dos lançamentos.
+- [x] **Conciliação por extrato (OFX)** — importa extrato do banco, mostra
+      preview com marcação de prováveis duplicados (mesma data+valor),
+      categoria por saída e confirmação seletiva antes de gravar. Recurso do
+      plano pago (`require_plan(individual)`). Endpoint `api/import-ofx.php`,
+      parser em `ofx.php`.
 - [ ] **Rendas com recorrência visível** — ocorrências de renda no mapa de
       calor e nos gráficos, como as despesas recorrentes já têm.
 - [x] **Metas por categoria** — limites em "Metas do mês" com barra de
