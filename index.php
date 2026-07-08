@@ -445,6 +445,16 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .cat-custom{font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);background:var(--accent-soft);padding:1px 6px;border-radius:99px;font-family:'IBM Plex Mono',monospace;}
   .goal-del{background:none;border:none;color:var(--text-3);font-size:14px;cursor:pointer;padding:2px 4px;flex-shrink:0;}
   .goal-del:hover{color:var(--brick);}
+  .ofxrow{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--line);}
+  .ofxrow.dup{opacity:.55;}
+  .ofxrow input[type=checkbox]{width:18px;height:18px;flex-shrink:0;accent-color:var(--accent);}
+  .ofxrow .oi{flex:1;min-width:0;}
+  .ofxrow .od{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ofxrow .om{font-size:10.5px;color:var(--text-3);font-family:'IBM Plex Mono',monospace;margin-top:2px;}
+  .ofxrow .ov{font-family:'IBM Plex Mono',monospace;font-size:13px;font-variant-numeric:tabular-nums;flex-shrink:0;}
+  .ofxrow .ov.exp{color:var(--brick);} .ofxrow .ov.inc{color:var(--sage);}
+  .ofxrow .dupbadge{font-size:9px;text-transform:uppercase;color:#F59E0B;border:1px solid #F59E0B;border-radius:99px;padding:1px 5px;font-family:'IBM Plex Mono',monospace;flex-shrink:0;}
+  .ofxrow select{padding:5px 8px;font-size:11.5px;border-radius:8px;flex-shrink:0;max-width:118px;}
 
   /* treinos */
   .ex-row{display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;}
@@ -686,6 +696,8 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
 
     <div class="fpage" id="fpage-saidas">
       <div class="fpage-head"><h2 style="margin:0;">Despesas</h2><button class="addbtn-sm" id="btnOpenExpModal">+</button></div>
+      <button class="btn-ghost" id="btnImportOfx" style="width:100%;margin-bottom:10px;">Importar extrato (OFX)</button>
+      <input type="file" id="ofxFile" accept=".ofx,application/x-ofx,text/plain" style="display:none;">
       <input type="search" id="expSearch" placeholder="Buscar por nome, categoria ou banco..." style="width:100%;margin-bottom:10px;">
       <div id="expenseLines"></div>
     </div>
@@ -984,6 +996,19 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
     <div class="modal-actions">
       <button class="btn-ghost" id="goalsCancel">Cancelar</button>
       <button class="btn-primary" id="goalsSave">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="ofxModalOverlay">
+  <div class="modal" style="max-width:520px;">
+    <h3>Importar extrato</h3>
+    <p style="font-size:12.5px;color:var(--text-2);margin:0 0 12px;">Revise os lançamentos do extrato. Desmarque os que não quer importar. Os prováveis já lançados vêm marcados como duplicados e desmarcados.</p>
+    <div id="ofxSummary" style="font-size:12px;color:var(--text-3);margin-bottom:8px;"></div>
+    <div id="ofxRows" style="max-height:46vh;overflow-y:auto;"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="ofxCancel">Cancelar</button>
+      <button class="btn-primary" id="ofxConfirm">Importar selecionados</button>
     </div>
   </div>
 </div>
@@ -2775,6 +2800,72 @@ document.addEventListener('click', (e)=>{
   if (t) document.getElementById(t.dataset.open).click();
 });
 document.getElementById('expSearch').oninput = ()=> renderFinance();
+
+/* ---- Importar extrato OFX (conciliação) ---- */
+let __ofxRows = [];
+document.getElementById('btnImportOfx').onclick = ()=> document.getElementById('ofxFile').click();
+document.getElementById('ofxFile').onchange = async (ev)=>{
+  const file = ev.target.files[0];
+  ev.target.value = '';
+  if (!file) return;
+  const fd = new FormData();
+  fd.append('ofx', file);
+  try{
+    const r = await fetch('api/import-ofx.php', { method:'POST', headers:{'X-CSRF-Token': window.CSRF_TOKEN}, body: fd });
+    const j = await r.json();
+    if (r.status === 402){ toast('Importar extrato é do plano pago.', {error:true}); return; }
+    if (!r.ok) throw new Error(j.error || 'falha');
+    __ofxRows = j.rows;
+    renderOfxPreview();
+    document.getElementById('ofxModalOverlay').classList.add('open');
+  } catch(e){ toast('Não consegui ler o extrato: ' + (e.message||''), {error:true}); }
+};
+function renderOfxPreview(){
+  const cats = allCategories();
+  const catOpts = Object.entries(cats).map(([k,l])=>`<option value="${k}">${esc(l)}</option>`).join('');
+  const nDup = __ofxRows.filter(r=>r.dup).length;
+  document.getElementById('ofxSummary').textContent =
+    `${__ofxRows.length} lançamentos · ${nDup} possível(is) duplicado(s)`;
+  document.getElementById('ofxRows').innerHTML = __ofxRows.map((r,i)=>`
+    <div class="ofxrow ${r.dup?'dup':''}">
+      <input type="checkbox" data-i="${i}" ${r.dup?'':'checked'}>
+      <div class="oi"><div class="od">${esc(r.desc||'(sem descrição)')}</div>
+        <div class="om">${relDate(r.date)} · ${r.kind==='expense'?'saída':'entrada'}</div></div>
+      ${r.dup?'<span class="dupbadge">dup</span>':''}
+      ${r.kind==='expense'?`<select data-cat="${i}">${catOpts}</select>`:''}
+      <div class="ov ${r.kind==='expense'?'exp':'inc'}">${r.kind==='expense'?'-':'+'}${fmtMoney(r.value).replace('R$ ','')}</div>
+    </div>`).join('');
+  document.querySelectorAll('#ofxRows [data-cat]').forEach(s=> s.value='outros');
+}
+document.getElementById('ofxCancel').onclick = ()=> document.getElementById('ofxModalOverlay').classList.remove('open');
+document.getElementById('ofxConfirm').onclick = async ()=>{
+  const picked = [];
+  document.querySelectorAll('#ofxRows [data-i]').forEach(chk=>{
+    if (chk.checked) picked.push(Number(chk.dataset.i));
+  });
+  if (!picked.length){ toast('Nada selecionado.', {error:true}); return; }
+  const expLines = await getExpenseLines();
+  const incLines = await getIncomeLines();
+  let nExp=0, nInc=0;
+  picked.forEach(i=>{
+    const r = __ofxRows[i];
+    if (r.kind==='expense'){
+      const catSel = document.querySelector(`#ofxRows [data-cat="${i}"]`);
+      expLines.push({ id: genId(), label: r.desc || 'Importado', value: r.value, date: r.date,
+        time: '12:00', recorrencia: 'none', categoria: (catSel&&catSel.value)||'outros',
+        method: 'outro', bank: 'outro', accountId: null, createdAt: Date.now() });
+      nExp++;
+    } else {
+      incLines.push({ id: genId(), label: r.desc || 'Importado', value: r.value, type: 'variavel', endDate: null, createdAt: Date.now() });
+      nInc++;
+    }
+  });
+  if (nExp) await storeSet('expense_lines_v4', expLines);
+  if (nInc) await storeSet('income_lines', incLines);
+  document.getElementById('ofxModalOverlay').classList.remove('open');
+  renderFinance();
+  toast(`${nExp+nInc} lançamento(s) importado(s)`);
+};
 document.getElementById('incSearch').oninput = ()=> renderFinance();
 
 let chartLine=null, chartBank=null, chartMethod=null, chartCategoria=null, chartHistory=null;
