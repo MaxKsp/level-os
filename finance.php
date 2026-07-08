@@ -66,6 +66,7 @@ function finance_load_set(PDO $db, int $uid, string $set): array {
                 'id' => $r['client_id'], 'label' => $r['label'], 'value' => fin_num($r['value']),
                 'type' => $r['income_type'], 'endDate' => $r['end_date'],
                 'payday' => isset($r['payday']) && $r['payday'] !== null ? (int)$r['payday'] : null,
+                'accountId' => $r['account_id'],
                 'createdAt' => $r['created_at'] !== null ? (int)$r['created_at'] : null,
             ];
         } else { // income_var (ifood)
@@ -111,7 +112,7 @@ function finance_save_set(PDO $db, int $uid, string $set, array $rows): void {
                 } elseif ($set === 'income') {
                     $pd = isset($t['payday']) && $t['payday'] !== null && (int)$t['payday'] >= 1 && (int)$t['payday'] <= 31 ? (int)$t['payday'] : null;
                     $ins->execute([$uid, 'income', (string)($t['id'] ?? uniqid('i')), $t['label'] ?? '', fin_num($t['value'] ?? 0),
-                        null, null, null, null, null, null, $t['type'] ?? null, $t['endDate'] ?? null, null, null, $pd,
+                        null, null, null, null, null, null, $t['type'] ?? null, $t['endDate'] ?? null, $t['accountId'] ?? null, null, $pd,
                         isset($t['createdAt']) ? (int)$t['createdAt'] : null]);
                 } else { // income_var
                     $ins->execute([$uid, 'income_var', uniqid('v'), null, fin_num($t['valor'] ?? 0),

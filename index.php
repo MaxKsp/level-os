@@ -236,6 +236,13 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .acc-summary .sv.sage{color:var(--sage);} .acc-summary .sv.brick{color:var(--brick);}
   .acc-summary .sh{font-size:10px;color:var(--text-3);margin-top:2px;}
   .od-alert{background:rgba(225,92,86,.08);border:1px solid rgba(225,92,86,.35);border-radius:var(--r-sm);padding:10px 13px;margin-bottom:12px;font-size:12px;color:var(--brick);}
+  .ad-sec{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3);margin:14px 0 4px;}
+  .ad-row{display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--line);}
+  .ad-row .adi{flex:1;min-width:0;}
+  .ad-row .adl{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ad-row .adm{font-size:10.5px;color:var(--text-3);margin-top:1px;}
+  .ad-row .adv{font-family:'IBM Plex Mono',monospace;font-size:13px;flex-shrink:0;}
+  .ad-row .adv.sage{color:var(--sage);} .ad-row .adv.brick{color:var(--brick);}
   .acccard .acc-logo{width:44px;height:44px;border-radius:10px;}
   .acccard .acc-logo img{padding:5px;border-radius:10px;}
   .acccard .accright{display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
@@ -963,6 +970,9 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
       <div class="field" id="imPaydayField"><label>Dia do pagamento</label><input type="number" id="imPayday" min="1" max="31" placeholder="Ex: 5"></div>
       <div class="field" id="imEndField" style="display:none;"><label>Válida até</label><input type="date" id="imEnd"></div>
     </div>
+    <div class="field"><label>Conta de recebimento (opcional)</label>
+      <select id="imAccount"><option value="">Não vincular a uma conta</option></select>
+    </div>
     <div class="modal-actions">
       <button class="btn-ghost" id="imDelete" style="display:none;margin-right:auto;color:var(--brick);border-color:var(--brick);">Excluir</button>
       <button class="btn-ghost" id="imCancel">Cancelar</button>
@@ -1016,6 +1026,17 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
       <button class="btn-ghost" id="emDelete" style="display:none;margin-right:auto;color:var(--brick);border-color:var(--brick);">Excluir</button>
       <button class="btn-ghost" id="emCancel">Cancelar</button>
       <button class="btn-primary" id="emSave">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="accountDetailOverlay">
+  <div class="modal" style="max-width:520px;">
+    <div id="adHeader"></div>
+    <div id="adBody" style="max-height:52vh;overflow-y:auto;margin-top:12px;"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="adClose">Fechar</button>
+      <button class="btn-primary" id="adEdit">Editar conta</button>
     </div>
   </div>
 </div>
@@ -2386,7 +2407,14 @@ let editingIncomeId = null;
 document.getElementById('imType').onchange = (e)=>{
   document.getElementById('imEndField').style.display = e.target.value==='temporaria' ? '' : 'none';
 };
-document.getElementById('btnOpenIncModal').onclick = ()=>{
+async function fillIncomeAccountSelect(selectedId){
+  const accounts = (await getAccounts()).filter(a=>(a.tipo||'conta')==='conta');
+  const sel = document.getElementById('imAccount');
+  sel.innerHTML = '<option value="">Não vincular a uma conta</option>' +
+    accounts.map(a=>`<option value="${a.id}">${esc(a.label)}</option>`).join('');
+  sel.value = selectedId || '';
+}
+document.getElementById('btnOpenIncModal').onclick = async ()=>{
   editingIncomeId = null;
   document.getElementById('incomeModalTitle').textContent = 'Nova renda';
   document.getElementById('imLabel').value = '';
@@ -2396,6 +2424,7 @@ document.getElementById('btnOpenIncModal').onclick = ()=>{
   document.getElementById('imPayday').value = '';
   document.getElementById('imEndField').style.display = 'none';
   document.getElementById('imDelete').style.display = 'none';
+  await fillIncomeAccountSelect('');
   document.getElementById('incomeModalOverlay').classList.add('open');
 };
 document.getElementById('imCancel').onclick = ()=> document.getElementById('incomeModalOverlay').classList.remove('open');
@@ -2407,12 +2436,13 @@ document.getElementById('imSave').onclick = async ()=>{
   const endDate = document.getElementById('imEnd').value || null;
   const pdRaw = parseInt(document.getElementById('imPayday').value, 10);
   const payday = (pdRaw>=1 && pdRaw<=31) ? pdRaw : null;
+  const accountId = document.getElementById('imAccount').value || null;
   let lines = await getIncomeLines();
   if (editingIncomeId){
     const l = lines.find(x=>x.id===editingIncomeId);
-    if (l){ l.label=label; l.value=value; l.type=type; l.endDate = type==='temporaria'?endDate:null; l.payday=payday; }
+    if (l){ l.label=label; l.value=value; l.type=type; l.endDate = type==='temporaria'?endDate:null; l.payday=payday; l.accountId=accountId; }
   } else {
-    lines.push({ id: genId(), label, value, type, endDate: type==='temporaria'?endDate:null, payday, createdAt: Date.now() });
+    lines.push({ id: genId(), label, value, type, endDate: type==='temporaria'?endDate:null, payday, accountId, createdAt: Date.now() });
   }
   await storeSet('income_lines', lines);
   document.getElementById('incomeModalOverlay').classList.remove('open');
@@ -2434,7 +2464,7 @@ document.getElementById('imDelete').onclick = async ()=>{
     renderFinance();
   }});
 };
-function openIncomeEdit(line){
+async function openIncomeEdit(line){
   editingIncomeId = line.id;
   document.getElementById('incomeModalTitle').textContent = 'Editar renda';
   document.getElementById('imLabel').value = line.label;
@@ -2443,6 +2473,7 @@ function openIncomeEdit(line){
   document.getElementById('imEnd').value = line.endDate || '';
   document.getElementById('imPayday').value = line.payday || '';
   document.getElementById('imEndField').style.display = line.type==='temporaria' ? '' : 'none';
+  await fillIncomeAccountSelect(line.accountId || '');
   document.getElementById('imDelete').style.display = '';
   document.getElementById('incomeModalOverlay').classList.add('open');
 }
@@ -2579,6 +2610,59 @@ function openExpenseEdit(line){
 async function getAccounts(){
   return await storeGet('accounts_v2', []);
 }
+let __detailAccId = null;
+async function openAccountDetail(acc){
+  __detailAccId = acc.id;
+  const expLines = await getExpenseLines();
+  const incLines = await getIncomeLines();
+  const isCartao = acc.tipo==='cartao';
+  const saldoNeg = !isCartao && Number(acc.saldo||0)<0;
+  const tiedExp = expLines.filter(e=>e.accountId===acc.id);
+  const tiedInc = incLines.filter(l=>l.accountId===acc.id);
+  let headMeta;
+  if (isCartao){
+    const disp = Math.max(0, Number(acc.limite||0)-Number(acc.fatura||0));
+    const dias = [acc.fechamento?('fecha dia '+acc.fechamento):'', acc.vencimento?('vence dia '+acc.vencimento):''].filter(Boolean).join(' · ');
+    headMeta = `Fatura <b style="color:var(--brick)">${fmtMoney(acc.fatura)}</b> · limite ${fmtMoney(acc.limite)} · disponível ${fmtMoney(disp)}${dias?'<br>'+dias:''}`;
+  } else {
+    const ce = Number(acc.chequeEspecial||0);
+    let ceTxt = '';
+    if (saldoNeg){ const used=-Number(acc.saldo); ceTxt = ` · cheque especial ${fmtMoney(used)} usado${ce>0?' de '+fmtMoney(ce):''}`; }
+    else if (ce>0){ ceTxt = ` · cheque especial ${fmtMoney(ce)} disponível`; }
+    headMeta = `Saldo <b style="color:${saldoNeg?'var(--brick)':'var(--sage)'}">${fmtMoney(acc.saldo)}</b>${ceTxt}`;
+  }
+  document.getElementById('adHeader').innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div class="bankavatar acc-logo">
+        <img src="assets/bancos/${bankById(acc.bank).id}.svg" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+        <div class="fallback-initials" style="display:none;background:${bankColor(bankById(acc.bank))}">${bankInitials(bankById(acc.bank))}</div>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <h3 style="margin:0;">${esc(acc.label)} ${acc.principal?'<span class="badge b-principal">Principal</span>':''}</h3>
+        <div style="font-size:11.5px;color:var(--text-3);margin-top:3px;">${bankById(acc.bank).name} · ${isCartao?'Cartão de crédito':'Conta'}</div>
+      </div>
+    </div>
+    <div style="font-size:12.5px;color:var(--text-2);margin-top:10px;">${headMeta}</div>`;
+  const incHtml = tiedInc.length ? `
+    <div class="ad-sec">Rendas que caem aqui</div>
+    ${tiedInc.map(l=>`<div class="ad-row"><div class="adi"><div class="adl">${esc(l.label)}</div>
+      <div class="adm">${TYPE_LABEL[l.type]||''}${l.payday?' · todo dia '+l.payday:''}</div></div>
+      <div class="adv sage">+${fmtMoney(l.value).replace('R$ ','')}</div></div>`).join('')}` : '';
+  const expSorted = [...tiedExp].sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+  const expHtml = tiedExp.length ? `
+    <div class="ad-sec">Saídas desta conta</div>
+    ${expSorted.map(e=>`<div class="ad-row"><div class="adi"><div class="adl">${esc(e.label)}</div>
+      <div class="adm">${relDate(e.date)} · ${esc(catLabel(e.categoria))}${e.recorrencia==='mensal'?' · mensal':''}</div></div>
+      <div class="adv brick">-${fmtMoney(e.value).replace('R$ ','')}</div></div>`).join('')}` : '';
+  const body = incHtml + expHtml;
+  document.getElementById('adBody').innerHTML = body || '<div class="empty">Nenhuma movimentação vinculada a esta conta ainda.</div>';
+  document.getElementById('accountDetailOverlay').classList.add('open');
+}
+document.getElementById('adClose').onclick = ()=> document.getElementById('accountDetailOverlay').classList.remove('open');
+document.getElementById('adEdit').onclick = async ()=>{
+  document.getElementById('accountDetailOverlay').classList.remove('open');
+  const accs = await getAccounts(); const a = accs.find(x=>x.id===__detailAccId); if (a) openAccountEdit(a);
+};
 async function accountAction(act, id){
   let accounts = await getAccounts();
   const idx = accounts.findIndex(a=>a.id===id);
@@ -3092,7 +3176,7 @@ async function renderFinance(){
       }).join('');
       accBox.querySelectorAll('.accact').forEach(btn=> btn.onclick = (ev)=>{ ev.stopPropagation(); accountAction(btn.dataset.act, btn.dataset.id); });
       accBox.querySelectorAll('.acccard').forEach(card=>{
-        card.onclick = ()=>{ const a = accounts.find(x=>x.id===card.dataset.id); if (a) openAccountEdit(a); };
+        card.onclick = ()=>{ const a = accounts.find(x=>x.id===card.dataset.id); if (a) openAccountDetail(a); };
       });
     }
 
@@ -3121,10 +3205,12 @@ async function renderFinance(){
           else { const days = Math.ceil((new Date(l.endDate+'T00:00:00') - now)/86400000); sub = 'até ' + l.endDate.split('-').reverse().join('/') + ' · ' + days + ' dias restantes'; }
         } else { sub = TYPE_LABEL[l.type]; }
         const payTxt = l.payday ? 'recebe todo dia ' + l.payday : '';
+        const acc = l.accountId ? accounts.find(x=>x.id===l.accountId) : null;
+        const accTxt = acc ? 'cai em ' + acc.label : '';
         const regDate = l.createdAt ? new Date(l.createdAt).toLocaleDateString('pt-BR') : '';
         return `<div class="inccard ${!active?'inactive':''}" data-id="${l.id}">
           <div class="typedot b-${l.type}"></div>
-          <div class="info"><div class="ttl">${esc(l.label)}</div><div class="sub ${!active?'expired':''}">${sub}${payTxt?' · '+payTxt:''}${regDate?' · cadastrada em '+regDate:''}</div></div>
+          <div class="info"><div class="ttl">${esc(l.label)}</div><div class="sub ${!active?'expired':''}">${sub}${payTxt?' · '+payTxt:''}${accTxt?' · '+accTxt:''}${regDate?' · cadastrada em '+regDate:''}</div></div>
           <div class="val">${fmtMoney(l.value)}</div>
         </div>`;
       }).join('');

@@ -66,7 +66,9 @@ própria e um PR separado.
       - [x] P1: visão consolidada (patrimônio líquido, saldo total, fatura
         total, crédito disponível) + cheque especial por conta (limite,
         saldo negativo, alerta de uso). Coluna `accounts.cheque_especial`.
-      - [ ] P2: detalhe/extrato por conta (rendas vinculáveis a uma conta).
+      - [x] P2: detalhe/extrato por conta — clicar num card abre o extrato
+        (rendas vinculadas + saídas da conta); renda ganha "conta de
+        recebimento" (reusa `transactions.account_id`, sem migração).
       - [ ] P3: alternar visão unitária (por banco) × consolidada + polish.
 - [x] **Front do financeiro (pacote)** — catálogo de ~87 bancos com busca e
       até 11 favoritos editáveis (estilo app de banco); dia de pagamento na
