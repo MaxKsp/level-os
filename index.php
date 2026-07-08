@@ -255,6 +255,20 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .acccard .ttl{font-size:14px;font-weight:500;display:flex;align-items:center;gap:6px;}
   .acccard .sub{font-size:10.5px;color:var(--text-3);margin-top:3px;font-family:'IBM Plex Mono',monospace;}
   .acccard .val{font-family:'IBM Plex Mono',monospace;font-size:14px;color:var(--sage);}
+  /* card estilo app de banco (Santander): topo + barra + faixa de valores */
+  .acccard.bankstyle{display:block;padding:0;overflow:hidden;}
+  .acccard.bankstyle .acc-toprow{display:flex;align-items:center;gap:12px;padding:13px 14px 11px;}
+  .acccard.bankstyle .acc-chev{color:var(--text-3);font-size:20px;line-height:1;flex-shrink:0;}
+  .accbar{height:4px;background:var(--surface-3);margin:0 14px;border-radius:99px;overflow:hidden;}
+  .accbar>div{height:100%;background:var(--brick);border-radius:99px;}
+  .acc-foot{display:flex;justify-content:space-between;gap:10px;background:var(--surface-2);padding:10px 14px;margin-top:10px;border-top:1px solid var(--line);}
+  .acc-foot .af-l{font-size:10px;color:var(--text-3);margin-bottom:2px;}
+  .acc-foot .af-v{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;}
+  .acc-foot .af-v.sage{color:var(--sage);} .acc-foot .af-v.brick{color:var(--brick);}
+  .acc-foot .af-r{text-align:right;}
+  .eyebtn{background:none;border:1px solid var(--line);border-radius:8px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;color:var(--text-2);cursor:pointer;transition:color .12s,border-color .12s;}
+  .eyebtn:hover{color:var(--text);border-color:var(--line-strong);}
+  .eyebtn svg{width:17px;height:17px;}
   .acc-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px;}
   .acc-summary .sumcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:12px 14px;}
   .acc-summary .sumcard.wide{grid-column:1 / -1;background:linear-gradient(135deg,var(--accent-soft),transparent);}
@@ -772,11 +786,42 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
     <div class="fin-subnav" id="finSubnav">
       <div class="fsub active" data-fsub="inicio">Visão geral</div>
       <div class="fsub" data-fsub="extrato">Extrato</div>
+      <div class="fsub" data-fsub="analises">Análises</div>
       <div class="fsub" data-fsub="metas">Metas</div>
     </div>
 
     <div class="fpage active" id="fpage-inicio">
-      <div class="fin-period" id="finPeriodNav">
+      <div class="fpage-head"><h2 style="margin:0;">Minhas contas</h2>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button class="eyebtn" id="btnEyeVals" title="Ocultar/mostrar valores">
+            <svg id="eyeOpen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/></svg>
+            <svg id="eyeClosed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="display:none;"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><path d="M4 4l16 16"/></svg>
+          </button>
+          <button class="btn-ghost" id="btnTransfer" style="padding:5px 12px;font-size:12px;">⇄ Transferir</button>
+          <button class="addbtn-sm" id="btnOpenAccModal">+</button>
+        </div>
+      </div>
+      <div id="accSummary" class="acc-summary"></div>
+      <div id="accProjection"></div>
+      <div id="accFaturaAlert"></div>
+      <div id="accOverdraftAlert"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <div class="fin-period" id="accTipoFilter" style="margin-bottom:12px;">
+          <div class="perpill active" data-acctipo="all">Tudo</div>
+          <div class="perpill" data-acctipo="conta">Contas</div>
+          <div class="perpill" data-acctipo="cartao">Cartões</div>
+        </div>
+        <div id="accViewToggle" class="acc-viewtoggle" style="display:none;">
+          <button data-accview="conta" class="active">Por conta</button>
+          <button data-accview="banco">Por banco</button>
+        </div>
+      </div>
+      <div id="accountLines"></div>
+    </div>
+
+    <div class="fpage" id="fpage-analises">
+      <div class="fpage-head"><h2 style="margin:0;">Análises</h2></div>
+      <div class="fin-period" id="finPeriodNav" style="margin-top:10px;">
         <div class="perpill" data-period="day">Dia</div>
         <div class="perpill" data-period="week">Semana</div>
         <div class="perpill active" data-period="month">Mês</div>
@@ -785,23 +830,6 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
 
       <div class="finhead"><div class="big" id="finSaldoBig">R$ 0,00</div><div class="lbl" id="finSaldoLbl">Saldo do mês</div></div>
       <div class="finrow3" id="finRow3"></div>
-
-      <div class="fpage-head"><h2 style="margin:26px 0 0;">Contas</h2>
-        <div style="display:flex;gap:6px;">
-          <button class="btn-ghost" id="btnTransfer" style="padding:5px 12px;font-size:12px;">⇄ Transferir</button>
-          <button class="addbtn-sm" id="btnOpenAccModal">+</button>
-        </div>
-      </div>
-      <div class="dashcard-sub" style="margin:2px 0 10px;">Sem Open Finance ainda — você registra o saldo manualmente. Visão geral das suas contas e cartões.</div>
-      <div id="accSummary" class="acc-summary"></div>
-      <div id="accProjection"></div>
-      <div id="accFaturaAlert"></div>
-      <div id="accOverdraftAlert"></div>
-      <div id="accViewToggle" class="acc-viewtoggle" style="display:none;">
-        <button data-accview="conta" class="active">Por conta</button>
-        <button data-accview="banco">Por banco</button>
-      </div>
-      <div id="accountLines"></div>
 
       <div class="dashgrid">
         <div class="dashcard">
@@ -1589,7 +1617,11 @@ function dkey(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDa
 function monthKey(d){ d = d||new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1); }
 function timeToMin(t){ const [h,m]=t.split(':').map(Number); return h*60+m; }
 function minToTime(m){ m=((m%1440)+1440)%1440; return pad(Math.floor(m/60))+':'+pad(m%60); }
-function fmtMoney(v){ return 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+let __hideVals = localStorage.getItem('pm_hidevals') === '1';
+function fmtMoney(v){
+  if (__hideVals) return 'R$ ••••';
+  return 'R$ ' + (v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
 function toast(msg, opts){
   opts = opts||{};
   let box = document.getElementById('toastBox');
@@ -2760,47 +2792,55 @@ let __reservedByAcc = {};
 function accountCardHtml(a, reorder, idx, total){
   const isCartao = a.tipo==='cartao';
   const saldoNeg = !isCartao && Number(a.saldo||0)<0;
-  const valHtml = isCartao
-    ? `<div class="val" style="color:var(--brick)">${fmtMoney(a.fatura)}</div>`
-    : `<div class="val"${saldoNeg?' style="color:var(--brick)"':''}>${fmtMoney(a.saldo)}</div>`;
   let fatBadge = '';
   if (isCartao && a.fechamento){
     const closed = new Date().getDate() >= a.fechamento;
-    fatBadge = `<span class="fatbadge ${closed?'closed':'open'}">${closed?'fechada':'aberta'}</span>`;
-  }
-  let subHtml;
-  if (isCartao){
-    const dias = [a.fechamento?('fecha dia '+a.fechamento):'', a.vencimento?('vence dia '+a.vencimento):''].filter(Boolean).join(' · ');
-    subHtml = `${bankById(a.bank).name} · limite ${fmtMoney(a.limite)}${dias?' · '+dias:''}`;
-  } else {
-    const ce = Number(a.chequeEspecial||0);
-    let ceTxt = '';
-    if (saldoNeg){ const used=-Number(a.saldo); ceTxt = ' · cheque especial: ' + fmtMoney(used) + ' usado' + (ce>0?' de '+fmtMoney(ce):''); }
-    else if (ce>0){ ceTxt = ' · cheque especial ' + fmtMoney(ce); }
-    const reserved = Number(__reservedByAcc[a.id]||0);
-    if (reserved>0) ceTxt += ' · guardado ' + fmtMoney(reserved);
-    subHtml = bankById(a.bank).name + ceTxt;
+    fatBadge = `<span class="fatbadge ${closed?'closed':'open'}">${closed?'Fatura fechada':'Fatura aberta'}</span>`;
   }
   const reorderBtns = reorder ? `
       <button class="accact" data-act="up" data-id="${a.id}" title="Subir" ${idx===0?'disabled':''}>↑</button>
       <button class="accact" data-act="down" data-id="${a.id}" title="Descer" ${idx===total-1?'disabled':''}>↓</button>` : '';
-  return `<div class="acccard" data-id="${a.id}">
-    <div class="bankavatar acc-logo">
-      <img src="assets/bancos/${bankById(a.bank).id}.svg" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-      <div class="fallback-initials" style="display:none;background:${bankColor(bankById(a.bank))}">${bankInitials(bankById(a.bank))}</div>
-    </div>
-    <div class="info"><div class="ttl">${esc(a.label)} ${a.principal?'<span class="badge b-principal">Principal</span>':''}${fatBadge}</div>
-      <div class="sub">${subHtml}</div>
-    </div>
-    <div class="accright">
-      ${valHtml}
+  // faixa inferior estilo app de banco: duas colunas de valores
+  let footHtml, subTxt, barHtml = '';
+  if (isCartao){
+    const limite = Number(a.limite||0), fatura = Number(a.fatura||0);
+    const disp = Math.max(0, limite - fatura);
+    const pct = limite>0 ? Math.min(100, Math.round(fatura/limite*100)) : 0;
+    if (limite>0) barHtml = `<div class="accbar"><div style="width:${pct}%"></div></div>`;
+    subTxt = `Cartão de crédito · ${bankById(a.bank).name}${a.vencimento?' · vence dia '+a.vencimento:''}`;
+    footHtml = `
+      <div><div class="af-l">Valor da fatura</div><div class="af-v brick">${fmtMoney(fatura)}</div></div>
+      <div class="af-r"><div class="af-l">Disponível</div><div class="af-v">${fmtMoney(disp)}</div></div>`;
+  } else {
+    const ce = Number(a.chequeEspecial||0);
+    const reserved = Number(__reservedByAcc[a.id]||0);
+    const extras = [];
+    if (saldoNeg) extras.push('no cheque especial');
+    if (reserved>0) extras.push('guardado '+fmtMoney(reserved));
+    subTxt = `Conta · ${bankById(a.bank).name}${extras.length?' · '+extras.join(' · '):''}`;
+    footHtml = `
+      <div><div class="af-l">Saldo disponível</div><div class="af-v ${saldoNeg?'brick':'sage'}">${fmtMoney(a.saldo)}</div></div>
+      <div class="af-r"><div class="af-l">${ce>0?'Cheque especial':'Guardado'}</div><div class="af-v">${ce>0?fmtMoney(ce):fmtMoney(reserved)}</div></div>`;
+  }
+  return `<div class="acccard bankstyle" data-id="${a.id}">
+    <div class="acc-toprow">
+      <div class="bankavatar acc-logo">
+        <img src="assets/bancos/${bankById(a.bank).id}.svg" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+        <div class="fallback-initials" style="display:none;background:${bankColor(bankById(a.bank))}">${bankInitials(bankById(a.bank))}</div>
+      </div>
+      <div class="info"><div class="ttl">${esc(a.label)} ${a.principal?'<span class="badge b-principal">Principal</span>':''}${fatBadge}</div>
+        <div class="sub">${subTxt}</div>
+      </div>
       <div class="accacts">
         ${reorderBtns}
         <button class="accact ${a.principal?'on':''}" data-act="star" data-id="${a.id}" title="Tornar principal">★</button>
         <button class="accact" data-act="edit" data-id="${a.id}" title="Editar">✎</button>
         <button class="accact danger" data-act="del" data-id="${a.id}" title="Excluir">🗑</button>
       </div>
+      <span class="acc-chev">›</span>
     </div>
+    ${barHtml}
+    <div class="acc-foot">${footHtml}</div>
   </div>`;
 }
 function wireAccountCards(container, accounts){
@@ -3371,6 +3411,21 @@ document.querySelectorAll('#accViewToggle button').forEach(b=>{
     renderFinance();
   };
 });
+let __accTipo = 'all';
+document.querySelectorAll('#accTipoFilter .perpill').forEach(b=>{
+  b.onclick = ()=>{ __accTipo = b.dataset.acctipo; renderFinance(); };
+});
+function syncEyeIcon(){
+  document.getElementById('eyeOpen').style.display = __hideVals ? 'none' : '';
+  document.getElementById('eyeClosed').style.display = __hideVals ? '' : 'none';
+}
+document.getElementById('btnEyeVals').onclick = ()=>{
+  __hideVals = !__hideVals;
+  localStorage.setItem('pm_hidevals', __hideVals ? '1' : '0');
+  syncEyeIcon();
+  renderFinance();
+};
+syncEyeIcon();
 document.getElementById('bankChooserClose').onclick = ()=> document.getElementById('bankChooserOverlay').classList.remove('open');
 document.getElementById('bankSearch').oninput = (e)=>{ const cur = __bankChooserCtx ? document.getElementById(__bankChooserCtx.hiddenInputId).value : ''; renderBankChooserList(e.target.value, cur); };
 function fillCategorySelect(sel, selected){
@@ -3537,10 +3592,7 @@ async function renderFinance(){
   const saldo = income-outflow;
   const hasVariableIncome = entries.length>0 || incLines.some(l=>l.type==='variavel');
 
-  if (activePage === 'fpage-inicio'){
-    const vaultsAll = await getVaults();
-    __reservedByAcc = {};
-    vaultsAll.forEach(v=>{ __reservedByAcc[v.accountId] = (__reservedByAcc[v.accountId]||0) + Number(v.saved||0); });
+  if (activePage === 'fpage-analises'){
     const range = periodRange(finPeriod, now);
     const aggRange = clampRangeToToday(range, now);
     const ifoodPeriod = entries.filter(e=>inRange(e.date, aggRange)).reduce((s,e)=>s+Number(e.valor||0),0);
@@ -3560,6 +3612,13 @@ async function renderFinance(){
       <div class="fc"><div class="v">${fmtMoney(saidasPeriodo)}</div><div class="l">Saídas ${periodLabel(finPeriod)}</div></div>
       <div class="fc"><div class="v" style="color:var(--sage)">${fmtMoney(ifoodPeriod)}</div><div class="l">Variável ${periodLabel(finPeriod)}</div></div>`;
 
+    renderDashCharts(entries, expLines, incLines, ifoodTotal, now, finPeriod, range, aggRange);
+  }
+
+  if (activePage === 'fpage-inicio'){
+    const vaultsAll = await getVaults();
+    __reservedByAcc = {};
+    vaultsAll.forEach(v=>{ __reservedByAcc[v.accountId] = (__reservedByAcc[v.accountId]||0) + Number(v.saved||0); });
     const contas = accounts.filter(a=>(a.tipo||'conta')==='conta');
     const cartoes = accounts.filter(a=>a.tipo==='cartao');
     const saldoTotal = contas.reduce((s,a)=>s+Number(a.saldo||0),0);
@@ -3618,10 +3677,13 @@ async function renderFinance(){
     const accBox = document.getElementById('accountLines');
     document.getElementById('accViewToggle').style.display = accounts.length ? 'inline-flex' : 'none';
     document.querySelectorAll('#accViewToggle button').forEach(b=> b.classList.toggle('active', b.dataset.accview===__accView));
+    document.querySelectorAll('#accTipoFilter .perpill').forEach(b=> b.classList.toggle('active', b.dataset.acctipo===__accTipo));
+    const shownAccounts = __accTipo==='all' ? accounts : accounts.filter(a=> (a.tipo||'conta')===__accTipo);
     if (accounts.length===0){ accBox.innerHTML = emptyCta('Cadastre suas contas e cartões pra acompanhar saldo e fatura.', '+ Adicionar conta', 'btnOpenAccModal'); }
+    else if (shownAccounts.length===0){ accBox.innerHTML = '<div class="empty">Nenhum item deste tipo ainda.</div>'; }
     else if (__accView === 'banco'){
       const byBank = {};
-      accounts.forEach(a=>{ (byBank[a.bank] = byBank[a.bank] || []).push(a); });
+      shownAccounts.forEach(a=>{ (byBank[a.bank] = byBank[a.bank] || []).push(a); });
       accBox.innerHTML = Object.keys(byBank).map(bankId=>{
         const list = byBank[bankId];
         const s = list.filter(a=>(a.tipo||'conta')==='conta').reduce((t,a)=>t+Number(a.saldo||0),0);
@@ -3644,11 +3706,10 @@ async function renderFinance(){
       wireAccountCards(accBox, accounts);
     }
     else {
-      accBox.innerHTML = accounts.map((a,idx)=> accountCardHtml(a, true, idx, accounts.length)).join('');
+      const flat = __accTipo==='all' ? accounts : shownAccounts;
+      accBox.innerHTML = flat.map((a,idx)=> accountCardHtml(a, __accTipo==='all', idx, flat.length)).join('');
       wireAccountCards(accBox, accounts);
     }
-
-    renderDashCharts(entries, expLines, incLines, ifoodTotal, now, finPeriod, range, aggRange);
   }
 
   if (activePage === 'fpage-metas'){
