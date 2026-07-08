@@ -69,7 +69,8 @@ própria e um PR separado.
       - [x] P2: detalhe/extrato por conta — clicar num card abre o extrato
         (rendas vinculadas + saídas da conta); renda ganha "conta de
         recebimento" (reusa `transactions.account_id`, sem migração).
-      - [ ] P3: alternar visão unitária (por banco) × consolidada + polish.
+      - [x] P3: alternar visão "Por conta" (lista) × "Por banco" (agrupa por
+        banco com subtotal de saldo/fatura). Escolha persiste em kv `acc_view`.
 - [x] **Front do financeiro (pacote)** — catálogo de ~87 bancos com busca e
       até 11 favoritos editáveis (estilo app de banco); dia de pagamento na
       renda; no cartão, dia de fechamento e vencimento da fatura; card de

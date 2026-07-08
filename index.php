@@ -243,6 +243,14 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .ad-row .adm{font-size:10.5px;color:var(--text-3);margin-top:1px;}
   .ad-row .adv{font-family:'IBM Plex Mono',monospace;font-size:13px;flex-shrink:0;}
   .ad-row .adv.sage{color:var(--sage);} .ad-row .adv.brick{color:var(--brick);}
+  .acc-viewtoggle{display:inline-flex;gap:2px;background:var(--surface-2);border-radius:99px;padding:3px;margin-bottom:12px;}
+  .acc-viewtoggle button{border:none;background:none;color:var(--text-3);font-size:12px;font-weight:500;padding:6px 14px;border-radius:99px;cursor:pointer;transition:background .12s,color .12s;}
+  .acc-viewtoggle button.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.2);}
+  .bankgroup{margin-bottom:14px;}
+  .bankgroup-head{display:flex;align-items:center;gap:10px;padding:4px 2px 8px;}
+  .bankgroup-head .bg-name{font-size:13px;font-weight:600;}
+  .bankgroup-head .bg-meta{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--text-3);}
+  .bankgroup-head .bg-meta .sage{color:var(--sage);} .bankgroup-head .bg-meta .brick{color:var(--brick);}
   .acccard .acc-logo{width:44px;height:44px;border-radius:10px;}
   .acccard .acc-logo img{padding:5px;border-radius:10px;}
   .acccard .accright{display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
@@ -715,6 +723,10 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
       <div class="dashcard-sub" style="margin:2px 0 10px;">Sem Open Finance ainda — você registra o saldo manualmente. Visão geral das suas contas e cartões.</div>
       <div id="accSummary" class="acc-summary"></div>
       <div id="accOverdraftAlert"></div>
+      <div id="accViewToggle" class="acc-viewtoggle" style="display:none;">
+        <button data-accview="conta" class="active">Por conta</button>
+        <button data-accview="banco">Por banco</button>
+      </div>
       <div id="accountLines"></div>
 
       <div class="dashgrid">
@@ -2610,6 +2622,52 @@ function openExpenseEdit(line){
 async function getAccounts(){
   return await storeGet('accounts_v2', []);
 }
+let __accView = 'conta';
+function accountCardHtml(a, reorder, idx, total){
+  const isCartao = a.tipo==='cartao';
+  const saldoNeg = !isCartao && Number(a.saldo||0)<0;
+  const valHtml = isCartao
+    ? `<div class="val" style="color:var(--brick)">${fmtMoney(a.fatura)}</div>`
+    : `<div class="val"${saldoNeg?' style="color:var(--brick)"':''}>${fmtMoney(a.saldo)}</div>`;
+  let subHtml;
+  if (isCartao){
+    const dias = [a.fechamento?('fecha dia '+a.fechamento):'', a.vencimento?('vence dia '+a.vencimento):''].filter(Boolean).join(' · ');
+    subHtml = `${bankById(a.bank).name} · limite ${fmtMoney(a.limite)}${dias?' · '+dias:''}`;
+  } else {
+    const ce = Number(a.chequeEspecial||0);
+    let ceTxt = '';
+    if (saldoNeg){ const used=-Number(a.saldo); ceTxt = ' · cheque especial: ' + fmtMoney(used) + ' usado' + (ce>0?' de '+fmtMoney(ce):''); }
+    else if (ce>0){ ceTxt = ' · cheque especial ' + fmtMoney(ce); }
+    subHtml = bankById(a.bank).name + ceTxt;
+  }
+  const reorderBtns = reorder ? `
+      <button class="accact" data-act="up" data-id="${a.id}" title="Subir" ${idx===0?'disabled':''}>↑</button>
+      <button class="accact" data-act="down" data-id="${a.id}" title="Descer" ${idx===total-1?'disabled':''}>↓</button>` : '';
+  return `<div class="acccard" data-id="${a.id}">
+    <div class="bankavatar acc-logo">
+      <img src="assets/bancos/${bankById(a.bank).id}.svg" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+      <div class="fallback-initials" style="display:none;background:${bankColor(bankById(a.bank))}">${bankInitials(bankById(a.bank))}</div>
+    </div>
+    <div class="info"><div class="ttl">${esc(a.label)} ${a.principal?'<span class="badge b-principal">Principal</span>':''}</div>
+      <div class="sub">${subHtml}</div>
+    </div>
+    <div class="accright">
+      ${valHtml}
+      <div class="accacts">
+        ${reorderBtns}
+        <button class="accact ${a.principal?'on':''}" data-act="star" data-id="${a.id}" title="Tornar principal">★</button>
+        <button class="accact" data-act="edit" data-id="${a.id}" title="Editar">✎</button>
+        <button class="accact danger" data-act="del" data-id="${a.id}" title="Excluir">🗑</button>
+      </div>
+    </div>
+  </div>`;
+}
+function wireAccountCards(container, accounts){
+  container.querySelectorAll('.accact').forEach(btn=> btn.onclick = (ev)=>{ ev.stopPropagation(); accountAction(btn.dataset.act, btn.dataset.id); });
+  container.querySelectorAll('.acccard').forEach(card=>{
+    card.onclick = ()=>{ const a = accounts.find(x=>x.id===card.dataset.id); if (a) openAccountDetail(a); };
+  });
+}
 let __detailAccId = null;
 async function openAccountDetail(acc){
   __detailAccId = acc.id;
@@ -2927,6 +2985,15 @@ function allCategories(){
 function catLabel(key){ return allCategories()[key] || key || 'Outros'; }
 async function loadCustomCats(){ __customCats = await storeGet('custom_categories', []); }
 async function loadBankFavorites(){ const f = await storeGet('bank_favorites', null); if (Array.isArray(f) && f.length) __bankFavorites = f; }
+async function loadAccView(){ const v = await storeGet('acc_view', null); if (v==='conta'||v==='banco') __accView = v; }
+document.querySelectorAll('#accViewToggle button').forEach(b=>{
+  b.onclick = async ()=>{
+    __accView = b.dataset.accview;
+    document.querySelectorAll('#accViewToggle button').forEach(x=>x.classList.toggle('active', x===b));
+    await storeSet('acc_view', __accView);
+    renderFinance();
+  };
+});
 document.getElementById('bankChooserClose').onclick = ()=> document.getElementById('bankChooserOverlay').classList.remove('open');
 document.getElementById('bankSearch').oninput = (e)=>{ const cur = __bankChooserCtx ? document.getElementById(__bankChooserCtx.hiddenInputId).value : ''; renderBankChooserList(e.target.value, cur); };
 function fillCategorySelect(sel, selected){
@@ -3135,49 +3202,36 @@ async function renderFinance(){
     const odBox = document.getElementById('accOverdraftAlert');
     odBox.innerHTML = overdraft.length ? `<div class="od-alert">⚠︎ ${overdraft.length===1?'A conta':'As contas'} ${overdraft.map(a=>esc(a.label)).join(', ')} ${overdraft.length===1?'está':'estão'} no cheque especial · ${fmtMoney(chequeUsadoTotal)} usado${chequeDisp>0?' · '+fmtMoney(chequeDisp)+' ainda disponível':''}</div>` : '';
     const accBox = document.getElementById('accountLines');
+    document.getElementById('accViewToggle').style.display = accounts.length ? 'inline-flex' : 'none';
+    document.querySelectorAll('#accViewToggle button').forEach(b=> b.classList.toggle('active', b.dataset.accview===__accView));
     if (accounts.length===0){ accBox.innerHTML = emptyCta('Cadastre suas contas e cartões pra acompanhar saldo e fatura.', '+ Adicionar conta', 'btnOpenAccModal'); }
-    else {
-      accBox.innerHTML = accounts.map((a,idx)=>{
-        const isCartao = a.tipo==='cartao';
-        const saldoNeg = !isCartao && Number(a.saldo||0)<0;
-        const valHtml = isCartao
-          ? `<div class="val" style="color:var(--brick)">${fmtMoney(a.fatura)}</div>`
-          : `<div class="val"${saldoNeg?' style="color:var(--brick)"':''}>${fmtMoney(a.saldo)}</div>`;
-        let subHtml;
-        if (isCartao){
-          const dias = [a.fechamento?('fecha dia '+a.fechamento):'', a.vencimento?('vence dia '+a.vencimento):''].filter(Boolean).join(' · ');
-          subHtml = `${bankById(a.bank).name} · limite ${fmtMoney(a.limite)}${dias?' · '+dias:''}`;
-        } else {
-          const ce = Number(a.chequeEspecial||0);
-          let ceTxt = '';
-          if (saldoNeg){ const used=-Number(a.saldo); ceTxt = ' · cheque especial: ' + fmtMoney(used) + ' usado' + (ce>0?' de '+fmtMoney(ce):''); }
-          else if (ce>0){ ceTxt = ' · cheque especial ' + fmtMoney(ce); }
-          subHtml = bankById(a.bank).name + ceTxt;
-        }
-        return `<div class="acccard" data-id="${a.id}">
-          <div class="bankavatar acc-logo">
-            <img src="assets/bancos/${bankById(a.bank).id}.svg" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
-            <div class="fallback-initials" style="display:none;background:${bankColor(bankById(a.bank))}">${bankInitials(bankById(a.bank))}</div>
-          </div>
-          <div class="info"><div class="ttl">${esc(a.label)} ${a.principal?'<span class="badge b-principal">Principal</span>':''}</div>
-            <div class="sub">${subHtml}</div>
-          </div>
-          <div class="accright">
-            ${valHtml}
-            <div class="accacts">
-              <button class="accact" data-act="up" data-id="${a.id}" title="Subir" ${idx===0?'disabled':''}>↑</button>
-              <button class="accact" data-act="down" data-id="${a.id}" title="Descer" ${idx===accounts.length-1?'disabled':''}>↓</button>
-              <button class="accact ${a.principal?'on':''}" data-act="star" data-id="${a.id}" title="Tornar principal">★</button>
-              <button class="accact" data-act="edit" data-id="${a.id}" title="Editar">✎</button>
-              <button class="accact danger" data-act="del" data-id="${a.id}" title="Excluir">🗑</button>
+    else if (__accView === 'banco'){
+      const byBank = {};
+      accounts.forEach(a=>{ (byBank[a.bank] = byBank[a.bank] || []).push(a); });
+      accBox.innerHTML = Object.keys(byBank).map(bankId=>{
+        const list = byBank[bankId];
+        const s = list.filter(a=>(a.tipo||'conta')==='conta').reduce((t,a)=>t+Number(a.saldo||0),0);
+        const f = list.filter(a=>a.tipo==='cartao').reduce((t,a)=>t+Number(a.fatura||0),0);
+        const parts = [];
+        if (list.some(a=>(a.tipo||'conta')==='conta')) parts.push(`<span class="${s<0?'brick':'sage'}">${fmtMoney(s)}</span> saldo`);
+        if (list.some(a=>a.tipo==='cartao')) parts.push(`<span class="brick">${fmtMoney(f)}</span> fatura`);
+        return `<div class="bankgroup">
+          <div class="bankgroup-head">
+            <div class="bankavatar acc-logo" style="width:30px;height:30px;">
+              <img src="assets/bancos/${bankById(bankId).id}.svg" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+              <div class="fallback-initials" style="display:none;background:${bankColor(bankById(bankId))}">${bankInitials(bankById(bankId))}</div>
             </div>
+            <div class="bg-name">${bankById(bankId).name}</div>
+            <div class="bg-meta">${parts.join(' · ')}</div>
           </div>
+          ${list.map(a=> accountCardHtml(a, false, 0, 0)).join('')}
         </div>`;
       }).join('');
-      accBox.querySelectorAll('.accact').forEach(btn=> btn.onclick = (ev)=>{ ev.stopPropagation(); accountAction(btn.dataset.act, btn.dataset.id); });
-      accBox.querySelectorAll('.acccard').forEach(card=>{
-        card.onclick = ()=>{ const a = accounts.find(x=>x.id===card.dataset.id); if (a) openAccountDetail(a); };
-      });
+      wireAccountCards(accBox, accounts);
+    }
+    else {
+      accBox.innerHTML = accounts.map((a,idx)=> accountCardHtml(a, true, idx, accounts.length)).join('');
+      wireAccountCards(accBox, accounts);
     }
 
     renderDashCharts(entries, expLines, incLines, ifoodTotal, now, finPeriod, range, aggRange);
@@ -4152,6 +4206,7 @@ document.addEventListener('visibilitychange', async ()=>{
       applyPrefs(__cache.user_prefs || {});
       __customCats = __cache.custom_categories || [];
       if (Array.isArray(__cache.bank_favorites) && __cache.bank_favorites.length) __bankFavorites = __cache.bank_favorites;
+      if (__cache.acc_view==='conta'||__cache.acc_view==='banco') __accView = __cache.acc_view;
       const page = document.querySelector('.sectiontab.active')?.dataset.page;
       if (page==='financeiro') renderFinance();
       if (page==='agenda'){ renderAgenda(); renderHomeCharts(); }
@@ -4165,6 +4220,7 @@ async function init(){
   applyPrefs(await storeGet('user_prefs', {}));
   await loadCustomCats();
   await loadBankFavorites();
+  await loadAccView();
   await ensureSeeded();
   renderHomeCharts();
   renderAgenda();
