@@ -227,6 +227,15 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .acccard .ttl{font-size:14px;font-weight:500;display:flex;align-items:center;gap:6px;}
   .acccard .sub{font-size:10.5px;color:var(--text-3);margin-top:3px;font-family:'IBM Plex Mono',monospace;}
   .acccard .val{font-family:'IBM Plex Mono',monospace;font-size:14px;color:var(--sage);}
+  .acccard .acc-logo{width:44px;height:44px;border-radius:10px;}
+  .acccard .acc-logo img{padding:5px;border-radius:10px;}
+  .acccard .accright{display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
+  .acccard .accacts{display:flex;gap:2px;}
+  .accact{background:none;border:none;color:var(--text-3);cursor:pointer;font-size:13px;width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;padding:0;transition:background .12s,color .12s;}
+  .accact:hover:not(:disabled){background:var(--surface-3);color:var(--text);}
+  .accact:disabled{opacity:.3;cursor:default;}
+  .accact.on{color:#F5B301;}
+  .accact.danger:hover{color:var(--brick);}
   .badge.b-principal{background:#12233F;color:#7BA6F5;}
 
   .barlist-row{margin-bottom:12px;}
@@ -256,6 +265,14 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .bankpick-item.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);}
   .bankpick-item .bankavatar{width:28px;height:28px;pointer-events:none;}
   .bankpick-item .bpname{font-size:8.5px;color:var(--text-2);text-align:center;line-height:1.15;pointer-events:none;}
+  .bankpick-more{border:1px dashed var(--line-strong)!important;background:transparent!important;}
+  .bankmore-ic{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--accent);background:var(--accent-soft);pointer-events:none;}
+  .bankrow{display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid var(--line);cursor:pointer;border-radius:8px;}
+  .bankrow:hover{background:var(--surface-2);}
+  .bankrow.selected{background:var(--accent-soft);}
+  .bankrow .brname{flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .bankrow .brstar{background:none;border:none;font-size:17px;cursor:pointer;color:var(--text-3);flex-shrink:0;padding:2px 4px;line-height:1;}
+  .bankrow .brstar.on{color:#F5B301;}
 
   .methodpicker{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
   .methodpick-item{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 4px;border-radius:10px;cursor:pointer;border:1px solid transparent;background:var(--surface-2);}
@@ -407,6 +424,13 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   #fabNew{position:fixed;right:22px;bottom:22px;z-index:45;width:54px;height:54px;border-radius:50%;border:none;background:var(--grad);color:#fff;font-size:26px;line-height:1;cursor:pointer;box-shadow:0 6px 22px var(--glow);transition:transform .12s,filter .15s;}
   #fabNew:hover{filter:brightness(1.1);}
   #fabNew:active{transform:scale(.92);}
+  #fabNew.open{transform:rotate(45deg);}
+  #fabMenu{position:fixed;right:22px;bottom:86px;z-index:46;display:none;flex-direction:column;gap:8px;align-items:flex-end;}
+  #fabMenu.open{display:flex;animation:fabIn .16s ease;}
+  @keyframes fabIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+  .fab-item{display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--line-strong);color:var(--text);border-radius:99px;padding:9px 15px;font-size:13px;font-weight:500;cursor:pointer;box-shadow:var(--shadow-pop);white-space:nowrap;transition:background .12s;}
+  .fab-item:hover{background:var(--surface-2);}
+  .fab-item .fab-ic{font-size:15px;line-height:1;}
 
   /* navegacao no polegar em telas pequenas */
   @media (max-width:640px){
@@ -925,7 +949,10 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
         </select>
       </div>
     </div>
-    <div class="field" id="imEndField" style="display:none;"><label>Válida até</label><input type="date" id="imEnd"></div>
+    <div class="field-row">
+      <div class="field" id="imPaydayField"><label>Dia do pagamento</label><input type="number" id="imPayday" min="1" max="31" placeholder="Ex: 5"></div>
+      <div class="field" id="imEndField" style="display:none;"><label>Válida até</label><input type="date" id="imEnd"></div>
+    </div>
     <div class="modal-actions">
       <button class="btn-ghost" id="imDelete" style="display:none;margin-right:auto;color:var(--brick);border-color:var(--brick);">Excluir</button>
       <button class="btn-ghost" id="imCancel">Cancelar</button>
@@ -974,7 +1001,6 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
       <label>Banco</label>
       <input type="hidden" id="emBank">
       <div class="bankpicker" id="emBankPicker"></div>
-      <div class="footnote" style="margin-top:8px;">Ícones só aparecem se este arquivo for aberto direto do seu PC (não pela prévia do Claude), com a pasta <code>assets/bancos</code> ao lado dele.</div>
     </div>
     <div class="modal-actions">
       <button class="btn-ghost" id="emDelete" style="display:none;margin-right:auto;color:var(--brick);border-color:var(--brick);">Excluir</button>
@@ -999,6 +1025,10 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
       <div class="field"><label>Limite total (R$)</label><input type="number" id="acLimite" step="0.01"></div>
       <div class="field"><label>Fatura atual (R$)</label><input type="number" id="acFatura" step="0.01"></div>
     </div>
+    <div class="field-row" id="acFaturaDias" style="display:none;">
+      <div class="field"><label>Dia de fechamento</label><input type="number" id="acFechamento" min="1" max="31" placeholder="Ex: 28"></div>
+      <div class="field"><label>Dia de vencimento</label><input type="number" id="acVencimento" min="1" max="31" placeholder="Ex: 8"></div>
+    </div>
     <button class="btn-ghost" id="acPayFatura" style="display:none;width:100%;margin-bottom:14px;">Pagar fatura (zera e registra a saída)</button>
     <div class="field">
       <label>Banco</label>
@@ -1017,7 +1047,13 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   </div>
 </div>
 
-<button id="fabNew" title="Nova despesa">+</button>
+<div id="fabMenu">
+  <button class="fab-item" data-fab="expense"><span class="fab-ic">💸</span>Nova despesa</button>
+  <button class="fab-item" data-fab="income"><span class="fab-ic">💰</span>Nova renda</button>
+  <button class="fab-item" data-fab="account"><span class="fab-ic">🏦</span>Nova conta</button>
+  <button class="fab-item" data-fab="task"><span class="fab-ic">✓</span>Nova tarefa</button>
+</div>
+<button id="fabNew" title="Criar">+</button>
 
 <div class="modal-overlay" id="goalsModalOverlay">
   <div class="modal">
@@ -1041,6 +1077,18 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
     <div class="modal-actions">
       <button class="btn-ghost" id="ofxCancel">Cancelar</button>
       <button class="btn-primary" id="ofxConfirm">Importar selecionados</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="bankChooserOverlay">
+  <div class="modal" style="max-width:460px;">
+    <h3>Escolher banco</h3>
+    <p style="font-size:12px;color:var(--text-2);margin:0 0 10px;">Toque pra selecionar. A estrela fixa o banco nos favoritos (até 11) que aparecem no atalho rápido.</p>
+    <input type="search" id="bankSearch" placeholder="Buscar banco..." style="width:100%;margin-bottom:10px;">
+    <div id="bankChooserList" style="max-height:52vh;overflow-y:auto;"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="bankChooserClose">Fechar</button>
     </div>
   </div>
 </div>
@@ -1160,8 +1208,96 @@ const BANKS = [
   {id:'sicoob', name:'Sicoob', color:'#00A651', initials:'SI'},
   {id:'picpay', name:'PicPay', color:'#21C25E', initials:'PP'},
   {id:'mercadopago', name:'Mercado Pago', color:'#00A7DB', initials:'MP'},
+  {id:'abcbrasil', name:"ABC Brasil"},
+  {id:'ailos', name:"Ailos"},
+  {id:'almahconta', name:"Almah Conta"},
+  {id:'artta', name:"Artta"},
+  {id:'asaasipsa', name:"Asaas IP"},
+  {id:'bkbank', name:"BK Bank"},
+  {id:'bnpparipas', name:"BNP Paribas"},
+  {id:'brbbancodebrasilia', name:"BRB - Banco de Brasília"},
+  {id:'bancoarbi', name:"Banco Arbi"},
+  {id:'bancobmg', name:"Banco BMG"},
+  {id:'bancobmp', name:"Banco BMP"},
+  {id:'bancobs2sa', name:"Banco BS2"},
+  {id:'bancobtgpacutal', name:"BTG Pactual"},
+  {id:'bancodaycoval', name:"Banco Daycoval"},
+  {id:'bancoindustrialdobrasilsa', name:"Banco Industrial do Brasil"},
+  {id:'bancomercantildobrasilsa', name:"Banco Mercantil do Brasil"},
+  {id:'bancooriginalsa', name:"Banco Original"},
+  {id:'bancopan', name:"Banco Pan"},
+  {id:'bancopaulista', name:"Banco Paulista"},
+  {id:'bancopine', name:"Banco Pine"},
+  {id:'bancorendimento', name:"Banco Rendimento"},
+  {id:'bancosafrasa', name:"Banco Safra"},
+  {id:'bancosofisa', name:"Banco Sofisa"},
+  {id:'bancotopazio', name:"Banco Topázio"},
+  {id:'bancotriangulotribanco', name:"Tribanco"},
+  {id:'bancovotorantim', name:"Banco Votorantim"},
+  {id:'bancodaamazoniasa', name:"Banco da Amazônia"},
+  {id:'bancodoestadodoespiritosanto', name:"Banestes"},
+  {id:'bancodoestadodopara', name:"Banpará"},
+  {id:'bancodoestadodosergipe', name:"Banese"},
+  {id:'bancodonordestedobrasilsa', name:"Banco do Nordeste"},
+  {id:'bankofamerica', name:"Bank of America"},
+  {id:'banrisul', name:"Banrisul"},
+  {id:'beesbank', name:"Bees Bank"},
+  {id:'capitual', name:"Capitual"},
+  {id:'contasimplessolucoesempagamentos', name:"Conta Simples"},
+  {id:'contbank', name:"Contbank"},
+  {id:'corasociedadecreditodiretosa', name:"Cora"},
+  {id:'credisis', name:"Credisis"},
+  {id:'cresol', name:"Cresol"},
+  {id:'dock', name:"Dock"},
+  {id:'duepay', name:"DuePay"},
+  {id:'efigerencianet', name:"Efí (Gerencianet)"},
+  {id:'grafeno', name:"Grafeno"},
+  {id:'ifoodpago', name:"iFood Pago"},
+  {id:'infinitepay', name:"InfinitePay"},
+  {id:'ip4y', name:"Ip4y"},
+  {id:'iugo', name:"Iugo"},
+  {id:'letsbanksa', name:"Lets Bank"},
+  {id:'linker', name:"Linker"},
+  {id:'mufg', name:"MUFG"},
+  {id:'magalupay', name:"MagaluPay"},
+  {id:'modobank', name:"ModoBank"},
+  {id:'multiplobank', name:"Múltiplo Bank"},
+  {id:'neon', name:"Neon"},
+  {id:'omiecash', name:"Omie.Cash"},
+  {id:'omni', name:"Omni"},
+  {id:'orionpay', name:"OrionPay"},
+  {id:'pagsegurointernetsa', name:"PagSeguro"},
+  {id:'paycash', name:"PayCash"},
+  {id:'pinbank', name:"PinBank"},
+  {id:'qualitydigitalbank', name:"Quality Digital Bank"},
+  {id:'recargapay', name:"RecargaPay"},
+  {id:'sicredi', name:"Sicredi"},
+  {id:'sisprime', name:"Sisprime"},
+  {id:'squidsolucoesfinanceiras', name:"Squid"},
+  {id:'starbank', name:"StarBank"},
+  {id:'stonepagamentossa', name:"Stone"},
+  {id:'sulcredi', name:"Sulcredi"},
+  {id:'transfera', name:"Transfera"},
+  {id:'unicred', name:"Unicred"},
+  {id:'uniprime', name:"Uniprime"},
+  {id:'uzzipay', name:"UzziPay"},
+  {id:'xpinvestimentos', name:"XP Investimentos"},
+  {id:'zemobank', name:"Zemo Bank"},
   {id:'outro', name:'Outro', color:'#5A5A5A', initials:'--'},
 ];
+const DEFAULT_BANK_FAVORITES = ['nubank','itau','bradesco','bb','caixa','santander','inter','c6','sicoob','picpay','mercadopago'];
+const BANK_PALETTE = ['#4F8DF9','#8B5CF6','#4FB07A','#E15C56','#F59E0B','#EC4899','#00A7DB','#9C7CE0'];
+function bankInitials(b){
+  if (b.initials) return b.initials;
+  const parts = (b.name||'?').replace(/[^A-Za-zÀ-ÿ0-9 ]/g,'').trim().split(/\s+/).filter(Boolean);
+  if (parts.length>=2) return (parts[0][0]+parts[1][0]).toUpperCase();
+  return (b.name||'?').slice(0,2).toUpperCase();
+}
+function bankColor(b){
+  if (b.color) return b.color;
+  let h=0; for (const c of (b.id||'')) h=(h*31+c.charCodeAt(0))>>>0;
+  return BANK_PALETTE[h % BANK_PALETTE.length];
+}
 const METHODS = { pix:'Pix', debito:'Débito', credito:'Crédito', ted:'TED' };
 const METHOD_ICONS = {
   pix: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></svg>',
@@ -1191,21 +1327,77 @@ function bankAvatarHtml(bankId, size){
   return `<div class="bankavatar" ${sz}>
     <img src="assets/bancos/${bank.id}.svg" alt="${bank.name}"
       onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-    <div class="fallback-initials" style="display:none;background:${bank.color}">${bank.initials}</div>
+    <div class="fallback-initials" style="display:none;background:${bankColor(bank)}">${bankInitials(bank)}</div>
   </div>`;
+}
+let __bankFavorites = DEFAULT_BANK_FAVORITES.slice();
+let __bankChooserCtx = null;   // {containerId, hiddenInputId}
+function favoriteBankIds(){
+  const favs = (__bankFavorites||[]).filter(id=> BANKS.some(b=>b.id===id));
+  return favs.length ? favs : DEFAULT_BANK_FAVORITES.slice();
 }
 function renderBankPicker(containerId, hiddenInputId, selectedId){
   const box = document.getElementById(containerId);
-  box.innerHTML = BANKS.map(b=>`
-    <div class="bankpick-item ${b.id===selectedId?'selected':''}" data-bank="${b.id}">
-      ${bankAvatarHtml(b.id)}
-      <div class="bpname">${b.name}</div>
-    </div>`).join('');
+  let ids = favoriteBankIds().slice(0, 11);
+  if (selectedId && selectedId!=='outro' && !ids.includes(selectedId)) ids = [selectedId, ...ids];
+  ids.push('outro');
+  const tiles = ids.map(id=>{ const b = bankById(id); return `
+    <div class="bankpick-item ${id===selectedId?'selected':''}" data-bank="${id}">
+      ${bankAvatarHtml(id)}
+      <div class="bpname">${esc(b.name)}</div>
+    </div>`; }).join('');
+  box.innerHTML = tiles + `
+    <div class="bankpick-item bankpick-more" data-more="1">
+      <div class="bankmore-ic">+</div><div class="bpname">Mais bancos</div>
+    </div>`;
   box.querySelectorAll('.bankpick-item').forEach(item=>{
     item.onclick = ()=>{
+      if (item.dataset.more){ openBankChooser(containerId, hiddenInputId); return; }
       box.querySelectorAll('.bankpick-item').forEach(x=>x.classList.remove('selected'));
       item.classList.add('selected');
       document.getElementById(hiddenInputId).value = item.dataset.bank;
+    };
+  });
+}
+function openBankChooser(containerId, hiddenInputId){
+  __bankChooserCtx = { containerId, hiddenInputId };
+  const cur = document.getElementById(hiddenInputId).value;
+  document.getElementById('bankSearch').value = '';
+  renderBankChooserList('', cur);
+  document.getElementById('bankChooserOverlay').classList.add('open');
+  setTimeout(()=> document.getElementById('bankSearch').focus(), 50);
+}
+function renderBankChooserList(query, selectedId){
+  const q = (query||'').toLowerCase().trim();
+  const favs = new Set(favoriteBankIds());
+  const list = BANKS.filter(b=> b.id!=='outro' && (!q || b.name.toLowerCase().includes(q)));
+  const box = document.getElementById('bankChooserList');
+  box.innerHTML = list.map(b=>`
+    <div class="bankrow ${b.id===selectedId?'selected':''}" data-bank="${b.id}">
+      ${bankAvatarHtml(b.id)}
+      <div class="brname">${esc(b.name)}</div>
+      <button class="brstar ${favs.has(b.id)?'on':''}" data-star="${b.id}" title="Favoritar">${favs.has(b.id)?'★':'☆'}</button>
+    </div>`).join('') || '<div class="empty">Nenhum banco encontrado.</div>';
+  box.querySelectorAll('.bankrow').forEach(row=>{
+    row.onclick = (ev)=>{
+      if (ev.target.closest('[data-star]')) return;
+      if (!__bankChooserCtx) return;
+      document.getElementById(__bankChooserCtx.hiddenInputId).value = row.dataset.bank;
+      renderBankPicker(__bankChooserCtx.containerId, __bankChooserCtx.hiddenInputId, row.dataset.bank);
+      document.getElementById('bankChooserOverlay').classList.remove('open');
+    };
+  });
+  box.querySelectorAll('[data-star]').forEach(btn=>{
+    btn.onclick = async (ev)=>{
+      ev.stopPropagation();
+      const id = btn.dataset.star;
+      let favs = favoriteBankIds();
+      if (favs.includes(id)) favs = favs.filter(x=>x!==id);
+      else { if (favs.length>=11){ toast('Máximo de 11 favoritos. Remova um antes.', {error:true}); return; } favs = [...favs, id]; }
+      __bankFavorites = favs;
+      await storeSet('bank_favorites', favs);
+      renderBankChooserList(document.getElementById('bankSearch').value, selectedId);
+      if (__bankChooserCtx) renderBankPicker(__bankChooserCtx.containerId, __bankChooserCtx.hiddenInputId, document.getElementById(__bankChooserCtx.hiddenInputId).value);
     };
   });
 }
@@ -2188,6 +2380,7 @@ document.getElementById('btnOpenIncModal').onclick = ()=>{
   document.getElementById('imValue').value = '';
   document.getElementById('imType').value = 'fixa';
   document.getElementById('imEnd').value = '';
+  document.getElementById('imPayday').value = '';
   document.getElementById('imEndField').style.display = 'none';
   document.getElementById('imDelete').style.display = 'none';
   document.getElementById('incomeModalOverlay').classList.add('open');
@@ -2199,12 +2392,14 @@ document.getElementById('imSave').onclick = async ()=>{
   const value = Number(document.getElementById('imValue').value||0);
   const type = document.getElementById('imType').value;
   const endDate = document.getElementById('imEnd').value || null;
+  const pdRaw = parseInt(document.getElementById('imPayday').value, 10);
+  const payday = (pdRaw>=1 && pdRaw<=31) ? pdRaw : null;
   let lines = await getIncomeLines();
   if (editingIncomeId){
     const l = lines.find(x=>x.id===editingIncomeId);
-    if (l){ l.label=label; l.value=value; l.type=type; l.endDate = type==='temporaria'?endDate:null; }
+    if (l){ l.label=label; l.value=value; l.type=type; l.endDate = type==='temporaria'?endDate:null; l.payday=payday; }
   } else {
-    lines.push({ id: genId(), label, value, type, endDate: type==='temporaria'?endDate:null, createdAt: Date.now() });
+    lines.push({ id: genId(), label, value, type, endDate: type==='temporaria'?endDate:null, payday, createdAt: Date.now() });
   }
   await storeSet('income_lines', lines);
   document.getElementById('incomeModalOverlay').classList.remove('open');
@@ -2233,6 +2428,7 @@ function openIncomeEdit(line){
   document.getElementById('imValue').value = line.value;
   document.getElementById('imType').value = line.type;
   document.getElementById('imEnd').value = line.endDate || '';
+  document.getElementById('imPayday').value = line.payday || '';
   document.getElementById('imEndField').style.display = line.type==='temporaria' ? '' : 'none';
   document.getElementById('imDelete').style.display = '';
   document.getElementById('incomeModalOverlay').classList.add('open');
@@ -2370,10 +2566,37 @@ function openExpenseEdit(line){
 async function getAccounts(){
   return await storeGet('accounts_v2', []);
 }
+async function accountAction(act, id){
+  let accounts = await getAccounts();
+  const idx = accounts.findIndex(a=>a.id===id);
+  if (idx<0) return;
+  if (act==='edit'){ openAccountEdit(accounts[idx]); return; }
+  if (act==='star'){
+    const willBe = !accounts[idx].principal;
+    accounts.forEach(a=>a.principal=false);
+    accounts[idx].principal = willBe;
+    await storeSet('accounts_v2', accounts); renderFinance();
+    toast(willBe ? 'Conta principal definida' : 'Conta principal removida'); return;
+  }
+  if (act==='up' && idx>0){ [accounts[idx-1],accounts[idx]]=[accounts[idx],accounts[idx-1]]; await storeSet('accounts_v2', accounts); renderFinance(); return; }
+  if (act==='down' && idx<accounts.length-1){ [accounts[idx+1],accounts[idx]]=[accounts[idx],accounts[idx+1]]; await storeSet('accounts_v2', accounts); renderFinance(); return; }
+  if (act==='del'){
+    const removed = accounts[idx];
+    accounts = accounts.filter(a=>a.id!==id);
+    await storeSet('accounts_v2', accounts); renderFinance();
+    toast('Conta excluída', { undo: async ()=>{
+      const cur = await getAccounts();
+      cur.splice(Math.min(idx, cur.length), 0, removed);
+      await storeSet('accounts_v2', cur); renderFinance();
+    }});
+  }
+}
 function toggleAccountFields(tipo){
   document.getElementById('acSaldoField').style.display = tipo==='cartao' ? 'none' : '';
   document.getElementById('acCartaoFields').style.display = tipo==='cartao' ? 'flex' : 'none';
+  document.getElementById('acFaturaDias').style.display = tipo==='cartao' ? 'flex' : 'none';
 }
+function dayOrNull(id){ const v = parseInt(document.getElementById(id).value,10); return (v>=1 && v<=31) ? v : null; }
 document.getElementById('acTipo').onchange = (e)=> toggleAccountFields(e.target.value);
 
 let editingAccountId = null;
@@ -2385,6 +2608,8 @@ document.getElementById('btnOpenAccModal').onclick = ()=>{
   document.getElementById('acSaldo').value = '';
   document.getElementById('acLimite').value = '';
   document.getElementById('acFatura').value = '';
+  document.getElementById('acFechamento').value = '';
+  document.getElementById('acVencimento').value = '';
   document.getElementById('acBank').value = 'outro';
   document.getElementById('acPrincipal').checked = false;
   toggleAccountFields('conta');
@@ -2401,15 +2626,17 @@ document.getElementById('acSave').onclick = async ()=>{
   const saldo = Number(document.getElementById('acSaldo').value||0);
   const limite = Number(document.getElementById('acLimite').value||0);
   const fatura = Number(document.getElementById('acFatura').value||0);
+  const fechamento = tipo==='cartao' ? dayOrNull('acFechamento') : null;
+  const vencimento = tipo==='cartao' ? dayOrNull('acVencimento') : null;
   const bank = document.getElementById('acBank').value;
   const principal = document.getElementById('acPrincipal').checked;
   let accounts = await getAccounts();
   if (principal) accounts.forEach(a=>a.principal=false);
   if (editingAccountId){
     const a = accounts.find(x=>x.id===editingAccountId);
-    if (a){ a.label=label; a.tipo=tipo; a.saldo=saldo; a.limite=limite; a.fatura=fatura; a.bank=bank; a.principal=principal; }
+    if (a){ a.label=label; a.tipo=tipo; a.saldo=saldo; a.limite=limite; a.fatura=fatura; a.fechamento=fechamento; a.vencimento=vencimento; a.bank=bank; a.principal=principal; }
   } else {
-    accounts.push({ id: genId(), label, tipo, saldo, limite, fatura, bank, principal, createdAt: Date.now() });
+    accounts.push({ id: genId(), label, tipo, saldo, limite, fatura, fechamento, vencimento, bank, principal, createdAt: Date.now() });
   }
   await storeSet('accounts_v2', accounts);
   document.getElementById('accountModalOverlay').classList.remove('open');
@@ -2439,6 +2666,8 @@ function openAccountEdit(acc){
   document.getElementById('acSaldo').value = acc.saldo || 0;
   document.getElementById('acLimite').value = acc.limite || 0;
   document.getElementById('acFatura').value = acc.fatura || 0;
+  document.getElementById('acFechamento').value = acc.fechamento || '';
+  document.getElementById('acVencimento').value = acc.vencimento || '';
   document.getElementById('acBank').value = acc.bank;
   document.getElementById('acPrincipal').checked = !!acc.principal;
   toggleAccountFields(acc.tipo || 'conta');
@@ -2597,6 +2826,9 @@ function allCategories(){
 }
 function catLabel(key){ return allCategories()[key] || key || 'Outros'; }
 async function loadCustomCats(){ __customCats = await storeGet('custom_categories', []); }
+async function loadBankFavorites(){ const f = await storeGet('bank_favorites', null); if (Array.isArray(f) && f.length) __bankFavorites = f; }
+document.getElementById('bankChooserClose').onclick = ()=> document.getElementById('bankChooserOverlay').classList.remove('open');
+document.getElementById('bankSearch').oninput = (e)=>{ const cur = __bankChooserCtx ? document.getElementById(__bankChooserCtx.hiddenInputId).value : ''; renderBankChooserList(e.target.value, cur); };
 function fillCategorySelect(sel, selected){
   const cats = allCategories();
   sel.innerHTML = Object.entries(cats).map(([k,label])=>`<option value="${k}">${esc(label)}</option>`).join('');
@@ -2791,22 +3023,37 @@ async function renderFinance(){
     const accBox = document.getElementById('accountLines');
     if (accounts.length===0){ accBox.innerHTML = emptyCta('Cadastre suas contas e cartões pra acompanhar saldo e fatura.', '+ Adicionar conta', 'btnOpenAccModal'); }
     else {
-      accBox.innerHTML = accounts.map(a=>{
+      accBox.innerHTML = accounts.map((a,idx)=>{
         const isCartao = a.tipo==='cartao';
         const valHtml = isCartao
           ? `<div class="val" style="color:var(--brick)">${fmtMoney(a.fatura)}</div>`
           : `<div class="val">${fmtMoney(a.saldo)}</div>`;
-        const subHtml = isCartao
-          ? `Cartão de crédito · limite ${fmtMoney(a.limite)}`
-          : bankById(a.bank).name;
+        let subHtml;
+        if (isCartao){
+          const dias = [a.fechamento?('fecha dia '+a.fechamento):'', a.vencimento?('vence dia '+a.vencimento):''].filter(Boolean).join(' · ');
+          subHtml = `${bankById(a.bank).name} · limite ${fmtMoney(a.limite)}${dias?' · '+dias:''}`;
+        } else subHtml = bankById(a.bank).name;
         return `<div class="acccard" data-id="${a.id}">
-          ${bankAvatarHtml(a.bank)}
+          <div class="bankavatar acc-logo">
+            <img src="assets/bancos/${bankById(a.bank).id}.svg" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">
+            <div class="fallback-initials" style="display:none;background:${bankColor(bankById(a.bank))}">${bankInitials(bankById(a.bank))}</div>
+          </div>
           <div class="info"><div class="ttl">${esc(a.label)} ${a.principal?'<span class="badge b-principal">Principal</span>':''}</div>
             <div class="sub">${subHtml}</div>
           </div>
-          ${valHtml}
+          <div class="accright">
+            ${valHtml}
+            <div class="accacts">
+              <button class="accact" data-act="up" data-id="${a.id}" title="Subir" ${idx===0?'disabled':''}>↑</button>
+              <button class="accact" data-act="down" data-id="${a.id}" title="Descer" ${idx===accounts.length-1?'disabled':''}>↓</button>
+              <button class="accact ${a.principal?'on':''}" data-act="star" data-id="${a.id}" title="Tornar principal">★</button>
+              <button class="accact" data-act="edit" data-id="${a.id}" title="Editar">✎</button>
+              <button class="accact danger" data-act="del" data-id="${a.id}" title="Excluir">🗑</button>
+            </div>
+          </div>
         </div>`;
       }).join('');
+      accBox.querySelectorAll('.accact').forEach(btn=> btn.onclick = (ev)=>{ ev.stopPropagation(); accountAction(btn.dataset.act, btn.dataset.id); });
       accBox.querySelectorAll('.acccard').forEach(card=>{
         card.onclick = ()=>{ const a = accounts.find(x=>x.id===card.dataset.id); if (a) openAccountEdit(a); };
       });
@@ -2836,10 +3083,11 @@ async function renderFinance(){
           else if (!active) sub = 'expirou em ' + l.endDate.split('-').reverse().join('/');
           else { const days = Math.ceil((new Date(l.endDate+'T00:00:00') - now)/86400000); sub = 'até ' + l.endDate.split('-').reverse().join('/') + ' · ' + days + ' dias restantes'; }
         } else { sub = TYPE_LABEL[l.type]; }
+        const payTxt = l.payday ? 'recebe todo dia ' + l.payday : '';
         const regDate = l.createdAt ? new Date(l.createdAt).toLocaleDateString('pt-BR') : '';
         return `<div class="inccard ${!active?'inactive':''}" data-id="${l.id}">
           <div class="typedot b-${l.type}"></div>
-          <div class="info"><div class="ttl">${esc(l.label)}</div><div class="sub ${!active?'expired':''}">${sub}${regDate?' · cadastrada em '+regDate:''}</div></div>
+          <div class="info"><div class="ttl">${esc(l.label)}</div><div class="sub ${!active?'expired':''}">${sub}${payTxt?' · '+payTxt:''}${regDate?' · cadastrada em '+regDate:''}</div></div>
           <div class="val">${fmtMoney(l.value)}</div>
         </div>`;
       }).join('');
@@ -3718,7 +3966,19 @@ function enhanceDateTimeInputs(){
 enhanceSelects();
 enhanceDateTimeInputs();
 
-document.getElementById('fabNew').onclick = ()=> document.getElementById('btnOpenExpModal').click();
+const FAB_OPENERS = { expense:'btnOpenExpModal', income:'btnOpenIncModal', account:'btnOpenAccModal', task:'btnNewTask' };
+function closeFabMenu(){ document.getElementById('fabMenu').classList.remove('open'); document.getElementById('fabNew').classList.remove('open'); }
+document.getElementById('fabNew').onclick = (ev)=>{
+  ev.stopPropagation();
+  const menu = document.getElementById('fabMenu');
+  const open = !menu.classList.contains('open');
+  menu.classList.toggle('open', open);
+  document.getElementById('fabNew').classList.toggle('open', open);
+};
+document.querySelectorAll('#fabMenu .fab-item').forEach(btn=>{
+  btn.onclick = (ev)=>{ ev.stopPropagation(); closeFabMenu(); document.getElementById(FAB_OPENERS[btn.dataset.fab]).click(); };
+});
+document.addEventListener('click', (e)=>{ if (!e.target.closest('#fabMenu') && !e.target.closest('#fabNew')) closeFabMenu(); });
 
 /* modais: Esc fecha, clique no fundo fecha, foco no primeiro campo, Enter salva */
 document.querySelectorAll('.modal-overlay').forEach(ov=>{
@@ -3768,6 +4028,7 @@ document.addEventListener('visibilitychange', async ()=>{
       checklist = __cache.checklist_v6 || {};
       applyPrefs(__cache.user_prefs || {});
       __customCats = __cache.custom_categories || [];
+      if (Array.isArray(__cache.bank_favorites) && __cache.bank_favorites.length) __bankFavorites = __cache.bank_favorites;
       const page = document.querySelector('.sectiontab.active')?.dataset.page;
       if (page==='financeiro') renderFinance();
       if (page==='agenda'){ renderAgenda(); renderHomeCharts(); }
@@ -3780,6 +4041,7 @@ async function init(){
   document.getElementById('ifoodDate').value = dkey(new Date());
   applyPrefs(await storeGet('user_prefs', {}));
   await loadCustomCats();
+  await loadBankFavorites();
   await ensureSeeded();
   renderHomeCharts();
   renderAgenda();

@@ -62,6 +62,12 @@ própria e um PR separado.
       parser em `ofx.php`.
 - [ ] **Rendas com recorrência visível** — ocorrências de renda no mapa de
       calor e nos gráficos, como as despesas recorrentes já têm.
+- [x] **Front do financeiro (pacote)** — catálogo de ~87 bancos com busca e
+      até 11 favoritos editáveis (estilo app de banco); dia de pagamento na
+      renda; no cartão, dia de fechamento e vencimento da fatura; card de
+      conta com logo em destaque, editar/excluir/reordenar e marcar principal;
+      botão "+" flutuante vira menu (despesa / renda / conta / tarefa).
+      Colunas novas: `transactions.payday`, `accounts.fechamento/vencimento`.
 - [x] **Metas por categoria** — limites em "Metas do mês" com barra de
       progresso e aviso ao estourar.
 - [x] **Alerta de gasto fora do padrão** — em Saídas, detecta despesa do mês
