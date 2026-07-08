@@ -497,6 +497,14 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .checkbtn.checked{background:var(--sage);border-color:var(--sage);color:#fff;}
   .empty{color:var(--text-3);font-size:12px;padding:18px 0;font-family:'IBM Plex Mono',monospace;}
   .footnote{font-size:11px;color:var(--text-3);margin-top:8px;line-height:1.6;}
+  .clt-result{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 13px;margin:4px 0 12px;}
+  .clt-result:empty{display:none;}
+  .clt-line{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:3px 0;}
+  .clt-line span{color:var(--text-2);} .clt-line b{font-family:'IBM Plex Mono',monospace;}
+  .clt-line.neg b{color:var(--brick);} .clt-line.info b{color:var(--text-3);}
+  .clt-line.total{border-top:1px solid var(--line-strong);margin-top:4px;padding-top:7px;font-weight:600;}
+  .clt-line.total b{color:var(--sage);font-size:14px;}
+  .clt-info{font-size:10.5px;color:var(--text-3);margin-top:7px;font-family:'IBM Plex Mono',monospace;}
 
   /* modal */
   .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:50;align-items:center;justify-content:center;padding:20px;overflow-y:auto;}
@@ -1081,9 +1089,15 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
 <div class="modal-overlay" id="incomeModalOverlay">
   <div class="modal">
     <h3 id="incomeModalTitle">Nova renda</h3>
-    <div class="field"><label>Nome</label><input type="text" id="imLabel" placeholder="Ex: PJ EZ Soft"></div>
+    <div class="field"><label>Nome</label><input type="text" id="imLabel" placeholder="Ex: Salário, PJ EZ Soft"></div>
     <div class="field-row">
-      <div class="field"><label>Valor mensal (R$)</label><input type="number" id="imValue" step="0.01"></div>
+      <div class="field"><label>Regime</label>
+        <select id="imRegime">
+          <option value="nenhum">Outro / valor fixo</option>
+          <option value="clt">CLT (calcular líquido)</option>
+          <option value="pj">PJ (calcular líquido)</option>
+        </select>
+      </div>
       <div class="field"><label>Tipo</label>
         <select id="imType">
           <option value="fixa">Fixa</option>
@@ -1092,13 +1106,45 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
         </select>
       </div>
     </div>
-    <div class="field-row">
-      <div class="field" id="imPaydayField"><label>Dia do pagamento</label><input type="number" id="imPayday" min="1" max="31" placeholder="Ex: 5"></div>
-      <div class="field" id="imEndField" style="display:none;"><label>Válida até</label><input type="date" id="imEnd"></div>
+
+    <div id="imCltPanel" style="display:none;">
+      <div class="field-row">
+        <div class="field"><label>Salário bruto (R$)</label><input type="number" id="imBruto" step="0.01" placeholder="0"></div>
+        <div class="field"><label>Dependentes</label><input type="number" id="imDeps" min="0" step="1" placeholder="0"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Horas extras 50%</label><input type="number" id="imHe50" min="0" step="0.5" placeholder="0"></div>
+        <div class="field"><label>Horas extras 100%</label><input type="number" id="imHe100" min="0" step="0.5" placeholder="0"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Convênio médico (R$)</label><input type="number" id="imConvMed" step="0.01" placeholder="0"></div>
+        <div class="field"><label>Convênio odontológico (R$)</label><input type="number" id="imConvOdo" step="0.01" placeholder="0"></div>
+      </div>
+      <div class="field"><label>Outros descontos (R$)</label><input type="number" id="imOutros" step="0.01" placeholder="0"></div>
+      <div id="imCltResult" class="clt-result"></div>
     </div>
+
+    <div id="imPjPanel" style="display:none;">
+      <div class="field-row">
+        <div class="field"><label>Valor bruto (R$)</label><input type="number" id="imPjBruto" step="0.01" placeholder="0"></div>
+        <div class="field"><label>Impostos (%)</label><input type="number" id="imPjImposto" step="0.01" placeholder="Ex: 6"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Convênio/plano (R$)</label><input type="number" id="imPjConv" step="0.01" placeholder="0"></div>
+        <div class="field"><label>Outros descontos (R$)</label><input type="number" id="imPjOutros" step="0.01" placeholder="0"></div>
+      </div>
+      <div id="imPjResult" class="clt-result"></div>
+    </div>
+
+    <div class="field-row">
+      <div class="field"><label id="imValueLbl">Valor mensal líquido (R$)</label><input type="number" id="imValue" step="0.01"></div>
+      <div class="field" id="imPaydayField"><label>Dia do pagamento</label><input type="number" id="imPayday" min="1" max="31" placeholder="Ex: 5"></div>
+    </div>
+    <div class="field" id="imEndField" style="display:none;"><label>Válida até</label><input type="date" id="imEnd"></div>
     <div class="field"><label>Conta de recebimento (opcional)</label>
       <select id="imAccount"><option value="">Não vincular a uma conta</option></select>
     </div>
+    <div class="footnote" style="margin-bottom:6px;">CLT/PJ calculam uma estimativa do líquido. Se um mês vier diferente (bônus, hora extra, desconto), ajuste o valor mensal na mão.</div>
     <div class="modal-actions">
       <button class="btn-ghost" id="imDelete" style="display:none;margin-right:auto;color:var(--brick);border-color:var(--brick);">Excluir</button>
       <button class="btn-ghost" id="imCancel">Cancelar</button>
@@ -2581,11 +2627,92 @@ document.querySelectorAll('.fsub').forEach(t=>{
   };
 });
 
+/* ---- Cálculo CLT / PJ (estimativa de líquido) ---- */
+// Tabelas 2025: INSS progressivo e IRRF mensal.
+function calcINSS(gross){
+  const cap = 8157.41; const g = Math.min(Math.max(0, gross), cap);
+  const t = [[1518,0.075],[2793.88,0.09],[4190.83,0.12],[8157.41,0.14]];
+  let prev=0, tax=0;
+  for (const [top,rate] of t){ if (g>prev){ tax += (Math.min(g,top)-prev)*rate; prev=top; } else break; }
+  return tax;
+}
+function irrfFromBase(base){
+  const t = [[2259.20,0,0],[2826.65,0.075,169.44],[3751.05,0.15,381.44],[4664.68,0.225,662.77],[Infinity,0.275,896.00]];
+  for (const [top,rate,ded] of t){ if (base<=top) return Math.max(0, base*rate - ded); }
+  return 0;
+}
+function computeCLT(p){
+  const sal = Number(p.bruto||0);
+  const horaBase = sal/220;
+  const extras = (Number(p.he50||0)*horaBase*1.5) + (Number(p.he100||0)*horaBase*2);
+  const brutoTotal = sal + extras;
+  const inss = calcINSS(brutoTotal);
+  const deps = Number(p.deps||0)*189.59;
+  const baseLegal = Math.max(0, brutoTotal - inss - deps);
+  const baseSimpl = Math.max(0, brutoTotal - 564.80);
+  const irrf = Math.min(irrfFromBase(baseLegal), irrfFromBase(baseSimpl));
+  const convMed=Number(p.convMed||0), convOdo=Number(p.convOdo||0), outros=Number(p.outros||0);
+  const liquido = brutoTotal - inss - irrf - convMed - convOdo - outros;
+  return { sal, extras, brutoTotal, inss, irrf, convMed, convOdo, outros, liquido,
+    fgts: brutoTotal*0.08, decimo: sal, ferias: sal + sal/3 };
+}
+function computePJ(p){
+  const bruto = Number(p.bruto||0);
+  const impostos = bruto * (Number(p.imposto||0)/100);
+  const conv = Number(p.conv||0), outros = Number(p.outros||0);
+  return { bruto, impostos, conv, outros, liquido: bruto - impostos - conv - outros };
+}
+const imV = id => Number(document.getElementById(id).value||0);
+function cltParamsFromForm(){ return { bruto:imV('imBruto'), deps:imV('imDeps'), he50:imV('imHe50'), he100:imV('imHe100'), convMed:imV('imConvMed'), convOdo:imV('imConvOdo'), outros:imV('imOutros') }; }
+function pjParamsFromForm(){ return { bruto:imV('imPjBruto'), imposto:imV('imPjImposto'), conv:imV('imPjConv'), outros:imV('imPjOutros') }; }
+function recalcRegime(){
+  const r = document.getElementById('imRegime').value;
+  if (r==='clt'){
+    const c = computeCLT(cltParamsFromForm());
+    document.getElementById('imCltResult').innerHTML = `
+      <div class="clt-line"><span>Bruto${c.extras>0?' + extras':''}</span><b>${fmtMoney(c.brutoTotal)}</b></div>
+      ${c.extras>0?`<div class="clt-line info"><span>Horas extras</span><b>+${fmtMoney(c.extras)}</b></div>`:''}
+      <div class="clt-line neg"><span>INSS</span><b>−${fmtMoney(c.inss)}</b></div>
+      <div class="clt-line neg"><span>IRRF</span><b>−${fmtMoney(c.irrf)}</b></div>
+      ${c.convMed>0?`<div class="clt-line neg"><span>Convênio médico</span><b>−${fmtMoney(c.convMed)}</b></div>`:''}
+      ${c.convOdo>0?`<div class="clt-line neg"><span>Convênio odonto</span><b>−${fmtMoney(c.convOdo)}</b></div>`:''}
+      ${c.outros>0?`<div class="clt-line neg"><span>Outros descontos</span><b>−${fmtMoney(c.outros)}</b></div>`:''}
+      <div class="clt-line total"><span>Líquido</span><b>${fmtMoney(c.liquido)}</b></div>
+      <div class="clt-info">FGTS ${fmtMoney(c.fgts)}/mês · 13º ≈ ${fmtMoney(c.decimo)} · férias ${fmtMoney(c.ferias)}</div>`;
+    if (c.liquido>0) document.getElementById('imValue').value = c.liquido.toFixed(2);
+  } else if (r==='pj'){
+    const c = computePJ(pjParamsFromForm());
+    document.getElementById('imPjResult').innerHTML = `
+      <div class="clt-line"><span>Bruto</span><b>${fmtMoney(c.bruto)}</b></div>
+      ${c.impostos>0?`<div class="clt-line neg"><span>Impostos</span><b>−${fmtMoney(c.impostos)}</b></div>`:''}
+      ${c.conv>0?`<div class="clt-line neg"><span>Convênio/plano</span><b>−${fmtMoney(c.conv)}</b></div>`:''}
+      ${c.outros>0?`<div class="clt-line neg"><span>Outros descontos</span><b>−${fmtMoney(c.outros)}</b></div>`:''}
+      <div class="clt-line total"><span>Líquido</span><b>${fmtMoney(c.liquido)}</b></div>`;
+    if (c.liquido>0) document.getElementById('imValue').value = c.liquido.toFixed(2);
+  }
+}
+function toggleRegime(){
+  const r = document.getElementById('imRegime').value;
+  document.getElementById('imCltPanel').style.display = r==='clt' ? 'block' : 'none';
+  document.getElementById('imPjPanel').style.display = r==='pj' ? 'block' : 'none';
+  document.getElementById('imValueLbl').textContent = r==='nenhum' ? 'Valor mensal (R$)' : 'Valor mensal líquido (R$)';
+  if (r!=='nenhum') recalcRegime();
+}
+['imBruto','imDeps','imHe50','imHe100','imConvMed','imConvOdo','imOutros','imPjBruto','imPjImposto','imPjConv','imPjOutros'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', recalcRegime);
+});
+async function getIncomeMeta(){ return await storeGet('income_meta', {}); }
+
 /* ---- Modal de renda (novo / editar) ---- */
 let editingIncomeId = null;
+document.getElementById('imRegime').onchange = toggleRegime;
 document.getElementById('imType').onchange = (e)=>{
   document.getElementById('imEndField').style.display = e.target.value==='temporaria' ? '' : 'none';
 };
+function resetRegimeFields(){
+  ['imBruto','imDeps','imHe50','imHe100','imConvMed','imConvOdo','imOutros','imPjBruto','imPjImposto','imPjConv','imPjOutros'].forEach(id=> document.getElementById(id).value='');
+  document.getElementById('imCltResult').innerHTML=''; document.getElementById('imPjResult').innerHTML='';
+}
 async function fillIncomeAccountSelect(selectedId){
   const accounts = (await getAccounts()).filter(isContaLike);
   const sel = document.getElementById('imAccount');
@@ -2603,6 +2730,8 @@ document.getElementById('btnOpenIncModal').onclick = async ()=>{
   document.getElementById('imPayday').value = '';
   document.getElementById('imEndField').style.display = 'none';
   document.getElementById('imDelete').style.display = 'none';
+  document.getElementById('imRegime').value = 'nenhum';
+  resetRegimeFields(); toggleRegime();
   await fillIncomeAccountSelect('');
   document.getElementById('incomeModalOverlay').classList.add('open');
 };
@@ -2616,14 +2745,23 @@ document.getElementById('imSave').onclick = async ()=>{
   const pdRaw = parseInt(document.getElementById('imPayday').value, 10);
   const payday = (pdRaw>=1 && pdRaw<=31) ? pdRaw : null;
   const accountId = document.getElementById('imAccount').value || null;
+  const regime = document.getElementById('imRegime').value;
   let lines = await getIncomeLines();
+  let id = editingIncomeId;
   if (editingIncomeId){
     const l = lines.find(x=>x.id===editingIncomeId);
-    if (l){ l.label=label; l.value=value; l.type=type; l.endDate = type==='temporaria'?endDate:null; l.payday=payday; l.accountId=accountId; }
+    if (l){ l.label=label; l.value=value; l.type=type; l.endDate = type==='temporaria'?endDate:null; l.payday=payday; l.accountId=accountId; l.regime = regime==='nenhum'?null:regime; }
   } else {
-    lines.push({ id: genId(), label, value, type, endDate: type==='temporaria'?endDate:null, payday, accountId, createdAt: Date.now() });
+    id = genId();
+    lines.push({ id, label, value, type, endDate: type==='temporaria'?endDate:null, payday, accountId, regime: regime==='nenhum'?null:regime, createdAt: Date.now() });
   }
   await storeSet('income_lines', lines);
+  // parâmetros do cálculo CLT/PJ ficam em kv separado (não passam pela tabela)
+  const meta = await getIncomeMeta();
+  if (regime==='clt') meta[id] = { regime, ...cltParamsFromForm() };
+  else if (regime==='pj') meta[id] = { regime, ...pjParamsFromForm() };
+  else delete meta[id];
+  await storeSet('income_meta', meta);
   document.getElementById('incomeModalOverlay').classList.remove('open');
   renderFinance();
   toast(editingIncomeId ? 'Renda atualizada' : 'Renda cadastrada');
@@ -2652,6 +2790,22 @@ async function openIncomeEdit(line){
   document.getElementById('imEnd').value = line.endDate || '';
   document.getElementById('imPayday').value = line.payday || '';
   document.getElementById('imEndField').style.display = line.type==='temporaria' ? '' : 'none';
+  // recarrega parâmetros CLT/PJ do kv
+  resetRegimeFields();
+  const meta = (await getIncomeMeta())[line.id];
+  const regime = meta && meta.regime ? meta.regime : 'nenhum';
+  document.getElementById('imRegime').value = regime;
+  if (regime==='clt'){
+    document.getElementById('imBruto').value = meta.bruto||''; document.getElementById('imDeps').value = meta.deps||'';
+    document.getElementById('imHe50').value = meta.he50||''; document.getElementById('imHe100').value = meta.he100||'';
+    document.getElementById('imConvMed').value = meta.convMed||''; document.getElementById('imConvOdo').value = meta.convOdo||'';
+    document.getElementById('imOutros').value = meta.outros||'';
+  } else if (regime==='pj'){
+    document.getElementById('imPjBruto').value = meta.bruto||''; document.getElementById('imPjImposto').value = meta.imposto||'';
+    document.getElementById('imPjConv').value = meta.conv||''; document.getElementById('imPjOutros').value = meta.outros||'';
+  }
+  toggleRegime();
+  document.getElementById('imValue').value = line.value;  // mantém o valor salvo
   await fillIncomeAccountSelect(line.accountId || '');
   document.getElementById('imDelete').style.display = '';
   document.getElementById('incomeModalOverlay').classList.add('open');
