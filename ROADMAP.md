@@ -62,6 +62,12 @@ própria e um PR separado.
       parser em `ofx.php`.
 - [ ] **Rendas com recorrência visível** — ocorrências de renda no mapa de
       calor e nos gráficos, como as despesas recorrentes já têm.
+- [ ] **Financeiro estilo banking app** — em entrega incremental:
+      - [x] P1: visão consolidada (patrimônio líquido, saldo total, fatura
+        total, crédito disponível) + cheque especial por conta (limite,
+        saldo negativo, alerta de uso). Coluna `accounts.cheque_especial`.
+      - [ ] P2: detalhe/extrato por conta (rendas vinculáveis a uma conta).
+      - [ ] P3: alternar visão unitária (por banco) × consolidada + polish.
 - [x] **Front do financeiro (pacote)** — catálogo de ~87 bancos com busca e
       até 11 favoritos editáveis (estilo app de banco); dia de pagamento na
       renda; no cartão, dia de fechamento e vencimento da fatura; card de

@@ -227,6 +227,15 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .acccard .ttl{font-size:14px;font-weight:500;display:flex;align-items:center;gap:6px;}
   .acccard .sub{font-size:10.5px;color:var(--text-3);margin-top:3px;font-family:'IBM Plex Mono',monospace;}
   .acccard .val{font-family:'IBM Plex Mono',monospace;font-size:14px;color:var(--sage);}
+  .acc-summary{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px;}
+  .acc-summary .sumcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:12px 14px;}
+  .acc-summary .sumcard.wide{grid-column:1 / -1;background:linear-gradient(135deg,var(--accent-soft),transparent);}
+  .acc-summary .sl{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3);margin-bottom:4px;}
+  .acc-summary .sv{font-family:'IBM Plex Mono',monospace;font-size:19px;font-weight:600;}
+  .acc-summary .sumcard:not(.wide) .sv{font-size:15px;}
+  .acc-summary .sv.sage{color:var(--sage);} .acc-summary .sv.brick{color:var(--brick);}
+  .acc-summary .sh{font-size:10px;color:var(--text-3);margin-top:2px;}
+  .od-alert{background:rgba(225,92,86,.08);border:1px solid rgba(225,92,86,.35);border-radius:var(--r-sm);padding:10px 13px;margin-bottom:12px;font-size:12px;color:var(--brick);}
   .acccard .acc-logo{width:44px;height:44px;border-radius:10px;}
   .acccard .acc-logo img{padding:5px;border-radius:10px;}
   .acccard .accright{display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
@@ -696,8 +705,9 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
       <div class="finrow3" id="finRow3"></div>
 
       <div class="fpage-head"><h2 style="margin:26px 0 0;">Contas</h2><button class="addbtn-sm" id="btnOpenAccModal">+</button></div>
-      <div class="dashcard-sub" style="margin:2px 0 4px;">Sem Open Finance ainda — você registra o saldo manualmente. Some todas as contas em uso.</div>
-      <div id="accTotalLine" style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:var(--sage);margin-bottom:12px;">R$ 0,00</div>
+      <div class="dashcard-sub" style="margin:2px 0 10px;">Sem Open Finance ainda — você registra o saldo manualmente. Visão geral das suas contas e cartões.</div>
+      <div id="accSummary" class="acc-summary"></div>
+      <div id="accOverdraftAlert"></div>
       <div id="accountLines"></div>
 
       <div class="dashgrid">
@@ -1020,7 +1030,10 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
         <option value="cartao">Cartão de crédito</option>
       </select>
     </div>
-    <div class="field" id="acSaldoField"><label>Saldo atual (R$)</label><input type="number" id="acSaldo" step="0.01"></div>
+    <div class="field-row" id="acContaFields">
+      <div class="field"><label>Saldo atual (R$)</label><input type="number" id="acSaldo" step="0.01"></div>
+      <div class="field"><label>Limite cheque especial (R$)</label><input type="number" id="acChequeEspecial" step="0.01" placeholder="0"></div>
+    </div>
     <div class="field-row" id="acCartaoFields" style="display:none;">
       <div class="field"><label>Limite total (R$)</label><input type="number" id="acLimite" step="0.01"></div>
       <div class="field"><label>Fatura atual (R$)</label><input type="number" id="acFatura" step="0.01"></div>
@@ -2592,7 +2605,7 @@ async function accountAction(act, id){
   }
 }
 function toggleAccountFields(tipo){
-  document.getElementById('acSaldoField').style.display = tipo==='cartao' ? 'none' : '';
+  document.getElementById('acContaFields').style.display = tipo==='cartao' ? 'none' : 'flex';
   document.getElementById('acCartaoFields').style.display = tipo==='cartao' ? 'flex' : 'none';
   document.getElementById('acFaturaDias').style.display = tipo==='cartao' ? 'flex' : 'none';
 }
@@ -2606,6 +2619,7 @@ document.getElementById('btnOpenAccModal').onclick = ()=>{
   document.getElementById('acLabel').value = '';
   document.getElementById('acTipo').value = 'conta';
   document.getElementById('acSaldo').value = '';
+  document.getElementById('acChequeEspecial').value = '';
   document.getElementById('acLimite').value = '';
   document.getElementById('acFatura').value = '';
   document.getElementById('acFechamento').value = '';
@@ -2624,6 +2638,7 @@ document.getElementById('acSave').onclick = async ()=>{
   if (!label) return;
   const tipo = document.getElementById('acTipo').value;
   const saldo = Number(document.getElementById('acSaldo').value||0);
+  const chequeEspecial = tipo==='conta' ? Number(document.getElementById('acChequeEspecial').value||0) : 0;
   const limite = Number(document.getElementById('acLimite').value||0);
   const fatura = Number(document.getElementById('acFatura').value||0);
   const fechamento = tipo==='cartao' ? dayOrNull('acFechamento') : null;
@@ -2634,9 +2649,9 @@ document.getElementById('acSave').onclick = async ()=>{
   if (principal) accounts.forEach(a=>a.principal=false);
   if (editingAccountId){
     const a = accounts.find(x=>x.id===editingAccountId);
-    if (a){ a.label=label; a.tipo=tipo; a.saldo=saldo; a.limite=limite; a.fatura=fatura; a.fechamento=fechamento; a.vencimento=vencimento; a.bank=bank; a.principal=principal; }
+    if (a){ a.label=label; a.tipo=tipo; a.saldo=saldo; a.chequeEspecial=chequeEspecial; a.limite=limite; a.fatura=fatura; a.fechamento=fechamento; a.vencimento=vencimento; a.bank=bank; a.principal=principal; }
   } else {
-    accounts.push({ id: genId(), label, tipo, saldo, limite, fatura, fechamento, vencimento, bank, principal, createdAt: Date.now() });
+    accounts.push({ id: genId(), label, tipo, saldo, chequeEspecial, limite, fatura, fechamento, vencimento, bank, principal, createdAt: Date.now() });
   }
   await storeSet('accounts_v2', accounts);
   document.getElementById('accountModalOverlay').classList.remove('open');
@@ -2664,6 +2679,7 @@ function openAccountEdit(acc){
   document.getElementById('acLabel').value = acc.label;
   document.getElementById('acTipo').value = acc.tipo || 'conta';
   document.getElementById('acSaldo').value = acc.saldo || 0;
+  document.getElementById('acChequeEspecial').value = acc.chequeEspecial || '';
   document.getElementById('acLimite').value = acc.limite || 0;
   document.getElementById('acFatura').value = acc.fatura || 0;
   document.getElementById('acFechamento').value = acc.fechamento || '';
@@ -3013,26 +3029,47 @@ async function renderFinance(){
       <div class="fc"><div class="v">${fmtMoney(saidasPeriodo)}</div><div class="l">Saídas ${periodLabel(finPeriod)}</div></div>
       <div class="fc"><div class="v" style="color:var(--sage)">${fmtMoney(ifoodPeriod)}</div><div class="l">Variável ${periodLabel(finPeriod)}</div></div>`;
 
-    const contasSaldo = accounts.filter(a=>(a.tipo||'conta')==='conta').reduce((s,a)=>s+Number(a.saldo||0),0);
-    const cartoesFatura = accounts.filter(a=>a.tipo==='cartao').reduce((s,a)=>s+Number(a.fatura||0),0);
-    const nContas = accounts.filter(a=>(a.tipo||'conta')==='conta').length;
-    const nCartoes = accounts.filter(a=>a.tipo==='cartao').length;
-    document.getElementById('accTotalLine').innerHTML =
-      `<span style="color:var(--sage)">${fmtMoney(contasSaldo)}</span> em ${nContas} ${nContas===1?'conta':'contas'}` +
-      (nCartoes>0 ? ` &nbsp;·&nbsp; <span style="color:var(--brick)">${fmtMoney(cartoesFatura)}</span> em fatura (${nCartoes} ${nCartoes===1?'cartão':'cartões'})` : '');
+    const contas = accounts.filter(a=>(a.tipo||'conta')==='conta');
+    const cartoes = accounts.filter(a=>a.tipo==='cartao');
+    const saldoTotal = contas.reduce((s,a)=>s+Number(a.saldo||0),0);
+    const faturaTotal = cartoes.reduce((s,a)=>s+Number(a.fatura||0),0);
+    const patrimonio = saldoTotal - faturaTotal;
+    const creditoCartoes = cartoes.reduce((s,a)=>s+Math.max(0, Number(a.limite||0)-Number(a.fatura||0)),0);
+    const chequeUsadoTotal = contas.reduce((s,a)=> s + (Number(a.saldo||0)<0 ? -Number(a.saldo) : 0), 0);
+    const chequeDisp = contas.reduce((s,a)=>{ const ce=Number(a.chequeEspecial||0); const used=Number(a.saldo||0)<0?-Number(a.saldo):0; return s+Math.max(0, ce-used); }, 0);
+    const creditoDisp = creditoCartoes + chequeDisp;
+    const overdraft = contas.filter(a=>Number(a.saldo||0)<0);
+    const sumBox = document.getElementById('accSummary');
+    if (accounts.length===0){ sumBox.innerHTML=''; }
+    else {
+      sumBox.innerHTML = `
+        <div class="sumcard wide"><div class="sl">Patrimônio líquido</div><div class="sv ${patrimonio>=0?'sage':'brick'}">${fmtMoney(patrimonio)}</div><div class="sh">saldos − faturas</div></div>
+        <div class="sumcard"><div class="sl">Saldo em contas</div><div class="sv ${saldoTotal<0?'brick':''}">${fmtMoney(saldoTotal)}</div></div>
+        <div class="sumcard"><div class="sl">Fatura dos cartões</div><div class="sv brick">${fmtMoney(faturaTotal)}</div></div>
+        <div class="sumcard"><div class="sl">Crédito disponível</div><div class="sv sage">${fmtMoney(creditoDisp)}</div></div>`;
+    }
+    const odBox = document.getElementById('accOverdraftAlert');
+    odBox.innerHTML = overdraft.length ? `<div class="od-alert">⚠︎ ${overdraft.length===1?'A conta':'As contas'} ${overdraft.map(a=>esc(a.label)).join(', ')} ${overdraft.length===1?'está':'estão'} no cheque especial · ${fmtMoney(chequeUsadoTotal)} usado${chequeDisp>0?' · '+fmtMoney(chequeDisp)+' ainda disponível':''}</div>` : '';
     const accBox = document.getElementById('accountLines');
     if (accounts.length===0){ accBox.innerHTML = emptyCta('Cadastre suas contas e cartões pra acompanhar saldo e fatura.', '+ Adicionar conta', 'btnOpenAccModal'); }
     else {
       accBox.innerHTML = accounts.map((a,idx)=>{
         const isCartao = a.tipo==='cartao';
+        const saldoNeg = !isCartao && Number(a.saldo||0)<0;
         const valHtml = isCartao
           ? `<div class="val" style="color:var(--brick)">${fmtMoney(a.fatura)}</div>`
-          : `<div class="val">${fmtMoney(a.saldo)}</div>`;
+          : `<div class="val"${saldoNeg?' style="color:var(--brick)"':''}>${fmtMoney(a.saldo)}</div>`;
         let subHtml;
         if (isCartao){
           const dias = [a.fechamento?('fecha dia '+a.fechamento):'', a.vencimento?('vence dia '+a.vencimento):''].filter(Boolean).join(' · ');
           subHtml = `${bankById(a.bank).name} · limite ${fmtMoney(a.limite)}${dias?' · '+dias:''}`;
-        } else subHtml = bankById(a.bank).name;
+        } else {
+          const ce = Number(a.chequeEspecial||0);
+          let ceTxt = '';
+          if (saldoNeg){ const used=-Number(a.saldo); ceTxt = ' · cheque especial: ' + fmtMoney(used) + ' usado' + (ce>0?' de '+fmtMoney(ce):''); }
+          else if (ce>0){ ceTxt = ' · cheque especial ' + fmtMoney(ce); }
+          subHtml = bankById(a.bank).name + ceTxt;
+        }
         return `<div class="acccard" data-id="${a.id}">
           <div class="bankavatar acc-logo">
             <img src="assets/bancos/${bankById(a.bank).id}.svg" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">

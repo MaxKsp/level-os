@@ -37,6 +37,7 @@ function finance_load_set(PDO $db, int $uid, string $set): array {
                 'label' => $r['label'],
                 'tipo' => $r['tipo'],
                 'saldo' => fin_num($r['saldo']),
+                'chequeEspecial' => isset($r['cheque_especial']) ? fin_num($r['cheque_especial']) : 0,
                 'limite' => fin_num($r['limite']),
                 'fatura' => fin_num($r['fatura']),
                 'fechamento' => isset($r['fechamento']) && $r['fechamento'] !== null ? (int)$r['fechamento'] : null,
@@ -84,14 +85,14 @@ function finance_save_set(PDO $db, int $uid, string $set, array $rows): void {
     try {
         if ($set === 'accounts') {
             $db->prepare('DELETE FROM accounts WHERE user_id = ?')->execute([$uid]);
-            $ins = $db->prepare('INSERT INTO accounts (user_id, client_id, label, tipo, saldo, limite, fatura, fechamento, vencimento, bank, principal, created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
+            $ins = $db->prepare('INSERT INTO accounts (user_id, client_id, label, tipo, saldo, cheque_especial, limite, fatura, fechamento, vencimento, bank, principal, created_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)');
             foreach ($rows as $a) {
                 $fech = isset($a['fechamento']) && $a['fechamento'] !== null && (int)$a['fechamento']>=1 && (int)$a['fechamento']<=31 ? (int)$a['fechamento'] : null;
                 $venc = isset($a['vencimento']) && $a['vencimento'] !== null && (int)$a['vencimento']>=1 && (int)$a['vencimento']<=31 ? (int)$a['vencimento'] : null;
                 $ins->execute([
                     $uid, (string)($a['id'] ?? uniqid('a')), $a['label'] ?? '', $a['tipo'] ?? 'conta',
-                    fin_num($a['saldo'] ?? 0), fin_num($a['limite'] ?? 0), fin_num($a['fatura'] ?? 0),
+                    fin_num($a['saldo'] ?? 0), fin_num($a['chequeEspecial'] ?? 0), fin_num($a['limite'] ?? 0), fin_num($a['fatura'] ?? 0),
                     $fech, $venc, $a['bank'] ?? null, !empty($a['principal']) ? 1 : 0,
                     isset($a['createdAt']) ? (int)$a['createdAt'] : null,
                 ]);
