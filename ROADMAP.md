@@ -75,7 +75,9 @@ própria e um PR separado.
       - [x] Seletor: "Outro" sai do grid, vai pra dentro de "Mais bancos".
       - [x] Transferência entre contas (e pagar fatura de cartão com conta):
         ajusta saldos/fatura e aparece nos dois extratos. kv `transfers`.
-      - [ ] Cofrinhos / metas de guardar dentro da conta.
+      - [x] Cofrinhos / metas de guardar dentro da conta: reserva parte do
+        saldo (mostra "saldo livre"), meta + barra de progresso, guardar/
+        resgatar/editar/excluir. kv `vaults`.
       - [ ] Projeção de saldo do mês (rendas + despesas recorrentes).
       - [ ] Lembrete de vencimento de fatura.
 - [x] **Front do financeiro (pacote)** — catálogo de ~87 bancos com busca e

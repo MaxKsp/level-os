@@ -243,6 +243,14 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .ad-row .adm{font-size:10.5px;color:var(--text-3);margin-top:1px;}
   .ad-row .adv{font-family:'IBM Plex Mono',monospace;font-size:13px;flex-shrink:0;}
   .ad-row .adv.sage{color:var(--sage);} .ad-row .adv.brick{color:var(--brick);}
+  .vaultcard{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;margin-bottom:8px;}
+  .vaulttop{display:flex;align-items:center;gap:8px;}
+  .vaulttop .vaultname{font-size:13px;font-weight:500;cursor:pointer;}
+  .vaulttop .vaultname:hover{color:var(--accent);}
+  .vaulttop .vaultval{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--sage);}
+  .vaultbar{height:6px;background:var(--surface-3);border-radius:99px;overflow:hidden;margin:8px 0;}
+  .vaultbar>div{height:100%;background:var(--grad);border-radius:99px;}
+  .vaultacts{display:flex;gap:6px;}
   .acc-viewtoggle{display:inline-flex;gap:2px;background:var(--surface-2);border-radius:99px;padding:3px;margin-bottom:12px;}
   .acc-viewtoggle button{border:none;background:none;color:var(--text-3);font-size:12px;font-weight:500;padding:6px 14px;border-radius:99px;cursor:pointer;transition:background .12s,color .12s;}
   .acc-viewtoggle button.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.2);}
@@ -1072,6 +1080,31 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
     <div class="modal-actions">
       <button class="btn-ghost" id="trCancel">Cancelar</button>
       <button class="btn-primary" id="trSave">Transferir</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="vaultModalOverlay">
+  <div class="modal">
+    <h3 id="vaultModalTitle">Novo cofrinho</h3>
+    <div class="field"><label>Nome</label><input type="text" id="vkName" placeholder="Ex: Viagem, Reserva de emergência"></div>
+    <div class="field"><label>Meta (R$, opcional)</label><input type="number" id="vkGoal" step="0.01" placeholder="0"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="vkDelete" style="display:none;margin-right:auto;color:var(--brick);border-color:var(--brick);">Excluir</button>
+      <button class="btn-ghost" id="vkCancel">Cancelar</button>
+      <button class="btn-primary" id="vkSave">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="vaultMoveOverlay">
+  <div class="modal">
+    <h3 id="vaultMoveTitle">Guardar no cofrinho</h3>
+    <div id="vaultMoveInfo" style="font-size:12px;color:var(--text-2);margin:0 0 12px;"></div>
+    <div class="field"><label>Valor (R$)</label><input type="number" id="vmValue" step="0.01"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="vmCancel">Cancelar</button>
+      <button class="btn-primary" id="vmSave">Confirmar</button>
     </div>
   </div>
 </div>
@@ -2651,6 +2684,7 @@ async function getAccounts(){
   return await storeGet('accounts_v2', []);
 }
 let __accView = 'conta';
+let __reservedByAcc = {};
 function accountCardHtml(a, reorder, idx, total){
   const isCartao = a.tipo==='cartao';
   const saldoNeg = !isCartao && Number(a.saldo||0)<0;
@@ -2666,6 +2700,8 @@ function accountCardHtml(a, reorder, idx, total){
     let ceTxt = '';
     if (saldoNeg){ const used=-Number(a.saldo); ceTxt = ' · cheque especial: ' + fmtMoney(used) + ' usado' + (ce>0?' de '+fmtMoney(ce):''); }
     else if (ce>0){ ceTxt = ' · cheque especial ' + fmtMoney(ce); }
+    const reserved = Number(__reservedByAcc[a.id]||0);
+    if (reserved>0) ceTxt += ' · guardado ' + fmtMoney(reserved);
     subHtml = bankById(a.bank).name + ceTxt;
   }
   const reorderBtns = reorder ? `
@@ -2703,6 +2739,9 @@ async function openAccountDetail(acc){
   const incLines = await getIncomeLines();
   const allAccounts = await getAccounts();
   const transfers = await getTransfers();
+  const vaults = await getVaults();
+  const accVaults = vaults.filter(v=>v.accountId===acc.id);
+  const reserved = accVaults.reduce((s,v)=>s+Number(v.saved||0),0);
   const isCartao = acc.tipo==='cartao';
   const saldoNeg = !isCartao && Number(acc.saldo||0)<0;
   const tiedExp = expLines.filter(e=>e.accountId===acc.id);
@@ -2717,7 +2756,8 @@ async function openAccountDetail(acc){
     let ceTxt = '';
     if (saldoNeg){ const used=-Number(acc.saldo); ceTxt = ` · cheque especial ${fmtMoney(used)} usado${ce>0?' de '+fmtMoney(ce):''}`; }
     else if (ce>0){ ceTxt = ` · cheque especial ${fmtMoney(ce)} disponível`; }
-    headMeta = `Saldo <b style="color:${saldoNeg?'var(--brick)':'var(--sage)'}">${fmtMoney(acc.saldo)}</b>${ceTxt}`;
+    const livreTxt = reserved>0 ? ` · livre ${fmtMoney(Number(acc.saldo||0)-reserved)}` : '';
+    headMeta = `Saldo <b style="color:${saldoNeg?'var(--brick)':'var(--sage)'}">${fmtMoney(acc.saldo)}</b>${livreTxt}${ceTxt}`;
   }
   document.getElementById('adHeader').innerHTML = `
     <div style="display:flex;align-items:center;gap:12px;">
@@ -2754,14 +2794,115 @@ async function openAccountDetail(acc){
         <div class="adm">${relDate(t.date)}</div></div>
         <div class="adv ${out?'brick':'sage'}">${out?'-':'+'}${fmtMoney(t.value).replace('R$ ','')}</div></div>`;
     }).join('')}` : '';
-  const body = incHtml + trHtml + expHtml;
+  let vaultHtml = '';
+  if (!isCartao){
+    vaultHtml = `
+      <div class="ad-sec" style="display:flex;align-items:center;">Cofrinhos
+        <button class="btn-ghost" id="vkNewBtn" style="margin-left:auto;padding:3px 10px;font-size:11px;">+ Novo cofrinho</button></div>` +
+      (accVaults.length ? accVaults.map(v=>{
+        const goal = Number(v.goal||0);
+        const pct = goal>0 ? Math.min(100, Math.round(Number(v.saved||0)/goal*100)) : 0;
+        return `<div class="vaultcard">
+          <div class="vaulttop"><div class="vaultname" data-vkedit="${v.id}">${esc(v.name)}</div>
+            <div class="vaultval">${fmtMoney(v.saved)}${goal>0?' <span style="color:var(--text-3)">/ '+fmtMoney(goal)+'</span>':''}</div></div>
+          ${goal>0?`<div class="vaultbar"><div style="width:${pct}%"></div></div>`:''}
+          <div class="vaultacts">
+            <button class="btn-ghost vk-act" data-vkin="${v.id}" style="padding:4px 10px;font-size:11px;">Guardar</button>
+            <button class="btn-ghost vk-act" data-vkout="${v.id}" style="padding:4px 10px;font-size:11px;">Resgatar</button>
+          </div>
+        </div>`;
+      }).join('') : '<div class="empty" style="padding:10px;">Nenhum cofrinho. Reserve uma parte do saldo pra uma meta.</div>');
+  }
+  const body = incHtml + trHtml + expHtml + vaultHtml;
   document.getElementById('adBody').innerHTML = body || '<div class="empty">Nenhuma movimentação vinculada a esta conta ainda.</div>';
+  const nb = document.getElementById('vkNewBtn'); if (nb) nb.onclick = ()=> openVaultModal(acc.id, null);
+  document.querySelectorAll('#adBody [data-vkedit]').forEach(el=> el.onclick = ()=>{ const v = accVaults.find(x=>x.id===el.dataset.vkedit); if (v) openVaultModal(acc.id, v); });
+  document.querySelectorAll('#adBody [data-vkin]').forEach(el=> el.onclick = ()=>{ const v = accVaults.find(x=>x.id===el.dataset.vkin); if (v) openVaultMove(v, 'in'); });
+  document.querySelectorAll('#adBody [data-vkout]').forEach(el=> el.onclick = ()=>{ const v = accVaults.find(x=>x.id===el.dataset.vkout); if (v) openVaultMove(v, 'out'); });
   document.getElementById('accountDetailOverlay').classList.add('open');
 }
 document.getElementById('adClose').onclick = ()=> document.getElementById('accountDetailOverlay').classList.remove('open');
 document.getElementById('adEdit').onclick = async ()=>{
   document.getElementById('accountDetailOverlay').classList.remove('open');
   const accs = await getAccounts(); const a = accs.find(x=>x.id===__detailAccId); if (a) openAccountEdit(a);
+};
+async function refreshDetail(){
+  if (!__detailAccId) return;
+  const accs = await getAccounts(); const a = accs.find(x=>x.id===__detailAccId);
+  if (a) await openAccountDetail(a);
+}
+
+/* ---- Cofrinhos ---- */
+async function getVaults(){ return await storeGet('vaults', []); }
+let editingVaultId = null, __vaultAccId = null, __moveVaultId = null, __moveMode = 'in';
+function openVaultModal(accountId, vault){
+  __vaultAccId = accountId;
+  editingVaultId = vault ? vault.id : null;
+  document.getElementById('vaultModalTitle').textContent = vault ? 'Editar cofrinho' : 'Novo cofrinho';
+  document.getElementById('vkName').value = vault ? vault.name : '';
+  document.getElementById('vkGoal').value = vault && vault.goal ? vault.goal : '';
+  document.getElementById('vkDelete').style.display = vault ? '' : 'none';
+  document.getElementById('vaultModalOverlay').classList.add('open');
+}
+document.getElementById('vkCancel').onclick = ()=> document.getElementById('vaultModalOverlay').classList.remove('open');
+document.getElementById('vkSave').onclick = async ()=>{
+  const name = document.getElementById('vkName').value.trim();
+  if (!name){ toast('Dê um nome ao cofrinho.', {error:true}); return; }
+  const goal = Number(document.getElementById('vkGoal').value||0);
+  let vaults = await getVaults();
+  if (editingVaultId){ const v = vaults.find(x=>x.id===editingVaultId); if (v){ v.name=name; v.goal=goal; } }
+  else vaults.push({ id: genId(), accountId: __vaultAccId, name, goal, saved: 0, createdAt: Date.now() });
+  await storeSet('vaults', vaults);
+  document.getElementById('vaultModalOverlay').classList.remove('open');
+  await refreshDetail(); renderFinance();
+  toast(editingVaultId ? 'Cofrinho atualizado' : 'Cofrinho criado');
+};
+document.getElementById('vkDelete').onclick = async ()=>{
+  if (!editingVaultId) return;
+  let vaults = await getVaults();
+  const removed = vaults.find(v=>v.id===editingVaultId);
+  vaults = vaults.filter(v=>v.id!==editingVaultId);
+  await storeSet('vaults', vaults);
+  document.getElementById('vaultModalOverlay').classList.remove('open');
+  await refreshDetail(); renderFinance();
+  toast('Cofrinho excluído', { undo: async ()=>{ const cur = await getVaults(); cur.push(removed); await storeSet('vaults', cur); await refreshDetail(); renderFinance(); } });
+};
+async function openVaultMove(vault, mode){
+  __moveVaultId = vault.id; __moveMode = mode;
+  const accounts = await getAccounts();
+  const acc = accounts.find(a=>a.id===vault.accountId);
+  const vaults = await getVaults();
+  const reserved = vaults.filter(v=>v.accountId===vault.accountId).reduce((s,v)=>s+Number(v.saved||0),0);
+  const livre = Number(acc.saldo||0) - reserved;
+  document.getElementById('vaultMoveTitle').textContent = (mode==='in'?'Guardar em ':'Resgatar de ')+vault.name;
+  document.getElementById('vaultMoveInfo').textContent = mode==='in'
+    ? `Disponível pra guardar: ${fmtMoney(livre)}`
+    : `Guardado no cofrinho: ${fmtMoney(vault.saved)}`;
+  document.getElementById('vmValue').value = '';
+  document.getElementById('vaultMoveOverlay').classList.add('open');
+}
+document.getElementById('vmCancel').onclick = ()=> document.getElementById('vaultMoveOverlay').classList.remove('open');
+document.getElementById('vmSave').onclick = async ()=>{
+  const value = Number(document.getElementById('vmValue').value||0);
+  if (value<=0){ toast('Valor inválido.', {error:true}); return; }
+  let vaults = await getVaults();
+  const v = vaults.find(x=>x.id===__moveVaultId);
+  if (!v) return;
+  if (__moveMode==='in'){
+    const accounts = await getAccounts();
+    const acc = accounts.find(a=>a.id===v.accountId);
+    const reserved = vaults.filter(x=>x.accountId===v.accountId).reduce((s,x)=>s+Number(x.saved||0),0);
+    const livre = Number(acc.saldo||0) - reserved;
+    if (value > livre){ toast('Não há saldo livre suficiente.', {error:true}); return; }
+    v.saved = Number(v.saved||0) + value;
+  } else {
+    if (value > Number(v.saved||0)){ toast('Você não tem tudo isso guardado.', {error:true}); return; }
+    v.saved = Number(v.saved||0) - value;
+  }
+  await storeSet('vaults', vaults);
+  document.getElementById('vaultMoveOverlay').classList.remove('open');
+  await refreshDetail(); renderFinance();
+  toast(__moveMode==='in'?'Guardado no cofrinho':'Resgatado do cofrinho');
 };
 
 /* ---- Transferência entre contas ---- */
@@ -3267,6 +3408,9 @@ async function renderFinance(){
   const hasVariableIncome = entries.length>0 || incLines.some(l=>l.type==='variavel');
 
   if (activePage === 'fpage-inicio'){
+    const vaultsAll = await getVaults();
+    __reservedByAcc = {};
+    vaultsAll.forEach(v=>{ __reservedByAcc[v.accountId] = (__reservedByAcc[v.accountId]||0) + Number(v.saved||0); });
     const range = periodRange(finPeriod, now);
     const aggRange = clampRangeToToday(range, now);
     const ifoodPeriod = entries.filter(e=>inRange(e.date, aggRange)).reduce((s,e)=>s+Number(e.valor||0),0);
