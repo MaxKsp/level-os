@@ -242,6 +242,7 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .projcard .pj-v.sage{color:var(--sage);} .projcard .pj-v.brick{color:var(--brick);}
   .projcard .pj-h{font-size:11px;color:var(--text-3);width:100%;font-family:'IBM Plex Mono',monospace;}
   .projcard .pj-h .sage{color:var(--sage);} .projcard .pj-h .brick{color:var(--brick);}
+  .fat-alert{background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.32);border-radius:var(--r-sm);padding:10px 13px;margin-bottom:8px;font-size:12px;color:var(--accent-2);}
   .ad-sec{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-3);margin:14px 0 4px;}
   .ad-row{display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--line);}
   .ad-row .adi{flex:1;min-width:0;}
@@ -742,6 +743,7 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
       <div class="dashcard-sub" style="margin:2px 0 10px;">Sem Open Finance ainda — você registra o saldo manualmente. Visão geral das suas contas e cartões.</div>
       <div id="accSummary" class="acc-summary"></div>
       <div id="accProjection"></div>
+      <div id="accFaturaAlert"></div>
       <div id="accOverdraftAlert"></div>
       <div id="accViewToggle" class="acc-viewtoggle" style="display:none;">
         <button data-accview="conta" class="active">Por conta</button>
@@ -3473,6 +3475,23 @@ async function renderFinance(){
         <div class="pj-h">hoje ${fmtMoney(saldoTotal)}${aReceber>0?' · <span class="sage">+'+fmtMoney(aReceber).replace('R$ ','')+'</span> a receber':''}${aPagar>0?' · <span class="brick">−'+fmtMoney(aPagar).replace('R$ ','')+'</span> a pagar':''}</div>
       </div>`;
     }
+    // Lembrete de vencimento de fatura (cartões com vencimento e fatura > 0)
+    const fatBox = document.getElementById('accFaturaAlert');
+    const todayD = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const reminders = [];
+    cartoes.forEach(c=>{
+      if (!c.vencimento || Number(c.fatura||0)<=0) return;
+      let dueM = now.getMonth(), dueY = now.getFullYear();
+      let due = new Date(dueY, dueM, clampDayOfMonth(dueY, dueM, c.vencimento));
+      if (dnum(due) < dnum(todayD)){ dueM++; due = new Date(dueY, dueM, clampDayOfMonth(dueY, dueM, c.vencimento)); }
+      const days = Math.round((due - todayD)/86400000);
+      if (days <= 7) reminders.push({ c, due, days });
+    });
+    reminders.sort((a,b)=>a.days-b.days);
+    fatBox.innerHTML = reminders.map(r=>{
+      const quando = r.days===0 ? 'vence hoje' : r.days===1 ? 'vence amanhã' : 'vence em ' + r.days + ' dias (' + pad(r.due.getDate()) + '/' + pad(r.due.getMonth()+1) + ')';
+      return `<div class="fat-alert"><span>🗓️</span> Fatura do ${esc(r.c.label)} ${quando} · ${fmtMoney(r.c.fatura)}</div>`;
+    }).join('');
     const odBox = document.getElementById('accOverdraftAlert');
     odBox.innerHTML = overdraft.length ? `<div class="od-alert">⚠︎ ${overdraft.length===1?'A conta':'As contas'} ${overdraft.map(a=>esc(a.label)).join(', ')} ${overdraft.length===1?'está':'estão'} no cheque especial · ${fmtMoney(chequeUsadoTotal)} usado${chequeDisp>0?' · '+fmtMoney(chequeDisp)+' ainda disponível':''}</div>` : '';
     const accBox = document.getElementById('accountLines');

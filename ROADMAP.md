@@ -81,7 +81,9 @@ própria e um PR separado.
       - [x] Projeção de saldo do fim do mês: saldo atual + rendas a receber
         (payday ainda não passou) − despesas previstas (ocorrências até o fim
         do mês). Card no topo de Contas. Puro no cliente.
-      - [ ] Lembrete de vencimento de fatura.
+      - [x] Lembrete de vencimento de fatura no painel: cartões com fatura
+        aberta e vencimento em até 7 dias mostram aviso ("vence hoje/amanhã/
+        em N dias") no topo de Contas. (E-mail via cron fica pra depois.)
 - [x] **Front do financeiro (pacote)** — catálogo de ~87 bancos com busca e
       até 11 favoritos editáveis (estilo app de banco); dia de pagamento na
       renda; no cartão, dia de fechamento e vencimento da fatura; card de
