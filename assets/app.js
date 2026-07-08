@@ -1733,15 +1733,24 @@ async function detailAction(act, accId){
 /* ---- Cofrinhos ---- */
 async function getVaults(){ return await storeGet('vaults', []); }
 let editingVaultId = null, __vaultAccId = null, __moveVaultId = null, __moveMode = 'in';
-function openVaultModal(accountId, vault){
+async function openVaultModal(accountId, vault){
   __vaultAccId = accountId;
   editingVaultId = vault ? vault.id : null;
   document.getElementById('vaultModalTitle').textContent = vault ? 'Editar cofrinho' : 'Novo cofrinho';
   document.getElementById('vkName').value = vault ? vault.name : '';
   document.getElementById('vkGoal').value = vault && vault.goal ? vault.goal : '';
   document.getElementById('vkDelete').style.display = vault ? '' : 'none';
+  // criação global (sem conta fixa): mostra seletor de conta
+  const af = document.getElementById('vkAccountField');
+  if (!accountId && !vault){
+    const cs = (await getAccounts()).filter(isContaLike);
+    if (!cs.length){ toast('Cadastre uma conta primeiro.', {error:true}); return; }
+    document.getElementById('vkAccount').innerHTML = cs.map(a=>`<option value="${a.id}">${esc(a.label)}</option>`).join('');
+    af.style.display = '';
+  } else af.style.display = 'none';
   document.getElementById('vaultModalOverlay').classList.add('open');
 }
+document.getElementById('btnNewVaultGlobal').onclick = ()=> openVaultModal(null, null);
 document.getElementById('vkCancel').onclick = ()=> document.getElementById('vaultModalOverlay').classList.remove('open');
 document.getElementById('vkSave').onclick = async ()=>{
   const name = document.getElementById('vkName').value.trim();
@@ -1749,7 +1758,7 @@ document.getElementById('vkSave').onclick = async ()=>{
   const goal = Number(document.getElementById('vkGoal').value||0);
   let vaults = await getVaults();
   if (editingVaultId){ const v = vaults.find(x=>x.id===editingVaultId); if (v){ v.name=name; v.goal=goal; } }
-  else vaults.push({ id: genId(), accountId: __vaultAccId, name, goal, saved: 0, createdAt: Date.now() });
+  else { const accId = __vaultAccId || document.getElementById('vkAccount').value; vaults.push({ id: genId(), accountId: accId, name, goal, saved: 0, createdAt: Date.now() }); }
   await storeSet('vaults', vaults);
   document.getElementById('vaultModalOverlay').classList.remove('open');
   await refreshDetail(); renderFinance();
@@ -1802,6 +1811,35 @@ document.getElementById('vmSave').onclick = async ()=>{
   await refreshDetail(); renderFinance();
   toast(__moveMode==='in'?'Guardado no cofrinho':'Resgatado do cofrinho');
 };
+async function renderVaultsPage(){
+  const vaults = await getVaults();
+  const accounts = await getAccounts();
+  const box = document.getElementById('vaultsList');
+  if (!vaults.length){ box.innerHTML = emptyCta('Nenhum cofrinho ainda. Reserve uma parte do saldo pra uma meta.', '+ Novo cofrinho', 'btnNewVaultGlobal'); return; }
+  const byAcc = {};
+  vaults.forEach(v=>{ (byAcc[v.accountId] = byAcc[v.accountId] || []).push(v); });
+  box.innerHTML = Object.keys(byAcc).map(accId=>{
+    const acc = accounts.find(a=>a.id===accId);
+    const accName = acc ? acc.label : 'Conta removida';
+    const total = byAcc[accId].reduce((s,v)=>s+Number(v.saved||0),0);
+    return `<div class="ad-sec" style="display:flex;align-items:center;">${esc(accName)}<span style="margin-left:auto;font-family:'IBM Plex Mono',monospace;color:var(--sage);">${fmtMoney(total)}</span></div>` +
+      byAcc[accId].map(v=>{
+        const goal = Number(v.goal||0);
+        const pct = goal>0 ? Math.min(100, Math.round(Number(v.saved||0)/goal*100)) : 0;
+        return `<div class="vaultcard">
+          <div class="vaulttop"><div class="vaultname" data-vedit="${v.id}">${esc(v.name)}</div>
+            <div class="vaultval">${fmtMoney(v.saved)}${goal>0?' <span style="color:var(--text-3)">/ '+fmtMoney(goal)+'</span>':''}</div></div>
+          ${goal>0?`<div class="vaultbar"><div style="width:${pct}%"></div></div>`:''}
+          <div class="vaultacts">
+            <button class="btn-ghost vk-a" data-vin="${v.id}" style="padding:4px 10px;font-size:11px;">Guardar</button>
+            <button class="btn-ghost vk-a" data-vout="${v.id}" style="padding:4px 10px;font-size:11px;">Resgatar</button>
+          </div></div>`;
+      }).join('');
+  }).join('');
+  box.querySelectorAll('[data-vedit]').forEach(el=> el.onclick = ()=>{ const v = vaults.find(x=>x.id===el.dataset.vedit); if (v) openVaultModal(v.accountId, v); });
+  box.querySelectorAll('[data-vin]').forEach(el=> el.onclick = ()=>{ const v = vaults.find(x=>x.id===el.dataset.vin); if (v) openVaultMove(v, 'in'); });
+  box.querySelectorAll('[data-vout]').forEach(el=> el.onclick = ()=>{ const v = vaults.find(x=>x.id===el.dataset.vout); if (v) openVaultMove(v, 'out'); });
+}
 
 /* ---- Transferência entre contas ---- */
 async function getTransfers(){ return await storeGet('transfers', []); }
@@ -2206,7 +2244,8 @@ function goalRowNew(){
     </span>
   </div>`;
 }
-document.getElementById('btnEditGoals').onclick = async ()=>{
+const __btnEditGoals = document.getElementById('btnEditGoals');
+if (__btnEditGoals) __btnEditGoals.onclick = async ()=>{
   const goals = await storeGet('budget_goals', {});
   const customKeys = new Set(__customCats.map(c=>c.key));
   const box = document.getElementById('goalsInputs');
@@ -2444,8 +2483,8 @@ async function renderFinance(){
     }
   }
 
-  if (activePage === 'fpage-metas'){
-    await renderGoals(expLines, now);
+  if (activePage === 'fpage-cofrinhos'){
+    await renderVaultsPage();
   }
 
   if (activePage === 'fpage-extrato'){

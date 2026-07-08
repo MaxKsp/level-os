@@ -127,7 +127,7 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
       <div class="fsub active" data-fsub="inicio">Visão geral</div>
       <div class="fsub" data-fsub="extrato">Extrato</div>
       <div class="fsub" data-fsub="analises">Análises</div>
-      <div class="fsub" data-fsub="metas">Metas</div>
+      <div class="fsub" data-fsub="cofrinhos">Cofrinhos</div>
     </div>
 
     <div class="fpage active" id="fpage-inicio">
@@ -234,10 +234,10 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
       <div id="ifoodList" style="display:none;"></div>
     </div>
 
-    <div class="fpage" id="fpage-metas">
-      <div class="fpage-head"><h2 style="margin:0;">Metas do mês</h2><button class="addbtn-sm" id="btnEditGoals" title="Editar metas">✎</button></div>
-      <div class="dashcard-sub" style="margin:2px 0 10px;">Limite de gasto por categoria. A barra mostra quanto do limite já foi usado neste mês — âmbar a partir de 80%, vermelho ao estourar.</div>
-      <div id="goalsList"></div>
+    <div class="fpage" id="fpage-cofrinhos">
+      <div class="fpage-head"><h2 style="margin:0;">Cofrinhos</h2><button class="addbtn-sm" id="btnNewVaultGlobal" title="Novo cofrinho">+</button></div>
+      <div class="dashcard-sub" style="margin:2px 0 10px;">Reserve parte do saldo pra uma meta, estilo caixinhas. O dinheiro fica separado do saldo livre da conta.</div>
+      <div id="vaultsList"></div>
     </div>
   </div>
 
@@ -566,6 +566,7 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
 <div class="modal-overlay" id="vaultModalOverlay">
   <div class="modal">
     <h3 id="vaultModalTitle">Novo cofrinho</h3>
+    <div class="field" id="vkAccountField" style="display:none;"><label>Conta</label><select id="vkAccount"></select></div>
     <div class="field"><label>Nome</label><input type="text" id="vkName" placeholder="Ex: Viagem, Reserva de emergência"></div>
     <div class="field"><label>Meta (R$, opcional)</label><input type="number" id="vkGoal" step="0.01" placeholder="0"></div>
     <div class="modal-actions">
