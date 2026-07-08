@@ -177,10 +177,21 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .cat-ifood .dot{background:var(--sage);} .cat-descanso .dot{background:var(--text-3);} .cat-deslocamento .dot{background:var(--tan);}
 
 
-  .fin-subnav, .agenda-subnav{display:flex;gap:0;border:1px solid var(--line);border-radius:999px;width:fit-content;margin-bottom:20px;overflow:hidden;}
-  .fsub, .apill, .tsub{padding:7px 16px;font-size:12px;color:var(--text-2);cursor:pointer;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.04em;transition:color .15s,background .15s;}
-  .fsub:hover, .apill:hover, .tsub:hover{color:var(--text);}
-  .fsub.active, .apill.active, .tsub.active{background:var(--grad);color:#fff;box-shadow:0 2px 10px var(--glow);}
+  .agenda-subnav{display:flex;gap:0;border:1px solid var(--line);border-radius:999px;width:fit-content;margin-bottom:20px;overflow:hidden;}
+  .apill, .tsub{padding:7px 16px;font-size:12px;color:var(--text-2);cursor:pointer;font-family:'IBM Plex Mono',monospace;text-transform:uppercase;letter-spacing:.04em;transition:color .15s,background .15s;}
+  .apill:hover, .tsub:hover{color:var(--text);}
+  .apill.active, .tsub.active{background:var(--grad);color:#fff;box-shadow:0 2px 10px var(--glow);}
+  /* Financeiro: navegação estilo fintech (abas sublinhadas + segmented) */
+  .fin-subnav{display:flex;gap:26px;border-bottom:1px solid var(--line);margin-bottom:18px;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none;}
+  .fin-subnav::-webkit-scrollbar{display:none;}
+  .fsub{padding:11px 0 12px;font-size:14px;font-weight:500;color:var(--text-3);cursor:pointer;position:relative;transition:color .15s;white-space:nowrap;flex-shrink:0;}
+  .fsub:hover{color:var(--text-2);}
+  .fsub.active{color:var(--text);}
+  .fsub.active::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--accent);border-radius:2px 2px 0 0;}
+  .fin-period{display:inline-flex;gap:2px;background:var(--surface-2);border-radius:10px;padding:3px;margin-bottom:20px;}
+  .perpill{padding:6px 15px;font-size:12.5px;font-weight:500;color:var(--text-3);cursor:pointer;border-radius:7px;transition:background .14s,color .14s;}
+  .perpill:hover{color:var(--text-2);}
+  .perpill.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.25);}
   .tpage{display:none;} .tpage.active{display:block;}
   .apage{display:none;} .apage.active{display:block;}
   .fpage{display:none;} .fpage.active{display:block;}
@@ -724,11 +735,11 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
     </div>
 
     <div class="fpage active" id="fpage-inicio">
-      <div class="agenda-subnav" id="finPeriodNav">
-        <div class="apill" data-period="day">Dia</div>
-        <div class="apill" data-period="week">Semana</div>
-        <div class="apill active" data-period="month">Mês</div>
-        <div class="apill" data-period="year">Ano</div>
+      <div class="fin-period" id="finPeriodNav">
+        <div class="perpill" data-period="day">Dia</div>
+        <div class="perpill" data-period="week">Semana</div>
+        <div class="perpill active" data-period="month">Mês</div>
+        <div class="perpill" data-period="year">Ano</div>
       </div>
 
       <div class="finhead"><div class="big" id="finSaldoBig">R$ 0,00</div><div class="lbl" id="finSaldoLbl">Saldo do mês</div></div>
@@ -3113,9 +3124,9 @@ document.getElementById('acPayFatura').onclick = async ()=>{
 
 /* ---- Período do Financeiro (Dia/Semana/Mês/Ano) ---- */
 let finPeriod = 'month';
-document.querySelectorAll('#finPeriodNav .apill').forEach(b=>{
+document.querySelectorAll('#finPeriodNav .perpill').forEach(b=>{
   b.onclick = ()=>{
-    document.querySelectorAll('#finPeriodNav .apill').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('#finPeriodNav .perpill').forEach(x=>x.classList.remove('active'));
     b.classList.add('active');
     finPeriod = b.dataset.period;
     renderFinance();
