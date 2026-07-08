@@ -505,6 +505,14 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .clt-line.total{border-top:1px solid var(--line-strong);margin-top:4px;padding-top:7px;font-weight:600;}
   .clt-line.total b{color:var(--sage);font-size:14px;}
   .clt-info{font-size:10.5px;color:var(--text-3);margin-top:7px;font-family:'IBM Plex Mono',monospace;}
+  .tipopicker{display:flex;gap:14px;flex-wrap:wrap;}
+  .tipo-group{flex:1;min-width:140px;}
+  .tipo-glabel{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-3);margin-bottom:6px;}
+  .tipo-opts{display:flex;flex-direction:column;gap:6px;}
+  .tipo-card{display:flex;align-items:center;gap:9px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12.5px;font-weight:500;color:var(--text-2);cursor:pointer;text-align:left;transition:border-color .12s,color .12s,background .12s;}
+  .tipo-card:hover{color:var(--text);}
+  .tipo-card.active{border-color:var(--accent);color:var(--text);background:var(--accent-soft);}
+  .tipo-card .ti{font-size:16px;line-height:1;}
 
   /* modal */
   .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:50;align-items:center;justify-content:center;padding:20px;overflow-y:auto;}
@@ -1261,11 +1269,22 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
     <h3 id="accountModalTitle">Nova conta</h3>
     <div class="field"><label>Apelido</label><input type="text" id="acLabel" placeholder="Ex: Conta corrente ou Cartão Nubank"></div>
     <div class="field"><label>Tipo</label>
-      <select id="acTipo">
-        <option value="conta">Conta corrente</option>
-        <option value="poupanca">Poupança</option>
-        <option value="cartao">Cartão de crédito</option>
-      </select>
+      <input type="hidden" id="acTipo" value="conta">
+      <div class="tipopicker">
+        <div class="tipo-group">
+          <div class="tipo-glabel">Conta</div>
+          <div class="tipo-opts">
+            <button type="button" class="tipo-card active" data-tipo="conta"><span class="ti">🏦</span>Conta corrente</button>
+            <button type="button" class="tipo-card" data-tipo="poupanca"><span class="ti">🐖</span>Poupança</button>
+          </div>
+        </div>
+        <div class="tipo-group">
+          <div class="tipo-glabel">Crédito</div>
+          <div class="tipo-opts">
+            <button type="button" class="tipo-card" data-tipo="cartao"><span class="ti">💳</span>Cartão de crédito</button>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="field-row" id="acContaFields">
       <div class="field"><label>Saldo atual (R$)</label><input type="number" id="acSaldo" step="0.01"></div>
@@ -1567,8 +1586,21 @@ function renderMethodPicker(containerId, hiddenInputId, selectedId){
       box.querySelectorAll('.methodpick-item').forEach(x=>x.classList.remove('selected'));
       item.classList.add('selected');
       document.getElementById(hiddenInputId).value = item.dataset.method;
+      if (hiddenInputId==='emMethod') onExpenseMethodChange();
     };
   });
+}
+// despesa: método crédito prioriza cartões no "movimentar conta"
+function onExpenseMethodChange(){
+  const sel = document.getElementById('emAccount');
+  if (!sel) return;
+  const credito = document.getElementById('emMethod').value === 'credito';
+  const hint = document.getElementById('emAccountHint');
+  if (credito){
+    hint.textContent = 'Crédito: escolha o cartão pra somar na fatura (o limite disponível cai junto).';
+  } else {
+    hint.textContent = 'Conta: desconta do saldo · Cartão: soma na fatura. Indisponível pra despesa recorrente.';
+  }
 }
 function bankById(id){ return BANKS.find(b=>b.id===id) || BANKS[BANKS.length-1]; }
 function bankAvatarHtml(bankId, size){
@@ -2853,6 +2885,7 @@ document.getElementById('btnOpenExpModal').onclick = async ()=>{
   renderBankPicker('emBankPicker', 'emBank', 'outro');
   document.getElementById('emDelete').style.display = 'none';
   await fillAccountSelect('');
+  onExpenseMethodChange();
   document.getElementById('expenseModalOverlay').classList.add('open');
 };
 document.getElementById('emCancel').onclick = ()=> document.getElementById('expenseModalOverlay').classList.remove('open');
@@ -2935,6 +2968,7 @@ function openExpenseEdit(line){
   renderBankPicker('emBankPicker', 'emBank', line.bank);
   document.getElementById('emDelete').style.display = '';
   fillAccountSelect(line.accountId || '');
+  onExpenseMethodChange();
   document.getElementById('expenseModalOverlay').classList.add('open');
 }
 
@@ -3329,14 +3363,18 @@ function toggleAccountFields(tipo){
   document.getElementById('acFaturaDias').style.display = tipo==='cartao' ? 'flex' : 'none';
 }
 function dayOrNull(id){ const v = parseInt(document.getElementById(id).value,10); return (v>=1 && v<=31) ? v : null; }
-document.getElementById('acTipo').onchange = (e)=> toggleAccountFields(e.target.value);
+function setAcTipo(tipo){
+  document.getElementById('acTipo').value = tipo;
+  document.querySelectorAll('#accountModalOverlay .tipo-card').forEach(c=> c.classList.toggle('active', c.dataset.tipo===tipo));
+  toggleAccountFields(tipo);
+}
+document.querySelectorAll('#accountModalOverlay .tipo-card').forEach(c=> c.onclick = ()=> setAcTipo(c.dataset.tipo));
 
 let editingAccountId = null;
 document.getElementById('btnOpenAccModal').onclick = ()=>{
   editingAccountId = null;
   document.getElementById('accountModalTitle').textContent = 'Nova conta';
   document.getElementById('acLabel').value = '';
-  document.getElementById('acTipo').value = 'conta';
   document.getElementById('acSaldo').value = '';
   document.getElementById('acChequeEspecial').value = '';
   document.getElementById('acLimite').value = '';
@@ -3345,7 +3383,7 @@ document.getElementById('btnOpenAccModal').onclick = ()=>{
   document.getElementById('acVencimento').value = '';
   document.getElementById('acBank').value = 'outro';
   document.getElementById('acPrincipal').checked = false;
-  toggleAccountFields('conta');
+  setAcTipo('conta');
   renderBankPicker('acBankPicker', 'acBank', 'outro');
   document.getElementById('acDelete').style.display = 'none';
   document.getElementById('acPayFatura').style.display = 'none';
@@ -3396,7 +3434,6 @@ function openAccountEdit(acc){
   editingAccountId = acc.id;
   document.getElementById('accountModalTitle').textContent = 'Editar conta';
   document.getElementById('acLabel').value = acc.label;
-  document.getElementById('acTipo').value = acc.tipo || 'conta';
   document.getElementById('acSaldo').value = acc.saldo || 0;
   document.getElementById('acChequeEspecial').value = acc.chequeEspecial || '';
   document.getElementById('acLimite').value = acc.limite || 0;
@@ -3405,7 +3442,7 @@ function openAccountEdit(acc){
   document.getElementById('acVencimento').value = acc.vencimento || '';
   document.getElementById('acBank').value = acc.bank;
   document.getElementById('acPrincipal').checked = !!acc.principal;
-  toggleAccountFields(acc.tipo || 'conta');
+  setAcTipo(acc.tipo || 'conta');
   renderBankPicker('acBankPicker', 'acBank', acc.bank);
   document.getElementById('acDelete').style.display = '';
   document.getElementById('acPayFatura').style.display = (acc.tipo==='cartao' && Number(acc.fatura)>0) ? '' : 'none';
