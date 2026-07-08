@@ -1385,8 +1385,8 @@ function favoriteBankIds(){
 function renderBankPicker(containerId, hiddenInputId, selectedId){
   const box = document.getElementById(containerId);
   let ids = favoriteBankIds().slice(0, 11);
+  // "Outro" sai do grid principal: só aparece dentro de "Mais bancos".
   if (selectedId && selectedId!=='outro' && !ids.includes(selectedId)) ids = [selectedId, ...ids];
-  ids.push('outro');
   const tiles = ids.map(id=>{ const b = bankById(id); return `
     <div class="bankpick-item ${id===selectedId?'selected':''}" data-bank="${id}">
       ${bankAvatarHtml(id)}
@@ -1416,14 +1416,19 @@ function openBankChooser(containerId, hiddenInputId){
 function renderBankChooserList(query, selectedId){
   const q = (query||'').toLowerCase().trim();
   const favs = new Set(favoriteBankIds());
-  const list = BANKS.filter(b=> b.id!=='outro' && (!q || b.name.toLowerCase().includes(q)));
+  // banco "Outro" (não listado) sempre por último; não é favoritável.
+  const named = BANKS.filter(b=> b.id!=='outro' && (!q || b.name.toLowerCase().includes(q)));
+  const outro = BANKS.find(b=>b.id==='outro');
+  const showOutro = !q || 'outro não listado'.includes(q);
   const box = document.getElementById('bankChooserList');
-  box.innerHTML = list.map(b=>`
+  const rowHtml = (b, star)=>`
     <div class="bankrow ${b.id===selectedId?'selected':''}" data-bank="${b.id}">
       ${bankAvatarHtml(b.id)}
-      <div class="brname">${esc(b.name)}</div>
-      <button class="brstar ${favs.has(b.id)?'on':''}" data-star="${b.id}" title="Favoritar">${favs.has(b.id)?'★':'☆'}</button>
-    </div>`).join('') || '<div class="empty">Nenhum banco encontrado.</div>';
+      <div class="brname">${esc(b.id==='outro'?'Outro / não listado':b.name)}</div>
+      ${star?`<button class="brstar ${favs.has(b.id)?'on':''}" data-star="${b.id}" title="Favoritar">${favs.has(b.id)?'★':'☆'}</button>`:''}
+    </div>`;
+  const body = named.map(b=>rowHtml(b,true)).join('') + (showOutro?rowHtml(outro,false):'');
+  box.innerHTML = body || '<div class="empty">Nenhum banco encontrado.</div>';
   box.querySelectorAll('.bankrow').forEach(row=>{
     row.onclick = (ev)=>{
       if (ev.target.closest('[data-star]')) return;
