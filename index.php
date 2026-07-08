@@ -216,6 +216,22 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .inccard .typedot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
   .inccard .typedot.b-fixa{background:#7BA6F5;} .inccard .typedot.b-variavel{background:var(--purple);}
   .inccard .typedot.b-temporaria{background:#E0A24F;} .inccard .typedot.b-extra{background:var(--sage);}
+  .extrow{display:flex;align-items:center;gap:11px;padding:11px 4px;border-bottom:1px solid var(--line);cursor:pointer;}
+  .extrow:hover{background:var(--surface-2);}
+  .extrow .bankavatar{width:34px;height:34px;flex-shrink:0;}
+  .extrow .ext-dot{width:34px;height:34px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+  .extrow .ext-dot.b-fixa{background:rgba(123,166,245,.16);} .extrow .ext-dot.b-variavel{background:rgba(156,124,224,.16);}
+  .extrow .ext-dot.b-temporaria{background:rgba(224,162,79,.16);}
+  .extrow .ext-dot::after{content:'';width:9px;height:9px;border-radius:50%;background:currentColor;}
+  .extrow .ext-dot.b-fixa{color:#7BA6F5;} .extrow .ext-dot.b-variavel{color:var(--purple);} .extrow .ext-dot.b-temporaria{color:#E0A24F;}
+  .extrow .exti{flex:1;min-width:0;}
+  .extrow .extl{font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .extrow .extl.muted{color:var(--text-3);}
+  .extrow .extm{font-size:10.5px;color:var(--text-3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .extrow .extv{font-family:'IBM Plex Mono',monospace;font-size:13.5px;font-variant-numeric:tabular-nums;flex-shrink:0;}
+  .extrow .extv.sage{color:var(--sage);} .extrow .extv.brick{color:var(--brick);}
+  .extrow .extdel{background:none;border:none;color:var(--text-3);cursor:pointer;font-size:12px;flex-shrink:0;padding:2px 4px;}
+  .extrow .extdel:hover{color:var(--brick);}
   .inccard .info{flex:1;min-width:0;}
   .inccard .ttl{font-size:14px;font-weight:500;}
   .inccard .sub{font-size:10.5px;color:var(--text-3);margin-top:3px;font-family:'IBM Plex Mono',monospace;}
@@ -747,9 +763,8 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
 
   <div class="page" id="page-financeiro">
     <div class="fin-subnav" id="finSubnav">
-      <div class="fsub active" data-fsub="inicio">Início</div>
-      <div class="fsub" data-fsub="entradas">Entradas</div>
-      <div class="fsub" data-fsub="saidas">Saídas</div>
+      <div class="fsub active" data-fsub="inicio">Visão geral</div>
+      <div class="fsub" data-fsub="extrato">Extrato</div>
       <div class="fsub" data-fsub="metas">Metas</div>
     </div>
 
@@ -815,27 +830,32 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
       </div>
     </div>
 
-    <div class="fpage" id="fpage-entradas">
-      <div class="fpage-head"><h2 style="margin:0;">Rendas fixas e temporárias</h2><button class="addbtn-sm" id="btnOpenIncModal">+</button></div>
-      <input type="search" id="incSearch" placeholder="Buscar renda por nome ou tipo..." style="width:100%;margin-bottom:10px;">
-      <div id="incomeLines"></div>
-      <h2>Renda variável — lançar ganho (ex: iFood)</h2>
-      <div class="form-row">
-        <input type="date" id="ifoodDate">
-        <input type="number" id="ifoodValor" placeholder="Valor (R$)" step="0.01" style="width:130px;">
-        <input type="number" id="ifoodKm" placeholder="Km" style="width:80px;">
-        <button class="action" id="btnAddIfood">Lançar</button>
+    <div class="fpage" id="fpage-extrato">
+      <div class="fpage-head"><h2 style="margin:0;">Extrato</h2></div>
+      <div class="fin-period" id="extratoFilter" style="margin-bottom:12px;">
+        <div class="perpill active" data-extf="all">Tudo</div>
+        <div class="perpill" data-extf="in">Entradas</div>
+        <div class="perpill" data-extf="out">Saídas</div>
       </div>
-      <div id="ifoodList"></div>
-    </div>
-
-    <div class="fpage" id="fpage-saidas">
-      <div class="fpage-head"><h2 style="margin:0;">Despesas</h2><button class="addbtn-sm" id="btnOpenExpModal">+</button></div>
-      <button class="btn-ghost" id="btnImportOfx" style="width:100%;margin-bottom:10px;">Importar extrato (OFX)</button>
+      <input type="search" id="extSearch" placeholder="Buscar lançamento por nome, categoria ou banco..." style="width:100%;margin-bottom:10px;">
+      <div id="extActions" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+        <button class="btn-ghost" id="btnImportOfx" style="flex:1;min-width:150px;">Importar extrato (OFX)</button>
+        <button class="btn-ghost" id="btnQuickIfood" style="flex:1;min-width:150px;">+ Renda variável (iFood)</button>
+      </div>
       <input type="file" id="ofxFile" accept=".ofx,application/x-ofx,text/plain" style="display:none;">
-      <input type="search" id="expSearch" placeholder="Buscar por nome, categoria ou banco..." style="width:100%;margin-bottom:10px;">
+      <div id="ifoodQuickForm" style="display:none;margin-bottom:12px;">
+        <div class="form-row">
+          <input type="date" id="ifoodDate">
+          <input type="number" id="ifoodValor" placeholder="Valor (R$)" step="0.01" style="width:130px;">
+          <input type="number" id="ifoodKm" placeholder="Km" style="width:80px;">
+          <button class="action" id="btnAddIfood">Lançar</button>
+        </div>
+      </div>
       <div id="anomalyBox"></div>
-      <div id="expenseLines"></div>
+      <div id="extratoList"></div>
+      <button id="btnOpenIncModal" style="display:none;"></button>
+      <button id="btnOpenExpModal" style="display:none;"></button>
+      <div id="ifoodList" style="display:none;"></div>
     </div>
 
     <div class="fpage" id="fpage-metas">
@@ -3622,91 +3642,74 @@ async function renderFinance(){
     await renderGoals(expLines, now);
   }
 
-  if (activePage === 'fpage-entradas'){
-    const incBox = document.getElementById('incomeLines');
-    const incQ = (document.getElementById('incSearch').value||'').toLowerCase().trim();
-    const incShown = incQ
-      ? incLines.filter(l=> (l.label||'').toLowerCase().includes(incQ) || (TYPE_LABEL[l.type]||'').toLowerCase().includes(incQ))
-      : incLines;
-    if (incLines.length===0){ incBox.innerHTML = emptyCta('Cadastre sua renda fixa ou temporária pro saldo fazer sentido.', '+ Cadastrar renda', 'btnOpenIncModal'); }
-    else if (incShown.length===0){ incBox.innerHTML = '<div class="empty">Nada encontrado pra "' + esc(incQ) + '".</div>'; }
-    else {
-      incBox.innerHTML = incShown.map(l=>{
-        const active = isIncomeActive(l, now);
-        let sub = '';
-        if (l.type==='temporaria'){
-          if (!l.endDate) sub = 'sem data de término definida';
-          else if (!active) sub = 'expirou em ' + l.endDate.split('-').reverse().join('/');
-          else { const days = Math.ceil((new Date(l.endDate+'T00:00:00') - now)/86400000); sub = 'até ' + l.endDate.split('-').reverse().join('/') + ' · ' + days + ' dias restantes'; }
-        } else { sub = TYPE_LABEL[l.type]; }
-        const payTxt = l.payday ? 'recebe todo dia ' + l.payday : '';
-        const acc = l.accountId ? accounts.find(x=>x.id===l.accountId) : null;
-        const accTxt = acc ? 'cai em ' + acc.label : '';
-        const regDate = l.createdAt ? new Date(l.createdAt).toLocaleDateString('pt-BR') : '';
-        return `<div class="inccard ${!active?'inactive':''}" data-id="${l.id}">
-          <div class="typedot b-${l.type}"></div>
-          <div class="info"><div class="ttl">${esc(l.label)}</div><div class="sub ${!active?'expired':''}">${sub}${payTxt?' · '+payTxt:''}${accTxt?' · '+accTxt:''}${regDate?' · cadastrada em '+regDate:''}</div></div>
-          <div class="val">${fmtMoney(l.value)}</div>
-        </div>`;
-      }).join('');
-      incBox.querySelectorAll('.inccard').forEach(card=>{
-        card.onclick = ()=>{ const l = incShown.find(x=>x.id===card.dataset.id); if (l) openIncomeEdit(l); };
-      });
-    }
-
-    document.getElementById('ifoodDate').value = document.getElementById('ifoodDate').value || dkey(new Date());
-    const list = document.getElementById('ifoodList');
-    if(entries.length===0){ list.innerHTML = '<div class="empty">Nenhum lançamento ainda.</div>'; }
-    else {
-      const sorted = [...entries].sort((a,b)=> b.date.localeCompare(a.date));
-      list.innerHTML = sorted.slice(0,30).map(e=>`
-        <div class="ledger-row"><div class="d">${relDate(e.date)}</div><div class="lbl"></div>
-        <div class="km">${e.km? e.km+' km':''}</div><div class="val sage">${fmtMoney(Number(e.valor))}</div>
-        <button class="del" data-date="${e.date}" data-valor="${e.valor}" data-km="${e.km||''}">✕</button></div>`).join('');
-      list.querySelectorAll('.del').forEach(btn=>{
-        btn.onclick = async (ev)=>{ ev.stopPropagation(); let entries = await storeGet('ifood-entries', []);
-          entries = entries.filter(e=> !(e.date===btn.dataset.date && String(e.valor)===btn.dataset.valor && String(e.km||'')===btn.dataset.km));
-          await storeSet('ifood-entries', entries); renderFinance(); };
-      });
-    }
-  }
-
-  if (activePage === 'fpage-saidas'){
-    await renderAnomalies(expLines, now);
-    const expBox = document.getElementById('expenseLines');
-    const expQ = (document.getElementById('expSearch').value||'').toLowerCase().trim();
-    const expShown = expQ
-      ? expLines.filter(e=> (e.label||'').toLowerCase().includes(expQ)
-          || catLabel(e.categoria).toLowerCase().includes(expQ)
-          || bankById(e.bank).name.toLowerCase().includes(expQ)
-          || (METHODS[e.method]||'').toLowerCase().includes(expQ))
-      : expLines;
-    if (expLines.length===0){ expBox.innerHTML = emptyCta('Nenhuma despesa ainda. Registre a primeira e os gráficos ganham vida.', '+ Registrar despesa', 'btnOpenExpModal'); }
-    else if (expShown.length===0){ expBox.innerHTML = '<div class="empty">Nada encontrado pra "' + esc(expQ) + '".</div>'; }
-    else {
-      expBox.innerHTML = expShown.map(e=>{
-        const bank = bankById(e.bank);
-        const dateDisp = relDate(e.date);
-        const recBadge = e.recorrencia==='mensal' ? '<span class="badge b-fixa">Mensal</span>' : '';
-        return `<div class="expcard" data-id="${e.id}">
-          ${bankAvatarHtml(e.bank)}
-          <div class="info"><div class="ttl">${esc(e.label)}</div>
-            <div class="metarow"><span class="badge">${dateDisp}</span>${recBadge}<span class="badge">${catLabel(e.categoria)}</span><span class="badge">${METHODS[e.method]}</span><span class="badge">${bank.name}</span></div>
-          </div>
-          <div class="val">${fmtMoney(e.value)}</div>
-        </div>`;
-      }).join('');
-      expBox.querySelectorAll('.expcard').forEach(card=>{
-        card.onclick = ()=>{ const l = expShown.find(x=>x.id===card.dataset.id); if (l) openExpenseEdit(l); };
-      });
-    }
+  if (activePage === 'fpage-extrato'){
+    await renderExtrato(expLines, incLines, entries, accounts, now);
   }
 }
+let __extFilter = 'all';
+async function renderExtrato(expLines, incLines, entries, accounts, now){
+  if (__extFilter !== 'in') await renderAnomalies(expLines, now);
+  else document.getElementById('anomalyBox').innerHTML = '';
+  const q = (document.getElementById('extSearch').value||'').toLowerCase().trim();
+  const mkey = now.getFullYear()+'-'+pad(now.getMonth()+1);
+  const items = [];
+  expLines.forEach(e=>{
+    items.push({ side:'out', sortKey: e.date||'0000-00-00', label: e.label, value: Number(e.value||0),
+      sub: [relDate(e.date), catLabel(e.categoria), e.recorrencia==='mensal'?'mensal':'', bankById(e.bank).name].filter(Boolean).join(' · '),
+      icon: bankAvatarHtml(e.bank), onClick: ()=>openExpenseEdit(e),
+      search: (e.label+' '+catLabel(e.categoria)+' '+bankById(e.bank).name+' '+(METHODS[e.method]||'')).toLowerCase() });
+  });
+  incLines.forEach(l=>{
+    const active = isIncomeActive(l, now);
+    const sortKey = l.payday ? (mkey+'-'+pad(Math.min(28,l.payday))) : (l.createdAt ? dkey(new Date(l.createdAt)) : '0000-00-00');
+    const acc = l.accountId ? accounts.find(x=>x.id===l.accountId) : null;
+    items.push({ side:'in', sortKey, label: l.label, value: Number(l.value||0), muted: !active,
+      sub: [TYPE_LABEL[l.type], l.payday?('todo dia '+l.payday):'', acc?('em '+acc.label):'', !active?'inativa':''].filter(Boolean).join(' · '),
+      icon: `<div class="ext-dot b-${l.type}"></div>`, onClick: ()=>openIncomeEdit(l),
+      search: (l.label+' '+(TYPE_LABEL[l.type]||'')).toLowerCase() });
+  });
+  entries.forEach(en=>{
+    items.push({ side:'in', sortKey: en.date||'0000-00-00', label: 'Renda variável (iFood/entrega)', value: Number(en.valor||0),
+      sub: [relDate(en.date), en.km?en.km+' km':''].filter(Boolean).join(' · '),
+      icon: `<div class="ext-dot b-variavel"></div>`, onClick: null, ifood: en, search: 'ifood entrega renda variavel' });
+  });
+  let shown = items.filter(it=> __extFilter==='all' || it.side===__extFilter);
+  if (q) shown = shown.filter(it=> it.search.includes(q));
+  shown.sort((a,b)=> b.sortKey.localeCompare(a.sortKey));
+  const box = document.getElementById('extratoList');
+  if (!items.length){ box.innerHTML = emptyCta('Nenhum lançamento ainda. Use o botão + pra registrar uma despesa ou renda.', '+ Registrar despesa', 'btnOpenExpModal'); return; }
+  if (!shown.length){ box.innerHTML = '<div class="empty">Nada encontrado.</div>'; return; }
+  box.innerHTML = shown.map((it,i)=>`
+    <div class="extrow" data-i="${i}">
+      ${it.icon}
+      <div class="exti"><div class="extl ${it.muted?'muted':''}">${esc(it.label)}</div><div class="extm">${esc(it.sub)}</div></div>
+      <div class="extv ${it.side==='in'?'sage':'brick'}">${it.side==='in'?'+':'-'}${fmtMoney(it.value).replace('R$ ','')}</div>
+      ${it.ifood?`<button class="extdel" title="Excluir">✕</button>`:''}
+    </div>`).join('');
+  box.querySelectorAll('.extrow').forEach(row=>{
+    const it = shown[Number(row.dataset.i)];
+    row.onclick = (ev)=>{ if (ev.target.closest('.extdel')) return; if (it.onClick) it.onClick(); };
+    const del = row.querySelector('.extdel');
+    if (del) del.onclick = async (ev)=>{ ev.stopPropagation(); const en = it.ifood;
+      let cur = await storeGet('ifood-entries', []);
+      cur = cur.filter(x=> !(x.date===en.date && String(x.valor)===String(en.valor) && String(x.km||'')===String(en.km||'')));
+      await storeSet('ifood-entries', cur); renderFinance(); };
+  });
+}
+document.querySelectorAll('#extratoFilter .perpill').forEach(b=>{
+  b.onclick = ()=>{ document.querySelectorAll('#extratoFilter .perpill').forEach(x=>x.classList.remove('active')); b.classList.add('active'); __extFilter = b.dataset.extf; renderFinance(); };
+});
+document.getElementById('btnQuickIfood').onclick = ()=>{
+  const f = document.getElementById('ifoodQuickForm');
+  const show = f.style.display==='none';
+  f.style.display = show ? 'block' : 'none';
+  if (show) document.getElementById('ifoodDate').value = document.getElementById('ifoodDate').value || dkey(new Date());
+};
 document.addEventListener('click', (e)=>{
   const t = e.target.closest('[data-open]');
   if (t) document.getElementById(t.dataset.open).click();
 });
-document.getElementById('expSearch').oninput = ()=> renderFinance();
+document.getElementById('extSearch').oninput = ()=> renderFinance();
 
 /* ---- Relatório anual (IR) — impressão pra PDF ---- */
 function irMonthRange(year, m){ return { start:new Date(year,m,1), end:new Date(year,m+1,0) }; }
@@ -3864,7 +3867,6 @@ document.getElementById('ofxConfirm').onclick = async ()=>{
   renderFinance();
   toast(`${nExp+nInc} lançamento(s) importado(s)`);
 };
-document.getElementById('incSearch').oninput = ()=> renderFinance();
 
 let chartLine=null, chartBank=null, chartMethod=null, chartCategoria=null, chartHistory=null;
 function chartAccent(){ return accentHex(); }
