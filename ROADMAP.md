@@ -77,6 +77,10 @@ própria e um PR separado.
 
 - [x] **Busca/filtro nos lançamentos** — em Saídas e Entradas.
 - [x] **Exportar relatório em CSV** — em Perfil → Backup.
+- [x] **Relatório anual (IR) em PDF** — em Perfil → Backup, gera resumo do ano
+      (rendas, despesas por categoria, saldo mês a mês, contas/cartões) numa
+      página de impressão limpa via `window.print()` (Salvar como PDF). Sem
+      lib no servidor; puro cliente com CSS `@media print`.
 - [x] **Backup automático agendado** — aos domingos o cron envia o JSON em
       anexo pra quem tem aviso por e-mail ligado.
 - [x] **Tema claro** — terceira opção de fundo no Perfil.

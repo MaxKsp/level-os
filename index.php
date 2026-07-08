@@ -465,6 +465,26 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .anomaly .aitem .al{font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .anomaly .aitem .am{font-size:10.5px;color:var(--text-3);margin-top:1px;}
   .anomaly .aitem .av{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--brick);flex-shrink:0;}
+  #irPrintArea{color:var(--text);}
+  .ir-doc{font-size:12.5px;}
+  .ir-doc h2{font-size:18px;margin:0 0 2px;}
+  .ir-doc .ir-meta{font-size:11px;color:var(--text-3);margin-bottom:16px;}
+  .ir-doc h4{font-size:13px;margin:18px 0 6px;border-bottom:1px solid var(--line-strong);padding-bottom:4px;}
+  .ir-doc table{width:100%;border-collapse:collapse;font-size:12px;}
+  .ir-doc th,.ir-doc td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line);}
+  .ir-doc th{color:var(--text-3);font-weight:600;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;}
+  .ir-doc td.num,.ir-doc th.num{text-align:right;font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;}
+  .ir-doc tr.tot td{font-weight:700;border-top:2px solid var(--line-strong);border-bottom:none;}
+  .ir-doc .ir-note{font-size:10.5px;color:var(--text-3);margin-top:6px;font-style:italic;}
+  @media print {
+    body * { visibility: hidden !important; }
+    #irPrintArea, #irPrintArea * { visibility: visible !important; }
+    #irPrintArea{ position:absolute; left:0; top:0; width:100%; padding:0; color:#000; }
+    .ir-doc h4{ border-color:#999; } .ir-doc th,.ir-doc td{ border-color:#ddd; color:#000; }
+    .ir-doc th,.ir-doc .ir-meta,.ir-doc .ir-note{ color:#555; }
+    .ir-doc tr.tot td{ border-top-color:#000; }
+    .ir-noprint{ display:none !important; }
+  }
 
   /* treinos */
   .ex-row{display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;}
@@ -841,6 +861,7 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
         <button class="btn-ghost" id="btnExportBackup" style="flex:1;min-width:160px;">Baixar backup (.json)</button>
         <button class="btn-ghost" id="btnImportBackup" style="flex:1;min-width:160px;">Restaurar backup</button>
         <button class="btn-ghost" id="btnExportCsv" style="flex:1;min-width:160px;">Exportar CSV (planilha)</button>
+        <button class="btn-ghost" id="btnIrReport" style="flex:1;min-width:160px;">Relatório anual (IR) — PDF</button>
       </div>
       <input type="file" id="importBackupFile" accept="application/json" style="display:none;">
     </div>
@@ -1020,6 +1041,24 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
     <div class="modal-actions">
       <button class="btn-ghost" id="ofxCancel">Cancelar</button>
       <button class="btn-primary" id="ofxConfirm">Importar selecionados</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="irModalOverlay">
+  <div class="modal" style="max-width:680px;">
+    <div class="ir-noprint">
+      <h3>Relatório anual (Imposto de Renda)</h3>
+      <p style="font-size:12.5px;color:var(--text-2);margin:0 0 12px;">Resumo de rendas, despesas por categoria e saldo mês a mês do ano escolhido, mais o retrato atual das contas. Use “Salvar como PDF” na janela de impressão.</p>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">
+        <label style="font-size:12.5px;color:var(--text-2);">Ano</label>
+        <select id="irYear" style="min-width:120px;"></select>
+      </div>
+    </div>
+    <div id="irPrintArea"></div>
+    <div class="modal-actions ir-noprint">
+      <button class="btn-ghost" id="irCancel">Fechar</button>
+      <button class="btn-primary" id="irPrint">Imprimir / Salvar PDF</button>
     </div>
   </div>
 </div>
@@ -2862,6 +2901,97 @@ document.addEventListener('click', (e)=>{
   if (t) document.getElementById(t.dataset.open).click();
 });
 document.getElementById('expSearch').oninput = ()=> renderFinance();
+
+/* ---- Relatório anual (IR) — impressão pra PDF ---- */
+function irMonthRange(year, m){ return { start:new Date(year,m,1), end:new Date(year,m+1,0) }; }
+function buildIrData(year, expLines, incLines, entries){
+  const months = [], catTotals = {};
+  let annualExp=0, annualInc=0, incFixed=0, incVar=0, incTemp=0, incIfood=0;
+  for (let m=0;m<12;m++){
+    const range = irMonthRange(year,m);
+    const mkey = year+'-'+pad(m+1);
+    let mExp=0;
+    expLines.forEach(e=>{
+      const v = expenseTotalInRange(e, range);
+      if (v>0){ mExp+=v; catTotals[e.categoria]=(catTotals[e.categoria]||0)+v; }
+    });
+    let mInc=0;
+    incLines.forEach(l=>{
+      if (l.createdAt){ const cd=new Date(l.createdAt); const ckey=cd.getFullYear()+'-'+pad(cd.getMonth()+1); if (ckey > mkey) return; }  // ainda não existia neste mês
+      if (!isIncomeActive(l, range.start)) return;
+      const val=Number(l.value||0); mInc+=val;
+      if (l.type==='variavel') incVar+=val; else if (l.type==='temporaria') incTemp+=val; else incFixed+=val;
+    });
+    const mIfood = entries.filter(en=> en.date && en.date.slice(0,7)===mkey).reduce((s,en)=>s+Number(en.valor||0),0);
+    mInc+=mIfood; incIfood+=mIfood;
+    annualExp+=mExp; annualInc+=mInc;
+    months.push({ label: MONTH_ABBR[m], inc:mInc, exp:mExp, saldo:mInc-mExp });
+  }
+  return { months, catTotals, annualExp, annualInc, incFixed, incVar, incTemp, incIfood };
+}
+async function renderIrReport(year){
+  const expLines = await getExpenseLines();
+  const incLines = await getIncomeLines();
+  const entries = await storeGet('ifood-entries', []);
+  const accounts = await getAccounts();
+  const d = buildIrData(year, expLines, incLines, entries);
+  const me = (document.getElementById('pfUsername')?.textContent || '').trim();
+  const cats = Object.entries(d.catTotals).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
+  const incRows = [
+    ['Renda fixa', d.incFixed], ['Renda variável (cadastrada)', d.incVar],
+    ['Renda temporária', d.incTemp], ['iFood / entregas', d.incIfood],
+  ].filter(r=>r[1]>0);
+  const el = document.getElementById('irPrintArea');
+  el.innerHTML = `<div class="ir-doc">
+    <h2>Relatório financeiro — ${year}</h2>
+    <div class="ir-meta">Orby${me?' · '+esc(me):''} · gerado em ${new Date().toLocaleDateString('pt-BR')}</div>
+
+    <h4>Resumo do ano</h4>
+    <table><tbody>
+      <tr><td>Total de rendas</td><td class="num">${fmtMoney(d.annualInc)}</td></tr>
+      <tr><td>Total de despesas</td><td class="num">${fmtMoney(d.annualExp)}</td></tr>
+      <tr class="tot"><td>Resultado do ano</td><td class="num">${fmtMoney(d.annualInc-d.annualExp)}</td></tr>
+    </tbody></table>
+
+    <h4>Rendas do ano</h4>
+    ${incRows.length ? `<table><tbody>
+      ${incRows.map(r=>`<tr><td>${r[0]}</td><td class="num">${fmtMoney(r[1])}</td></tr>`).join('')}
+      <tr class="tot"><td>Total</td><td class="num">${fmtMoney(d.annualInc)}</td></tr>
+    </tbody></table>` : '<div class="ir-note">Nenhuma renda registrada no período.</div>'}
+
+    <h4>Despesas por categoria</h4>
+    ${cats.length ? `<table><thead><tr><th>Categoria</th><th class="num">Total no ano</th></tr></thead><tbody>
+      ${cats.map(([k,v])=>`<tr><td>${esc(catLabel(k))}</td><td class="num">${fmtMoney(v)}</td></tr>`).join('')}
+      <tr class="tot"><td>Total</td><td class="num">${fmtMoney(d.annualExp)}</td></tr>
+    </tbody></table>` : '<div class="ir-note">Nenhuma despesa registrada no período.</div>'}
+
+    <h4>Saldo mês a mês</h4>
+    <table><thead><tr><th>Mês</th><th class="num">Entradas</th><th class="num">Saídas</th><th class="num">Saldo</th></tr></thead><tbody>
+      ${d.months.map(m=>`<tr><td>${m.label}</td><td class="num">${fmtMoney(m.inc)}</td><td class="num">${fmtMoney(m.exp)}</td><td class="num">${fmtMoney(m.saldo)}</td></tr>`).join('')}
+      <tr class="tot"><td>Ano</td><td class="num">${fmtMoney(d.annualInc)}</td><td class="num">${fmtMoney(d.annualExp)}</td><td class="num">${fmtMoney(d.annualInc-d.annualExp)}</td></tr>
+    </tbody></table>
+
+    <h4>Contas e cartões (posição atual)</h4>
+    ${accounts.length ? `<table><thead><tr><th>Conta / cartão</th><th>Tipo</th><th class="num">Saldo / fatura</th></tr></thead><tbody>
+      ${accounts.map(a=>{const cartao=a.tipo==='cartao';return `<tr><td>${esc(a.label)}</td><td>${cartao?'Cartão':'Conta'}</td><td class="num">${fmtMoney(cartao?a.fatura:a.saldo)}</td></tr>`;}).join('')}
+    </tbody></table>
+    <div class="ir-note">Contas e cartões mostram a posição de hoje, não o fechamento do ano.</div>` : '<div class="ir-note">Nenhuma conta cadastrada.</div>'}
+
+    <div class="ir-note">Rendas recorrentes são estimadas pela configuração mensal ao longo dos meses ativos; iFood e despesas usam os lançamentos reais. Confira com seus comprovantes antes de declarar.</div>
+  </div>`;
+}
+document.getElementById('btnIrReport').onclick = async ()=>{
+  const sel = document.getElementById('irYear');
+  const nowY = new Date().getFullYear();
+  sel.innerHTML = '';
+  for (let y=nowY; y>=nowY-5; y--) sel.innerHTML += `<option value="${y}">${y}</option>`;
+  sel.value = String(nowY);
+  await renderIrReport(nowY);
+  document.getElementById('irModalOverlay').classList.add('open');
+};
+document.getElementById('irYear').onchange = (e)=> renderIrReport(Number(e.target.value));
+document.getElementById('irCancel').onclick = ()=> document.getElementById('irModalOverlay').classList.remove('open');
+document.getElementById('irPrint').onclick = ()=> window.print();
 
 /* ---- Importar extrato OFX (conciliação) ---- */
 let __ofxRows = [];
