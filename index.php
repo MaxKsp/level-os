@@ -809,6 +809,7 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
         <div class="fin-period" id="accTipoFilter" style="margin-bottom:12px;">
           <div class="perpill active" data-acctipo="all">Tudo</div>
           <div class="perpill" data-acctipo="conta">Contas</div>
+          <div class="perpill" data-acctipo="poupanca">Poupança</div>
           <div class="perpill" data-acctipo="cartao">Cartões</div>
         </div>
         <div id="accViewToggle" class="acc-viewtoggle" style="display:none;">
@@ -1215,13 +1216,14 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
     <div class="field"><label>Apelido</label><input type="text" id="acLabel" placeholder="Ex: Conta corrente ou Cartão Nubank"></div>
     <div class="field"><label>Tipo</label>
       <select id="acTipo">
-        <option value="conta">Conta (corrente / poupança)</option>
+        <option value="conta">Conta corrente</option>
+        <option value="poupanca">Poupança</option>
         <option value="cartao">Cartão de crédito</option>
       </select>
     </div>
     <div class="field-row" id="acContaFields">
       <div class="field"><label>Saldo atual (R$)</label><input type="number" id="acSaldo" step="0.01"></div>
-      <div class="field"><label>Limite cheque especial (R$)</label><input type="number" id="acChequeEspecial" step="0.01" placeholder="0"></div>
+      <div class="field" id="acChequeField"><label>Limite cheque especial (R$)</label><input type="number" id="acChequeEspecial" step="0.01" placeholder="0"></div>
     </div>
     <div class="field-row" id="acCartaoFields" style="display:none;">
       <div class="field"><label>Limite total (R$)</label><input type="number" id="acLimite" step="0.01"></div>
@@ -2585,7 +2587,7 @@ document.getElementById('imType').onchange = (e)=>{
   document.getElementById('imEndField').style.display = e.target.value==='temporaria' ? '' : 'none';
 };
 async function fillIncomeAccountSelect(selectedId){
-  const accounts = (await getAccounts()).filter(a=>(a.tipo||'conta')==='conta');
+  const accounts = (await getAccounts()).filter(isContaLike);
   const sel = document.getElementById('imAccount');
   sel.innerHTML = '<option value="">Não vincular a uma conta</option>' +
     accounts.map(a=>`<option value="${a.id}">${esc(a.label)}</option>`).join('');
@@ -2787,6 +2789,9 @@ function openExpenseEdit(line){
 async function getAccounts(){
   return await storeGet('accounts_v2', []);
 }
+const TIPO_CONTA_LABEL = { conta:'Conta corrente', poupanca:'Poupança', cartao:'Cartão de crédito' };
+function accTipoLabel(a){ return TIPO_CONTA_LABEL[a.tipo] || 'Conta corrente'; }
+function isContaLike(a){ return a.tipo !== 'cartao'; }  // corrente e poupança
 let __accView = 'conta';
 let __reservedByAcc = {};
 function accountCardHtml(a, reorder, idx, total){
@@ -2817,7 +2822,7 @@ function accountCardHtml(a, reorder, idx, total){
     const extras = [];
     if (saldoNeg) extras.push('no cheque especial');
     if (reserved>0) extras.push('guardado '+fmtMoney(reserved));
-    subTxt = `Conta · ${bankById(a.bank).name}${extras.length?' · '+extras.join(' · '):''}`;
+    subTxt = `${accTipoLabel(a)} · ${bankById(a.bank).name}${extras.length?' · '+extras.join(' · '):''}`;
     footHtml = `
       <div><div class="af-l">Saldo disponível</div><div class="af-v ${saldoNeg?'brick':'sage'}">${fmtMoney(a.saldo)}</div></div>
       <div class="af-r"><div class="af-l">${ce>0?'Cheque especial':'Guardado'}</div><div class="af-v">${ce>0?fmtMoney(ce):fmtMoney(reserved)}</div></div>`;
@@ -2902,7 +2907,7 @@ async function openAccountDetail(acc){
       </div>
       <div style="flex:1;min-width:0;">
         <h3 style="margin:0;">${esc(acc.label)} ${acc.principal?'<span class="badge b-principal">Principal</span>':''}</h3>
-        <div style="font-size:11.5px;color:var(--text-3);margin-top:3px;">${bankById(acc.bank).name} · ${isCartao?'Cartão de crédito':'Conta'}</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-top:3px;">${bankById(acc.bank).name} · ${accTipoLabel(acc)}</div>
       </div>
       ${statusBadge}
     </div>
@@ -3087,7 +3092,7 @@ async function updateTransferHint(){
 }
 document.getElementById('btnTransfer').onclick = async ()=>{
   const accounts = await getAccounts();
-  const contas = accounts.filter(a=>(a.tipo||'conta')==='conta');
+  const contas = accounts.filter(isContaLike);
   if (contas.length===0){ toast('Cadastre uma conta primeiro.', {error:true}); return; }
   document.getElementById('trFrom').innerHTML = contas.map(a=>`<option value="${a.id}">${esc(a.label)}</option>`).join('');
   document.getElementById('trTo').innerHTML = accounts.filter(a=>a.id!==contas[0].id)
@@ -3165,6 +3170,7 @@ async function accountAction(act, id){
 }
 function toggleAccountFields(tipo){
   document.getElementById('acContaFields').style.display = tipo==='cartao' ? 'none' : 'flex';
+  document.getElementById('acChequeField').style.display = tipo==='conta' ? '' : 'none';  // só conta corrente tem cheque especial
   document.getElementById('acCartaoFields').style.display = tipo==='cartao' ? 'flex' : 'none';
   document.getElementById('acFaturaDias').style.display = tipo==='cartao' ? 'flex' : 'none';
 }
@@ -3619,7 +3625,7 @@ async function renderFinance(){
     const vaultsAll = await getVaults();
     __reservedByAcc = {};
     vaultsAll.forEach(v=>{ __reservedByAcc[v.accountId] = (__reservedByAcc[v.accountId]||0) + Number(v.saved||0); });
-    const contas = accounts.filter(a=>(a.tipo||'conta')==='conta');
+    const contas = accounts.filter(isContaLike);
     const cartoes = accounts.filter(a=>a.tipo==='cartao');
     const saldoTotal = contas.reduce((s,a)=>s+Number(a.saldo||0),0);
     const faturaTotal = cartoes.reduce((s,a)=>s+Number(a.fatura||0),0);
@@ -3686,10 +3692,10 @@ async function renderFinance(){
       shownAccounts.forEach(a=>{ (byBank[a.bank] = byBank[a.bank] || []).push(a); });
       accBox.innerHTML = Object.keys(byBank).map(bankId=>{
         const list = byBank[bankId];
-        const s = list.filter(a=>(a.tipo||'conta')==='conta').reduce((t,a)=>t+Number(a.saldo||0),0);
+        const s = list.filter(isContaLike).reduce((t,a)=>t+Number(a.saldo||0),0);
         const f = list.filter(a=>a.tipo==='cartao').reduce((t,a)=>t+Number(a.fatura||0),0);
         const parts = [];
-        if (list.some(a=>(a.tipo||'conta')==='conta')) parts.push(`<span class="${s<0?'brick':'sage'}">${fmtMoney(s)}</span> saldo`);
+        if (list.some(isContaLike)) parts.push(`<span class="${s<0?'brick':'sage'}">${fmtMoney(s)}</span> saldo`);
         if (list.some(a=>a.tipo==='cartao')) parts.push(`<span class="brick">${fmtMoney(f)}</span> fatura`);
         return `<div class="bankgroup">
           <div class="bankgroup-head">
@@ -3856,7 +3862,7 @@ async function renderIrReport(year){
 
     <h4>Contas e cartões (posição atual)</h4>
     ${accounts.length ? `<table><thead><tr><th>Conta / cartão</th><th>Tipo</th><th class="num">Saldo / fatura</th></tr></thead><tbody>
-      ${accounts.map(a=>{const cartao=a.tipo==='cartao';return `<tr><td>${esc(a.label)}</td><td>${cartao?'Cartão':'Conta'}</td><td class="num">${fmtMoney(cartao?a.fatura:a.saldo)}</td></tr>`;}).join('')}
+      ${accounts.map(a=>{const cartao=a.tipo==='cartao';return `<tr><td>${esc(a.label)}</td><td>${accTipoLabel(a)}</td><td class="num">${fmtMoney(cartao?a.fatura:a.saldo)}</td></tr>`;}).join('')}
     </tbody></table>
     <div class="ir-note">Contas e cartões mostram a posição de hoje, não o fechamento do ano.</div>` : '<div class="ir-note">Nenhuma conta cadastrada.</div>'}
 
