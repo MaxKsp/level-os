@@ -64,6 +64,10 @@ própria e um PR separado.
       calor e nos gráficos, como as despesas recorrentes já têm.
 - [x] **Metas por categoria** — limites em "Metas do mês" com barra de
       progresso e aviso ao estourar.
+- [x] **Alerta de gasto fora do padrão** — em Saídas, detecta despesa do mês
+      muito acima da média histórica da categoria (média + 2σ, mínimo 4
+      lançamentos anteriores). Card âmbar com % acima da média, toque abre a
+      despesa; dispensável por mês. Puro no cliente, sem backend.
 - [ ] **Web Push (VAPID)** — notificação nativa com o app fechado. Exige
       lib de criptografia via composer; hoje o caminho é o aviso por e-mail.
 - [ ] **Diagnóstico com IA de verdade** — endpoint PHP chamando uma API de

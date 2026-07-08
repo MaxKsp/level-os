@@ -455,6 +455,16 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
   .ofxrow .ov.exp{color:var(--brick);} .ofxrow .ov.inc{color:var(--sage);}
   .ofxrow .dupbadge{font-size:9px;text-transform:uppercase;color:#F59E0B;border:1px solid #F59E0B;border-radius:99px;padding:1px 5px;font-family:'IBM Plex Mono',monospace;flex-shrink:0;}
   .ofxrow select{padding:5px 8px;font-size:11.5px;border-radius:8px;flex-shrink:0;max-width:118px;}
+  .anomaly{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.35);border-radius:var(--r-sm);padding:11px 13px;margin-bottom:12px;}
+  .anomaly .ah{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:#F59E0B;margin-bottom:3px;}
+  .anomaly .ah .adismiss{margin-left:auto;background:none;border:none;color:var(--text-3);cursor:pointer;font-size:13px;padding:0 2px;}
+  .anomaly .ah .adismiss:hover{color:var(--text);}
+  .anomaly .asub{font-size:11px;color:var(--text-3);margin-bottom:8px;}
+  .anomaly .aitem{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid rgba(245,158,11,.15);cursor:pointer;}
+  .anomaly .aitem .ai{flex:1;min-width:0;}
+  .anomaly .aitem .al{font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .anomaly .aitem .am{font-size:10.5px;color:var(--text-3);margin-top:1px;}
+  .anomaly .aitem .av{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--brick);flex-shrink:0;}
 
   /* treinos */
   .ex-row{display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;}
@@ -699,6 +709,7 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
       <button class="btn-ghost" id="btnImportOfx" style="width:100%;margin-bottom:10px;">Importar extrato (OFX)</button>
       <input type="file" id="ofxFile" accept=".ofx,application/x-ofx,text/plain" style="display:none;">
       <input type="search" id="expSearch" placeholder="Buscar por nome, categoria ou banco..." style="width:100%;margin-bottom:10px;">
+      <div id="anomalyBox"></div>
       <div id="expenseLines"></div>
     </div>
 
@@ -2644,6 +2655,56 @@ document.getElementById('goalsSave').onclick = async ()=>{
   toast('Metas salvas');
 };
 
+/* Detecta gastos fora do padrão: despesa datada do mês atual muito acima da
+   média histórica da mesma categoria (meses anteriores). Puro no cliente. */
+function detectAnomalies(expLines, now){
+  const curMonth = monthKey(now);
+  const dated = expLines.filter(e=> e.date && Number(e.value)>0);
+  // baseline por categoria: valores de meses ANTERIORES ao atual
+  const hist = {};
+  dated.forEach(e=>{
+    const m = e.date.slice(0,7);
+    if (m >= curMonth) return;               // só passado
+    (hist[e.categoria] = hist[e.categoria] || []).push(Number(e.value));
+  });
+  const out = [];
+  dated.filter(e=> e.date.slice(0,7)===curMonth).forEach(e=>{
+    const arr = hist[e.categoria];
+    if (!arr || arr.length < 4) return;      // amostra insuficiente
+    const n = arr.length;
+    const mean = arr.reduce((s,v)=>s+v,0)/n;
+    const std = Math.sqrt(arr.reduce((s,v)=>s+(v-mean)*(v-mean),0)/n);
+    const v = Number(e.value);
+    const threshold = mean + 2*std;
+    if (v < 30) return;                      // ignora valores baixos
+    if (v < mean*1.5) return;                // precisa ser bem acima da média
+    if (v <= threshold) return;              // dentro de 2 desvios = normal
+    out.push({ e, mean, pct: Math.round((v/mean-1)*100) });
+  });
+  return out.sort((a,b)=> Number(b.e.value)-Number(a.e.value));
+}
+async function renderAnomalies(expLines, now){
+  const box = document.getElementById('anomalyBox');
+  const anomalies = detectAnomalies(expLines, now);
+  const dismissed = await storeGet('anomaly_dismissed', '');
+  if (!anomalies.length || dismissed === monthKey(now)){ box.innerHTML=''; return; }
+  box.innerHTML = `<div class="anomaly">
+    <div class="ah"><span>⚠︎</span><span>${anomalies.length} gasto${anomalies.length>1?'s':''} fora do padrão</span>
+      <button class="adismiss" id="anomalyDismiss" title="Dispensar por este mês">✕</button></div>
+    <div class="asub">Bem acima da média da categoria nos meses anteriores. Toque pra revisar.</div>
+    ${anomalies.map(a=>`<div class="aitem" data-id="${a.e.id}">
+      <div class="ai"><div class="al">${esc(a.e.label)}</div>
+        <div class="am">${a.pct}% acima da média de ${esc(catLabel(a.e.categoria))} (${fmtMoney(a.mean)})</div></div>
+      <div class="av">${fmtMoney(a.e.value)}</div>
+    </div>`).join('')}
+  </div>`;
+  box.querySelector('#anomalyDismiss').onclick = async ()=>{
+    await storeSet('anomaly_dismissed', monthKey(now)); box.innerHTML='';
+  };
+  box.querySelectorAll('.aitem').forEach(it=>{
+    it.onclick = ()=>{ const l = expLines.find(x=>x.id===it.dataset.id); if (l) openExpenseEdit(l); };
+  });
+}
 async function renderFinance(){
   const entries = await storeGet('ifood-entries', []);
   const expLines = await getExpenseLines();
@@ -2766,6 +2827,7 @@ async function renderFinance(){
   }
 
   if (activePage === 'fpage-saidas'){
+    await renderAnomalies(expLines, now);
     const expBox = document.getElementById('expenseLines');
     const expQ = (document.getElementById('expSearch').value||'').toLowerCase().trim();
     const expShown = expQ
