@@ -78,7 +78,9 @@ própria e um PR separado.
       - [x] Cofrinhos / metas de guardar dentro da conta: reserva parte do
         saldo (mostra "saldo livre"), meta + barra de progresso, guardar/
         resgatar/editar/excluir. kv `vaults`.
-      - [ ] Projeção de saldo do mês (rendas + despesas recorrentes).
+      - [x] Projeção de saldo do fim do mês: saldo atual + rendas a receber
+        (payday ainda não passou) − despesas previstas (ocorrências até o fim
+        do mês). Card no topo de Contas. Puro no cliente.
       - [ ] Lembrete de vencimento de fatura.
 - [x] **Front do financeiro (pacote)** — catálogo de ~87 bancos com busca e
       até 11 favoritos editáveis (estilo app de banco); dia de pagamento na
