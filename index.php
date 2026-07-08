@@ -494,9 +494,9 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
       <div class="field"><label>Dia do gasto</label><input type="date" id="emDate"></div>
     </div>
     <div class="field"><label>Horário do gasto</label><input type="time" id="emTime"></div>
-    <div class="field" style="display:flex;align-items:center;gap:8px;">
-      <input type="checkbox" id="emRecorrente" style="width:auto;">
-      <label style="margin:0;text-transform:none;font-family:'Archivo',sans-serif;font-size:13px;color:var(--text);">Repete todo mês (mesmo dia)</label>
+    <div class="field chk-row">
+      <input type="checkbox" class="chk" id="emRecorrente">
+      <label>Repete todo mês (mesmo dia)</label>
     </div>
     <div class="field">
       <label>Movimentar conta (opcional)</label>
@@ -628,9 +628,9 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
       <input type="hidden" id="acBank">
       <div class="bankpicker" id="acBankPicker"></div>
     </div>
-    <div class="field" style="display:flex;align-items:center;gap:8px;">
-      <input type="checkbox" id="acPrincipal" style="width:auto;">
-      <label style="margin:0;text-transform:none;font-family:'Archivo',sans-serif;font-size:13px;color:var(--text);">Esta é minha conta principal</label>
+    <div class="field chk-row">
+      <input type="checkbox" class="chk" id="acPrincipal">
+      <label>Esta é minha conta principal</label>
     </div>
     <div class="modal-actions">
       <button class="btn-ghost" id="acDelete" style="display:none;margin-right:auto;color:var(--brick);border-color:var(--brick);">Excluir</button>
