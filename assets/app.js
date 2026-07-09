@@ -1413,6 +1413,8 @@ document.getElementById('btnOpenExpModal').onclick = async ()=>{
   document.getElementById('emDate').value = dkey(new Date());
   document.getElementById('emTime').value = pad(new Date().getHours())+':'+pad(new Date().getMinutes());
   document.getElementById('emRecorrente').checked = false;
+  document.getElementById('emParcelas').value = '';
+  document.getElementById('emParcelasHint').textContent = '';
   fillCategorySelect(document.getElementById('emCategoria'), 'outros');
   document.getElementById('emMethod').value = 'pix';
   renderMethodPicker('emMethodPicker', 'emMethod', 'pix');
@@ -1427,14 +1429,19 @@ document.getElementById('emCancel').onclick = ()=> document.getElementById('expe
 document.getElementById('emSave').onclick = async ()=>{
   const label = document.getElementById('emLabel').value.trim();
   if (!label) return;
-  const value = Number(document.getElementById('emValue').value||0);
+  const total = Number(document.getElementById('emValue').value||0);
   const date = document.getElementById('emDate').value || null;
   const time = document.getElementById('emTime').value || '12:00';
-  const recorrencia = document.getElementById('emRecorrente').checked ? 'mensal' : 'none';
+  const pRaw = parseInt(document.getElementById('emParcelas').value, 10);
+  const parcelas = (pRaw>=2 && pRaw<=99) ? pRaw : null;
+  let recorrencia = document.getElementById('emRecorrente').checked ? 'mensal' : 'none';
+  if (parcelas) recorrencia = 'none';               // parcelado tem lógica própria
+  const value = parcelas ? Math.round((total/parcelas)*100)/100 : total;  // valor por parcela
   const categoria = document.getElementById('emCategoria').value;
   const method = document.getElementById('emMethod').value;
   const bank = document.getElementById('emBank').value;
-  const accountId = recorrencia==='none' ? (document.getElementById('emAccount').value || null) : null;
+  const recLike = recorrencia==='mensal' || parcelas;  // não movimenta conta automaticamente
+  const accountId = !recLike ? (document.getElementById('emAccount').value || null) : null;
   let lines = await getExpenseLines();
   const accounts = await getAccounts();
   let accountsTouched = false;
@@ -1448,14 +1455,14 @@ document.getElementById('emSave').onclick = async ()=>{
         if (accountId){ applyAccountMovement(accounts, accountId, value, +1); accountsTouched = true; }
       }
       l.label=label; l.value=value; l.date=date; l.time=time; l.recorrencia=recorrencia;
-      l.categoria=categoria; l.method=method; l.bank=bank; l.accountId=accountId;
+      l.categoria=categoria; l.method=method; l.bank=bank; l.accountId=accountId; l.parcelas=parcelas;
     }
   } else {
     if (accountId){
       applyAccountMovement(accounts, accountId, value, +1);
       accountsTouched = true;
     }
-    lines.push({ id: genId(), label, value, date, time, recorrencia, categoria, method, bank, accountId, createdAt: Date.now() });
+    lines.push({ id: genId(), label, value, date, time, recorrencia, categoria, method, bank, accountId, parcelas, createdAt: Date.now() });
   }
   if (accountsTouched) await storeSet('accounts_v2', accounts);
   await storeSet('expense_lines_v4', lines);
@@ -1492,7 +1499,10 @@ function openExpenseEdit(line){
   editingExpenseId = line.id;
   document.getElementById('expenseModalTitle').textContent = 'Editar despesa';
   document.getElementById('emLabel').value = line.label;
-  document.getElementById('emValue').value = line.value;
+  // parcelado: mostra o total (valor por parcela × nº) no campo de valor
+  document.getElementById('emParcelas').value = line.parcelas || '';
+  document.getElementById('emValue').value = line.parcelas ? Math.round(Number(line.value||0)*line.parcelas*100)/100 : line.value;
+  updateParcelasHint();
   document.getElementById('emDate').value = line.date || '';
   document.getElementById('emTime').value = expenseTimeOf(line);
   document.getElementById('emRecorrente').checked = line.recorrencia === 'mensal';
@@ -1506,6 +1516,19 @@ function openExpenseEdit(line){
   onExpenseMethodChange();
   document.getElementById('expenseModalOverlay').classList.add('open');
 }
+function updateParcelasHint(){
+  const p = parseInt(document.getElementById('emParcelas').value, 10);
+  const total = Number(document.getElementById('emValue').value||0);
+  const hint = document.getElementById('emParcelasHint');
+  const rec = document.getElementById('emRecorrente');
+  if (p>=2){
+    rec.checked = false; rec.disabled = true;
+    hint.textContent = total>0 ? `${p}x de ${fmtMoney(Math.round((total/p)*100)/100)} — o valor acima é o total.` : 'O valor acima é o total; será dividido nas parcelas.';
+  } else { rec.disabled = false; hint.textContent = ''; }
+}
+document.getElementById('emParcelas').addEventListener('input', updateParcelasHint);
+document.getElementById('emValue').addEventListener('input', ()=>{ if (parseInt(document.getElementById('emParcelas').value,10)>=2) updateParcelasHint(); });
+document.getElementById('emRecorrente').addEventListener('change', (e)=>{ if (e.target.checked){ document.getElementById('emParcelas').value=''; updateParcelasHint(); } });
 
 
 /* ---- Contas ---- */
@@ -2100,6 +2123,17 @@ function clampDayOfMonth(year, month, day){
 function expenseOccurrencesInRange(exp, range){
   if (!exp.date) return [];
   const anchor = new Date(exp.date+'T00:00:00');
+  // parcelado: N ocorrências mensais a partir da 1ª parcela
+  if (exp.parcelas >= 2){
+    const dom = anchor.getDate();
+    const occ = [];
+    for (let i=0;i<exp.parcelas;i++){
+      const m = new Date(anchor.getFullYear(), anchor.getMonth()+i, 1);
+      const od = new Date(m.getFullYear(), m.getMonth(), clampDayOfMonth(m.getFullYear(), m.getMonth(), dom));
+      if (dnum(od) >= dnum(range.start) && dnum(od) <= dnum(range.end)) occ.push(od);
+    }
+    return occ;
+  }
   if (exp.recorrencia !== 'mensal'){
     return inRange(exp.date, range) ? [anchor] : [];
   }
@@ -2121,6 +2155,14 @@ function expenseOccurrencesInRange(exp, range){
 }
 function expenseTotalInRange(exp, range){
   return expenseOccurrencesInRange(exp, range).length * Number(exp.value||0);
+}
+/** "parcela X/N": qual parcela cai no mês de 'now' (clampado 1..N). */
+function parcelaLabel(exp, now){
+  if (!exp.parcelas || !exp.date) return '';
+  const a = new Date(exp.date+'T00:00:00');
+  let n = (now.getFullYear()-a.getFullYear())*12 + (now.getMonth()-a.getMonth()) + 1;
+  n = Math.max(1, Math.min(exp.parcelas, n));
+  return 'parcela ' + n + '/' + exp.parcelas;
 }
 function expenseTimeOf(exp){
   if (exp.time) return exp.time;
@@ -2500,7 +2542,7 @@ async function renderExtrato(expLines, incLines, entries, accounts, now){
   const items = [];
   expLines.forEach(e=>{
     items.push({ side:'out', sortKey: e.date||'0000-00-00', label: e.label, value: Number(e.value||0),
-      sub: [relDate(e.date), catLabel(e.categoria), e.recorrencia==='mensal'?'mensal':'', bankById(e.bank).name].filter(Boolean).join(' · '),
+      sub: [relDate(e.date), catLabel(e.categoria), e.recorrencia==='mensal'?'mensal':'', e.parcelas>=2?parcelaLabel(e,now):'', bankById(e.bank).name].filter(Boolean).join(' · '),
       icon: bankAvatarHtml(e.bank), onClick: ()=>openExpenseEdit(e),
       search: (e.label+' '+catLabel(e.categoria)+' '+bankById(e.bank).name+' '+(METHODS[e.method]||'')).toLowerCase() });
   });
