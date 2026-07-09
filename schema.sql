@@ -106,6 +106,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   account_id VARCHAR(32) NULL,
   km INT NULL,
   payday TINYINT UNSIGNED NULL,
+  parcelas INT NULL,
   created_at BIGINT NULL,
   INDEX idx_user_kind (user_id, kind),
   INDEX idx_user_date (user_id, tx_date),

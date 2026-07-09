@@ -498,6 +498,11 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
       <input type="checkbox" class="chk" id="emRecorrente">
       <label>Repete todo mês (mesmo dia)</label>
     </div>
+    <div class="field" id="emParcelasField">
+      <label>Parcelar em (x) — deixe vazio se à vista</label>
+      <input type="number" id="emParcelas" min="2" max="99" step="1" placeholder="Ex: 10">
+      <div id="emParcelasHint" style="font-size:11.5px;color:var(--text-3);margin-top:4px;"></div>
+    </div>
     <div class="field">
       <label>Movimentar conta (opcional)</label>
       <select id="emAccount"><option value="">Não movimentar nenhuma conta</option></select>

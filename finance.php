@@ -59,6 +59,7 @@ function finance_load_set(PDO $db, int $uid, string $set): array {
                 'date' => $r['tx_date'], 'time' => fin_trim_time($r['tx_time']),
                 'recorrencia' => $r['recurrence'], 'categoria' => $r['category'],
                 'method' => $r['method'], 'bank' => $r['bank'], 'accountId' => $r['account_id'],
+                'parcelas' => isset($r['parcelas']) && $r['parcelas'] !== null ? (int)$r['parcelas'] : null,
                 'createdAt' => $r['created_at'] !== null ? (int)$r['created_at'] : null,
             ];
         } elseif ($set === 'income') {
@@ -101,23 +102,25 @@ function finance_save_set(PDO $db, int $uid, string $set, array $rows): void {
         } else {
             $db->prepare('DELETE FROM transactions WHERE user_id = ? AND kind = ?')->execute([$uid, $set]);
             $ins = $db->prepare('INSERT INTO transactions
-                (user_id, kind, client_id, label, value, tx_date, tx_time, category, method, bank, recurrence, income_type, end_date, account_id, km, payday, created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+                (user_id, kind, client_id, label, value, tx_date, tx_time, category, method, bank, recurrence, income_type, end_date, account_id, km, payday, parcelas, created_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
             foreach ($rows as $t) {
                 if ($set === 'expense') {
+                    $parc = isset($t['parcelas']) && (int)$t['parcelas'] >= 2 ? (int)$t['parcelas'] : null;
                     $ins->execute([$uid, 'expense', (string)($t['id'] ?? uniqid('t')), $t['label'] ?? '', fin_num($t['value'] ?? 0),
                         $t['date'] ?? null, $t['time'] ?? null, $t['categoria'] ?? null, $t['method'] ?? null,
-                        $t['bank'] ?? null, $t['recorrencia'] ?? null, null, null, $t['accountId'] ?? null, null, null,
+                        $t['bank'] ?? null, $t['recorrencia'] ?? null, null, null, $t['accountId'] ?? null, null, null, $parc,
                         isset($t['createdAt']) ? (int)$t['createdAt'] : null]);
                 } elseif ($set === 'income') {
                     $pd = isset($t['payday']) && $t['payday'] !== null && (int)$t['payday'] >= 1 && (int)$t['payday'] <= 31 ? (int)$t['payday'] : null;
                     $ins->execute([$uid, 'income', (string)($t['id'] ?? uniqid('i')), $t['label'] ?? '', fin_num($t['value'] ?? 0),
-                        null, null, null, null, null, null, $t['type'] ?? null, $t['endDate'] ?? null, $t['accountId'] ?? null, null, $pd,
+                        null, null, null, null, null, null, $t['type'] ?? null, $t['endDate'] ?? null, $t['accountId'] ?? null, null, $pd, null,
                         isset($t['createdAt']) ? (int)$t['createdAt'] : null]);
                 } else { // income_var
                     $ins->execute([$uid, 'income_var', uniqid('v'), null, fin_num($t['valor'] ?? 0),
                         $t['date'] ?? null, null, null, null, null, null, null, null, null,
-                        isset($t['km']) && $t['km'] !== null ? (int)$t['km'] : null, null, null]);
+                        isset($t['km']) && $t['km'] !== null ? (int)$t['km'] : null, null, null,
+                        null]);
                 }
             }
         }
