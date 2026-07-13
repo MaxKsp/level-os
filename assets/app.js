@@ -294,8 +294,20 @@ async function storeSet(key, value){
       headers: {'Content-Type':'application/json', 'X-CSRF-Token': window.CSRF_TOKEN},
       body: JSON.stringify({key, value})
     });
-    if (r.status === 401) location.href = 'login.php';
-  } catch(e){ console.error(e); }
+    if (r.status === 401){ location.href = 'login.php'; return; }
+    if (!r.ok){
+      let msg = 'Nao consegui salvar agora.';
+      try{
+        const body = await r.json();
+        if (body && body.error) msg = body.error;
+      }catch(_){}
+      throw new Error(msg);
+    }
+  } catch(e){
+    console.error(e);
+    toast(e.message || 'Nao consegui salvar agora.', {error:true});
+    throw e;
+  }
 }
 
 let tasks = [];
@@ -1988,7 +2000,15 @@ document.getElementById('btnOpenAccModal').onclick = ()=>{
 document.getElementById('acCancel').onclick = ()=> document.getElementById('accountModalOverlay').classList.remove('open');
 document.getElementById('acSave').onclick = async ()=>{
   const label = document.getElementById('acLabel').value.trim();
-  if (!label) return;
+  if (!label){
+    toast('Informe um apelido para a conta.', {error:true});
+    document.getElementById('acLabel').focus();
+    return;
+  }
+  const saveBtn = document.getElementById('acSave');
+  const oldText = saveBtn.textContent;
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Salvando...';
   const tipo = document.getElementById('acTipo').value;
   const saldo = Number(document.getElementById('acSaldo').value||0);
   const chequeEspecial = tipo==='conta' ? Number(document.getElementById('acChequeEspecial').value||0) : 0;
@@ -2006,10 +2026,15 @@ document.getElementById('acSave').onclick = async ()=>{
   } else {
     accounts.push({ id: genId(), label, tipo, saldo, chequeEspecial, limite, fatura, fechamento, vencimento, bank, principal, createdAt: Date.now() });
   }
-  await storeSet('accounts_v2', accounts);
-  document.getElementById('accountModalOverlay').classList.remove('open');
-  renderFinance();
-  toast(editingAccountId ? 'Conta atualizada' : 'Conta criada');
+  try{
+    await storeSet('accounts_v2', accounts);
+    document.getElementById('accountModalOverlay').classList.remove('open');
+    renderFinance();
+    toast(editingAccountId ? 'Conta atualizada' : 'Conta criada');
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = oldText;
+  }
 };
 document.getElementById('acDelete').onclick = async ()=>{
   if (!editingAccountId) return;
@@ -3539,7 +3564,15 @@ async function init(){
   renderHomeCharts();
   renderAgenda();
   setInterval(()=>{ renderHero(); if (document.getElementById('apage-inicio').classList.contains('active')) renderHomeCharts(); }, 20000);
-  if ('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+  if ('serviceWorker' in navigator){
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1'){
+      navigator.serviceWorker.getRegistrations()
+        .then(regs => regs.forEach(reg => reg.unregister()))
+        .catch(()=>{});
+    } else {
+      navigator.serviceWorker.register('sw.js').catch(()=>{});
+    }
+  }
   fetch('api/me.php').then(r=>r.ok?r.json():null).then(me=>{ if(me) setTopbarAvatar(me.avatar); }).catch(()=>{});
 }
 init();
