@@ -452,6 +452,80 @@ function Save-ValidatedDiff {
     $Hash | Out-File -LiteralPath (Join-Path $RunDirectory 'validated-diff.sha256') -Encoding ascii
 }
 
+function Get-PhaseReportPath {
+    param([string]$RepoRoot, $PhaseObject)
+
+    $reports = @($PhaseObject.allowedFiles | ForEach-Object { $_.ToString().Replace('\', '/') } | Where-Object {
+        $_ -match '^docs/architecture/finance/[^/]+_REPORT\.md$'
+    })
+    if ($reports.Count -eq 0) { return $null }
+    if ($reports.Count -gt 1) { throw 'Phase allowlist contains more than one Finance report.' }
+    return $reports[0]
+}
+
+function Test-PhaseReportNeedsValidationSync {
+    param([string]$Path)
+
+    if (-not $Path -or -not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
+    $content = Get-Content -LiteralPath $Path -Raw
+    return [bool]($content -match '(?i)nao\s+executad|não\s+executad|not\s+executed|validation\s+pending|validacao\s+pendente|validação\s+pendente')
+}
+
+function Invoke-PhaseReportValidationSync {
+    param(
+        [string]$RepoRoot,
+        [string]$RunDirectory,
+        $PhaseObject,
+        [string]$ReportPath,
+        $ValidationResult
+    )
+
+    $absoluteReportPath = Join-Path $RepoRoot $ReportPath
+    if (-not (Test-PhaseReportNeedsValidationSync -Path $absoluteReportPath)) { return $false }
+    $passedResults = @($ValidationResult.results | Where-Object { $_.passed })
+    $commands = @($ValidationResult.results | ForEach-Object { $_.command } | Where-Object { $_ })
+    $prompt = @(
+        "Report path: $ReportPath",
+        'Executed commands:',
+        ($commands -join [Environment]::NewLine),
+        'Validation result: passed=true',
+        "Approved checks: $($passedResults.Count)",
+        'Update only the validation section of this report. Do not change code or any other file.'
+    ) -join [Environment]::NewLine
+    $prompt = Add-ClaudeSkillInvocation -Prompt $prompt -RepoRoot $RepoRoot
+    $prompt | Out-File -LiteralPath (Join-Path $RunDirectory 'report-sync-prompt.txt') -Encoding utf8
+
+    $backup = New-FixBackup -RepoRoot $RepoRoot -RunDirectory $RunDirectory -AttemptNumber 0 -PhaseObject $PhaseObject
+    $claudeCmd = Resolve-AgentCommandPath -Name 'claude'
+    $claudeTools = 'Read,Edit'
+    $claudeArgs = @(
+        '-p',
+        '--permission-mode', $ClaudePermissionMode,
+        '--tools', $claudeTools,
+        '--allowedTools', $claudeTools,
+        '--disallowedTools', 'Bash,Write,Glob,Grep,WebFetch,WebSearch',
+        '--no-session-persistence'
+    )
+    $null = Invoke-NativeProcess `
+        -StageName 'ReportSync' `
+        -FilePath $claudeCmd `
+        -ArgumentList $claudeArgs `
+        -RunDirectory $RunDirectory `
+        -TimeoutSeconds $ImplementerTimeoutSeconds `
+        -HeartbeatIntervalSeconds $HeartbeatSeconds `
+        -StandardInputText $prompt
+
+    $after = Get-WorkspaceSnapshot -ExcludePaths @($GeneratedPhaseDefinition)
+    $delta = @(Get-SnapshotChangedFiles -Before $backup.snapshot -After $after)
+    $unauthorized = @($delta | Where-Object { -not $_.Equals($ReportPath, [System.StringComparison]::OrdinalIgnoreCase) })
+    if ($unauthorized.Count -gt 0) {
+        Restore-FixBackup -Backup $backup -DeltaFiles $delta -RepoRoot $RepoRoot
+        throw "Report synchronization modified unauthorized files: $($unauthorized -join ', ')"
+    }
+    if ($delta.Count -eq 0) { throw 'Report synchronization completed without updating the pending report.' }
+    return $true
+}
+
 function New-RunDirectory {
     param([string]$RepoRoot)
 
@@ -497,6 +571,47 @@ function Get-ChangedFiles {
 
     $normalizedExclusions = @($ExcludePaths | ForEach-Object { $_.Replace('\', '/').TrimStart('.', '/') })
     return $normalizedFiles | Where-Object { $normalizedExclusions -notcontains $_ } | Sort-Object -Unique
+}
+
+function Get-InternalExecutionFiles {
+    param(
+        [string]$RepoRoot,
+        [string]$RunDirectory,
+        [string]$GeneratedPhasePath
+    )
+
+    $internalFiles = @()
+    if ($GeneratedPhasePath) {
+        $internalFiles += $GeneratedPhasePath.Replace('\', '/').TrimStart('.', '/')
+    }
+    if ($RunDirectory) {
+        $absoluteRunDirectory = [System.IO.Path]::GetFullPath($RunDirectory)
+        $absoluteRepoRoot = [System.IO.Path]::GetFullPath($RepoRoot).TrimEnd('\', '/')
+        if ($absoluteRunDirectory.StartsWith($absoluteRepoRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $runRelative = $absoluteRunDirectory.Substring($absoluteRepoRoot.Length).TrimStart('\', '/').Replace('\', '/')
+            if ($runRelative) { $internalFiles += ($runRelative.TrimEnd('/') + '/') }
+        }
+    }
+    return @($internalFiles | Sort-Object -Unique)
+}
+
+function Get-ReviewerChangedFiles {
+    param([string[]]$ChangedFiles, [string[]]$InternalFiles)
+
+    $filtered = @()
+    foreach ($fileValue in $ChangedFiles) {
+        $file = $fileValue.ToString().Replace('\', '/').TrimStart('.', '/')
+        $excluded = $false
+        foreach ($internalValue in $InternalFiles) {
+            $internal = $internalValue.ToString().Replace('\', '/').TrimStart('.', '/')
+            if (($internal.EndsWith('/') -and $file.StartsWith($internal, [System.StringComparison]::OrdinalIgnoreCase)) -or $file.Equals($internal, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $excluded = $true
+                break
+            }
+        }
+        if (-not $excluded) { $filtered += $file }
+    }
+    return @($filtered | Sort-Object -Unique)
 }
 
 function Assert-AutoNextPreconditions {
@@ -1130,7 +1245,11 @@ function Invoke-ClaudeImplementation {
 }
 
 function Test-ReviewJson {
-    param([AllowEmptyString()][string]$Text)
+    param(
+        [AllowEmptyString()][string]$Text,
+        [string[]]$AllowedReviewedFiles = @(),
+        [string[]]$InternalFiles = @()
+    )
 
     if ([string]::IsNullOrWhiteSpace($Text)) {
         return [pscustomobject]@{ valid = $false; value = $null; error = 'empty output' }
@@ -1150,7 +1269,42 @@ function Test-ReviewJson {
     if ($unexpected.Count -gt 0) {
         return [pscustomobject]@{ valid = $false; value = $null; error = "unexpected properties: $($unexpected -join ', ')" }
     }
+    foreach ($reviewedFileValue in @($value.filesReviewed)) {
+        $reviewedFile = $reviewedFileValue.ToString().Replace('\', '/')
+        if ($AllowedReviewedFiles -notcontains $reviewedFile) {
+            return [pscustomobject]@{ valid = $false; value = $null; error = "filesReviewed contains excluded file: $reviewedFile" }
+        }
+    }
+    foreach ($blockerValue in @($value.blockers)) {
+        $blocker = $blockerValue.ToString().Replace('\', '/')
+        foreach ($internalFile in $InternalFiles) {
+            if ($internalFile -and $blocker.IndexOf($internalFile, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                return [pscustomobject]@{ valid = $false; value = $null; error = "blocker is based on internal file: $internalFile" }
+            }
+        }
+    }
     return [pscustomobject]@{ valid = $true; value = $value; error = '' }
+}
+
+function Remove-InternalReviewArtifacts {
+    param([string]$Text, [string[]]$ChangedFiles, [string[]]$InternalFiles)
+
+    try { $value = $Text | ConvertFrom-Json } catch { return $Text }
+    if (-not ($value.PSObject.Properties.Name -contains 'filesReviewed') -or -not ($value.PSObject.Properties.Name -contains 'blockers')) { return $Text }
+    $value.filesReviewed = @($value.filesReviewed | Where-Object {
+        $reviewed = $_.ToString().Replace('\', '/')
+        @($InternalFiles | Where-Object { $reviewed.Equals($_, [System.StringComparison]::OrdinalIgnoreCase) }).Count -eq 0
+    })
+    $remainingBlockers = @()
+    foreach ($blockerValue in @($value.blockers)) {
+        $blocker = $blockerValue.ToString().Replace('\', '/')
+        $mentionsInternal = @($InternalFiles | Where-Object { $_ -and $blocker.IndexOf($_, [System.StringComparison]::OrdinalIgnoreCase) -ge 0 }).Count -gt 0
+        $mentionsChanged = @($ChangedFiles | Where-Object { $_ -and $blocker.IndexOf($_, [System.StringComparison]::OrdinalIgnoreCase) -ge 0 }).Count -gt 0
+        if (-not $mentionsInternal -or $mentionsChanged) { $remainingBlockers += $blockerValue }
+    }
+    $value.blockers = @($remainingBlockers)
+    if (@($value.blockers).Count -eq 0) { $value.approved = $true }
+    return ($value | ConvertTo-Json -Depth 8 -Compress)
 }
 
 function Invoke-CodexReview {
@@ -1160,7 +1314,8 @@ function Invoke-CodexReview {
         [string]$PhaseJson,
         [string]$SchemaPath,
         [string[]]$ChangedFiles,
-        [string]$ValidationSummary
+        [string]$ValidationSummary,
+        [string[]]$InternalFiles = @()
     )
 
     $reviewOutputPath = Join-Path $RunDirectory 'review.json'
@@ -1171,6 +1326,7 @@ function Invoke-CodexReview {
     $reviewPrompt = $reviewPrompt.Replace('{{ALLOWED_FILES}}', (@($reviewPhase.allowedFiles) -join [Environment]::NewLine))
     $reviewPrompt = $reviewPrompt.Replace('{{FORBIDDEN_FILES}}', (@($reviewPhase.forbiddenFiles) -join [Environment]::NewLine))
     $reviewPrompt = $reviewPrompt.Replace('{{CHANGED_FILES}}', ($ChangedFiles -join [Environment]::NewLine))
+    $reviewPrompt = $reviewPrompt.Replace('{{INTERNAL_FILES}}', ($InternalFiles -join [Environment]::NewLine))
     $reviewPrompt = $reviewPrompt.Replace('{{VALIDATION_SUMMARY}}', $ValidationSummary)
 
     $codexCmd = Resolve-AgentCommandPath -Name 'codex'
@@ -1200,7 +1356,9 @@ function Invoke-CodexReview {
     }
     $reviewText = Get-Content -LiteralPath $reviewOutputPath -Raw
     $reviewText | Out-File -LiteralPath $reviewRawPath -Encoding utf8
-    $reviewCheck = Test-ReviewJson -Text $reviewText
+    $reviewText = Remove-InternalReviewArtifacts -Text $reviewText -ChangedFiles $ChangedFiles -InternalFiles $InternalFiles
+    $reviewText | Out-File -LiteralPath $reviewOutputPath -Encoding utf8
+    $reviewCheck = Test-ReviewJson -Text $reviewText -AllowedReviewedFiles $ChangedFiles -InternalFiles $InternalFiles
     if (-not $reviewCheck.valid) {
         $repairOutputPath = Join-Path $RunDirectory 'review-repair.json'
         $schemaText = Get-Content -LiteralPath $SchemaPath -Raw
@@ -1229,7 +1387,8 @@ function Invoke-CodexReview {
             throw 'Codex review JSON repair did not create review-repair.json.'
         }
         $reviewText = Get-Content -LiteralPath $repairOutputPath -Raw
-        $reviewCheck = Test-ReviewJson -Text $reviewText
+        $reviewText = Remove-InternalReviewArtifacts -Text $reviewText -ChangedFiles $ChangedFiles -InternalFiles $InternalFiles
+        $reviewCheck = Test-ReviewJson -Text $reviewText -AllowedReviewedFiles $ChangedFiles -InternalFiles $InternalFiles
         if (-not $reviewCheck.valid) {
             throw "Codex review JSON remained invalid after one repair attempt: $($reviewCheck.error)"
         }
@@ -1784,6 +1943,9 @@ if ($UseCodexUserConfig) {
 }
 $phaseJson = Get-Content -LiteralPath $resolvedPhasePath -Raw
 $phaseObject = Get-PhaseObject -Path $resolvedPhasePath
+$phaseReportPath = Get-PhaseReportPath -RepoRoot $repoRoot -PhaseObject $phaseObject
+$validationHashExclusions = @($GeneratedPhaseDefinition)
+if ($phaseReportPath) { $validationHashExclusions += $phaseReportPath }
 $planSchemaPath = Join-Path $repoRoot 'automation/schemas/plan.schema.json'
 $reviewSchemaPath = Join-Path $repoRoot 'automation/schemas/review.schema.json'
 $failures = New-Object System.Collections.Generic.List[string]
@@ -1875,7 +2037,7 @@ try {
     }
 
     $validationAttemptNumber = 1
-    $currentDiffHash = Get-ValidatedDiffHash -RepoRoot $repoRoot -PhaseObject $phaseObject -ExcludePaths @($GeneratedPhaseDefinition)
+    $currentDiffHash = Get-ValidatedDiffHash -RepoRoot $repoRoot -PhaseObject $phaseObject -ExcludePaths $validationHashExclusions
     $validatedDiffHash = ''
     $validationReused = $false
     $validationResult = $null
@@ -1957,15 +2119,23 @@ try {
         throw 'Validation failed after reaching MaxFixAttempts.'
     }
 
-    $currentDiffHash = Get-ValidatedDiffHash -RepoRoot $repoRoot -PhaseObject $phaseObject -ExcludePaths @($GeneratedPhaseDefinition)
+    $currentDiffHash = Get-ValidatedDiffHash -RepoRoot $repoRoot -PhaseObject $phaseObject -ExcludePaths $validationHashExclusions
     $validatedDiffHash = $currentDiffHash
     Save-ValidatedDiff -RunDirectory $runDirectory -ValidationResult $validationResult.data -Hash $validatedDiffHash
     Write-Host "Validated diff hash: $validatedDiffHash"
     Write-Host "Current diff hash: $currentDiffHash"
 
-    $changedForReview = @(Get-ChangedFiles -ExcludePaths @($GeneratedPhaseDefinition))
-    $validationSummary = [ordered]@{ phaseId = $phaseObject.id; passed = $true; failedCount = 0; reused = $validationReused; diffHash = $validatedDiffHash } | ConvertTo-Json -Compress
-    $reviewJson = Invoke-CodexReview -RepoRoot $repoRoot -RunDirectory $runDirectory -PhaseJson $phaseJson -SchemaPath $reviewSchemaPath -ChangedFiles $changedForReview -ValidationSummary $validationSummary
+    if ($phaseReportPath) {
+        $null = Invoke-PhaseReportValidationSync -RepoRoot $repoRoot -RunDirectory $runDirectory -PhaseObject $phaseObject -ReportPath $phaseReportPath -ValidationResult $validationResult.data
+    }
+    $reviewDiffHash = Get-ValidatedDiffHash -RepoRoot $repoRoot -PhaseObject $phaseObject -ExcludePaths @($GeneratedPhaseDefinition)
+    $internalExecutionFiles = @(Get-InternalExecutionFiles -RepoRoot $repoRoot -RunDirectory $runDirectory -GeneratedPhasePath $GeneratedPhaseDefinition)
+    Write-Host 'Reviewer excluded internal files:'
+    $internalExecutionFiles | ForEach-Object { Write-Host "- $_" }
+    $allChangedForReview = @(Get-ChangedFiles)
+    $changedForReview = @(Get-ReviewerChangedFiles -ChangedFiles $allChangedForReview -InternalFiles $internalExecutionFiles)
+    $validationSummary = [ordered]@{ phaseId = $phaseObject.id; passed = $true; failedCount = 0; reused = $validationReused; validatedCodeHash = $validatedDiffHash; currentReviewDiffHash = $reviewDiffHash } | ConvertTo-Json -Compress
+    $reviewJson = Invoke-CodexReview -RepoRoot $repoRoot -RunDirectory $runDirectory -PhaseJson $phaseJson -SchemaPath $reviewSchemaPath -ChangedFiles $changedForReview -ValidationSummary $validationSummary -InternalFiles $internalExecutionFiles
     $reviewObject = $reviewJson | ConvertFrom-Json
 
     while ((-not $reviewObject.approved -or @($reviewObject.blockers).Count -gt 0) -and $reviewFixAttempts -lt $MaxFixAttempts) {
@@ -1980,13 +2150,14 @@ try {
             throw 'Validation failed after fix attempt.'
         }
 
-        $currentDiffHash = Get-ValidatedDiffHash -RepoRoot $repoRoot -PhaseObject $phaseObject -ExcludePaths @($GeneratedPhaseDefinition)
+        $currentDiffHash = Get-ValidatedDiffHash -RepoRoot $repoRoot -PhaseObject $phaseObject -ExcludePaths $validationHashExclusions
         $validatedDiffHash = $currentDiffHash
         Save-ValidatedDiff -RunDirectory $runDirectory -ValidationResult $reviewFixValidation.data -Hash $validatedDiffHash
-        $changedForReview = @(Get-ChangedFiles -ExcludePaths @($GeneratedPhaseDefinition))
+        $allChangedForReview = @(Get-ChangedFiles)
+        $changedForReview = @(Get-ReviewerChangedFiles -ChangedFiles $allChangedForReview -InternalFiles $internalExecutionFiles)
         $validationSummary = [ordered]@{ phaseId = $phaseObject.id; passed = $true; failedCount = 0; reused = $false; diffHash = $validatedDiffHash } | ConvertTo-Json -Compress
 
-        $reviewJson = Invoke-CodexReview -RepoRoot $repoRoot -RunDirectory $runDirectory -PhaseJson $phaseJson -SchemaPath $reviewSchemaPath -ChangedFiles $changedForReview -ValidationSummary $validationSummary
+        $reviewJson = Invoke-CodexReview -RepoRoot $repoRoot -RunDirectory $runDirectory -PhaseJson $phaseJson -SchemaPath $reviewSchemaPath -ChangedFiles $changedForReview -ValidationSummary $validationSummary -InternalFiles $internalExecutionFiles
         $reviewObject = $reviewJson | ConvertFrom-Json
     }
 

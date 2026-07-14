@@ -18,7 +18,10 @@ function Get-PipelineFunctionDefinition {
     return $definition.Extent.Text
 }
 Invoke-Expression (Get-PipelineFunctionDefinition -Name 'Test-ReviewJson')
+Invoke-Expression (Get-PipelineFunctionDefinition -Name 'Remove-InternalReviewArtifacts')
 Invoke-Expression (Get-PipelineFunctionDefinition -Name 'Invoke-CodexReview')
+Invoke-Expression (Get-PipelineFunctionDefinition -Name 'Get-InternalExecutionFiles')
+Invoke-Expression (Get-PipelineFunctionDefinition -Name 'Get-ReviewerChangedFiles')
 
 $script:UseCodexUserConfig = $false
 $script:ReviewerTimeoutSeconds = 10
@@ -48,25 +51,39 @@ $phase = [ordered]@{
     phpTests=@(); jsTests=@('node tests/allowed.js'); phpLint=@(); jsLint=@(); commitMessage='test: review'
 } | ConvertTo-Json -Depth 5
 $validJson = [ordered]@{ approved=$true; blockers=@(); warnings=@(); filesReviewed=@('tests/allowed.js'); recommendedCommitMessage='test: review' } | ConvertTo-Json -Compress
+$internalFiles = @('automation/phases/phase-19.json','automation/runs/test/')
 
 try {
     New-Item -ItemType Directory -Path $runDirectory -Force | Out-Null
 
     $script:MockCalls.Clear(); $script:MockOutputs = @($validJson)
-    $result = Invoke-CodexReview -RepoRoot $sourceRoot -RunDirectory $runDirectory -PhaseJson $phase -SchemaPath $schemaPath -ChangedFiles @('tests/allowed.js') -ValidationSummary '{"passed":true}'
+    $filtered = @(Get-ReviewerChangedFiles -ChangedFiles @('tests/allowed.js','automation/phases/phase-19.json','app/outside.js') -InternalFiles $internalFiles)
+    if ($filtered -contains 'automation/phases/phase-19.json' -or $filtered -notcontains 'app/outside.js') { throw 'Reviewer internal-file filtering is incorrect.' }
+    $phaseReviewed = [ordered]@{ approved=$false; blockers=@('automation/phases/phase-19.json is forbidden'); warnings=@(); filesReviewed=@('automation/phases/phase-19.json'); recommendedCommitMessage='' } | ConvertTo-Json -Compress
+    if ((Test-ReviewJson -Text $phaseReviewed -AllowedReviewedFiles @('tests/allowed.js') -InternalFiles $internalFiles).valid) { throw 'Reviewer accepted internal phase JSON in filesReviewed/blockers.' }
+    $outsideReviewed = [ordered]@{ approved=$true; blockers=@(); warnings=@(); filesReviewed=@('app/outside.js'); recommendedCommitMessage='' } | ConvertTo-Json -Compress
+    if ((Test-ReviewJson -Text $outsideReviewed -AllowedReviewedFiles @('tests/allowed.js') -InternalFiles $internalFiles).valid) { throw 'Reviewer accepted an application file outside the filtered review list.' }
+
+    $script:MockCalls.Clear(); $script:MockOutputs = @($phaseReviewed)
+    $internalOnlyResult = Invoke-CodexReview -RepoRoot $sourceRoot -RunDirectory $runDirectory -PhaseJson $phase -SchemaPath $schemaPath -ChangedFiles @('tests/allowed.js') -ValidationSummary '{"passed":true}' -InternalFiles $internalFiles
+    $internalOnlyReview = $internalOnlyResult | ConvertFrom-Json
+    if ($script:MockCalls.Count -ne 1 -or -not $internalOnlyReview.approved -or @($internalOnlyReview.blockers).Count -ne 0 -or @($internalOnlyReview.filesReviewed).Count -ne 0) { throw 'Reviewer did not discard an internal-only phase artifact finding.' }
+
+    $script:MockCalls.Clear(); $script:MockOutputs = @($validJson)
+    $result = Invoke-CodexReview -RepoRoot $sourceRoot -RunDirectory $runDirectory -PhaseJson $phase -SchemaPath $schemaPath -ChangedFiles @('tests/allowed.js') -ValidationSummary '{"passed":true}' -InternalFiles $internalFiles
     if ($script:MockCalls.Count -ne 1) { throw 'Valid Reviewer JSON triggered an unnecessary second call.' }
-    if (-not (Test-ReviewJson -Text $result).valid) { throw 'Valid Reviewer JSON was rejected.' }
+    if (-not (Test-ReviewJson -Text $result -AllowedReviewedFiles @('tests/allowed.js') -InternalFiles $internalFiles).valid) { throw 'Valid Reviewer JSON was rejected.' }
     if ($script:MockCalls[0].stdin -notmatch 'Analyze `git diff`' -or $script:MockCalls[0].stdin -match 'stdout') { throw 'Reviewer prompt is not minimal.' }
 
     $script:MockCalls.Clear(); $script:MockOutputs = @('not json', $validJson)
-    $result = Invoke-CodexReview -RepoRoot $sourceRoot -RunDirectory $runDirectory -PhaseJson $phase -SchemaPath $schemaPath -ChangedFiles @('tests/allowed.js') -ValidationSummary '{"passed":true}'
+    $result = Invoke-CodexReview -RepoRoot $sourceRoot -RunDirectory $runDirectory -PhaseJson $phase -SchemaPath $schemaPath -ChangedFiles @('tests/allowed.js') -ValidationSummary '{"passed":true}' -InternalFiles $internalFiles
     if ($script:MockCalls.Count -ne 2 -or $script:MockCalls[1].stage -ne 'ReviewerRepair') { throw 'Invalid JSON did not trigger exactly one repair call.' }
     if ($script:MockCalls[1].stdin -notmatch 'sem alterar o significado') { throw 'Repair prompt is incorrect.' }
 
     $script:MockCalls.Clear(); $script:MockOutputs = @('not json', 'still not json')
     $blocked = $false
     try {
-        $null = Invoke-CodexReview -RepoRoot $sourceRoot -RunDirectory $runDirectory -PhaseJson $phase -SchemaPath $schemaPath -ChangedFiles @('tests/allowed.js') -ValidationSummary '{"passed":true}'
+        $null = Invoke-CodexReview -RepoRoot $sourceRoot -RunDirectory $runDirectory -PhaseJson $phase -SchemaPath $schemaPath -ChangedFiles @('tests/allowed.js') -ValidationSummary '{"passed":true}' -InternalFiles $internalFiles
     } catch {
         $blocked = $true
     }

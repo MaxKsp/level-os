@@ -31,6 +31,9 @@ foreach ($functionName in @(
     'Get-ValidatedDiffHash',
     'Find-ReusableValidation',
     'Save-ValidatedDiff',
+    'Get-PhaseReportPath',
+    'Test-PhaseReportNeedsValidationSync',
+    'Invoke-PhaseReportValidationSync',
     'New-FixBackup',
     'Restore-FixBackup'
 )) {
@@ -146,6 +149,43 @@ try {
     if ($changedHash -eq $validatedHash) { throw 'Changed diff did not change validation hash.' }
     $notReusable = Find-ReusableValidation -RepoRoot $testRoot -PhaseId 'phase-test' -CurrentHash $changedHash
     if ($null -ne $notReusable) { throw 'Changed diff incorrectly reused validation.' }
+
+    $reportRelative = 'docs/architecture/finance/PHASE_TEST_REPORT.md'
+    $phase.allowedFiles += $reportRelative
+    New-Item -ItemType Directory -Path 'docs/architecture/finance' -Force | Out-Null
+    "# Report`n`nValidation pending - commands not executed." | Set-Content -LiteralPath $reportRelative -Encoding utf8
+    $script:MockReportPath = Join-Path $testRoot $reportRelative
+    $script:ReportSyncCalls = 0
+    function Add-ClaudeSkillInvocation { param($Prompt,$RepoRoot) return "/ponytail`n`n$Prompt" }
+    function Resolve-AgentCommandPath { param($Name) return 'mock-claude.cmd' }
+    function Invoke-NativeProcess {
+        param($StageName,$FilePath,$ArgumentList,$RunDirectory,$TimeoutSeconds,$HeartbeatIntervalSeconds,$StandardInputText)
+        $script:ReportSyncCalls++
+        if (($StandardInputText -split "`r?`n")[0] -ne '/ponytail') { throw 'Report sync did not invoke /ponytail.' }
+        "# Report`n`nValidation passed: 2 approved checks." | Set-Content -LiteralPath $script:MockReportPath -Encoding utf8
+        return [pscustomobject]@{ exitCode=0; stdout=''; stderr='' }
+    }
+    $script:ClaudePermissionMode = 'acceptEdits'
+    $script:ImplementerTimeoutSeconds = 10
+    $script:HeartbeatSeconds = 1
+    $validationForReport = [pscustomobject]@{
+        passed=$true
+        results=@(
+            [pscustomobject]@{ command='node test-one.js'; passed=$true },
+            [pscustomobject]@{ command='node test-two.js'; passed=$true }
+        )
+    }
+    $codeHashBeforeReportSync = Get-ValidatedDiffHash -RepoRoot $testRoot -PhaseObject $phase -ExcludePaths @($reportRelative)
+    $updated = Invoke-PhaseReportValidationSync -RepoRoot $testRoot -RunDirectory $runDirectory -PhaseObject $phase -ReportPath $reportRelative -ValidationResult $validationForReport
+    if (-not $updated -or $script:ReportSyncCalls -ne 1) { throw 'Pending report was not synchronized after successful validation.' }
+    if ((Get-Content 'app/Modules/Finance/Frontend/finance-period-calculation.js' -Raw).Trim() -ne 'phase implementation') { throw 'Report synchronization changed application code.' }
+    $codeHashAfterReportSync = Get-ValidatedDiffHash -RepoRoot $testRoot -PhaseObject $phase -ExcludePaths @($reportRelative)
+    if ($codeHashAfterReportSync -ne $codeHashBeforeReportSync) { throw 'Documentation-only synchronization invalidated the validated code hash.' }
+    $updatedAgain = Invoke-PhaseReportValidationSync -RepoRoot $testRoot -RunDirectory $runDirectory -PhaseObject $phase -ReportPath $reportRelative -ValidationResult $validationForReport
+    if ($updatedAgain -or $script:ReportSyncCalls -ne 1) { throw 'Consistent report called Claude again.' }
+    $syncPosition = $pipelineText.IndexOf('Invoke-PhaseReportValidationSync -RepoRoot')
+    $reviewPosition = $pipelineText.LastIndexOf('Invoke-CodexReview -RepoRoot')
+    if ($syncPosition -lt 0 -or $reviewPosition -lt $syncPosition) { throw 'Resume/report synchronization does not proceed to Reviewer.' }
 }
 finally {
     Set-Location -LiteralPath $originalLocation

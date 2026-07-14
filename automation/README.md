@@ -137,7 +137,10 @@ The Reviewer uses ordinary `codex exec` with a minimal prompt over stdin and a
 mandatory output schema. It does not use the `review` subcommand or parse
 free-form Markdown. Valid JSON is accepted after one call; invalid output gets
 exactly one JSON-only repair call and then blocks the commit if still invalid.
-The raw first response is retained as `review.raw.txt`.
+The raw first response is retained as `review.raw.txt`. Generated phase JSON
+and run-directory artifacts are removed from the changed-file list; the phase
+definition remains architectural context but cannot appear in `filesReviewed`
+or be the basis of a blocker.
 
 By default every Claude prompt begins with `/ponytail`. The pipeline resolves
 the skill from repository/user skill paths and then repository/user command
@@ -158,6 +161,11 @@ cycle, then continues to Reviewer and human commit confirmation. A successful
 validation stores `validated-diff.sha256` and `validation-result.json`. Resume
 reuses them only when the current tracked diff plus allowed untracked file
 contents produce the same hash; any change forces complete validation.
+Finance report Markdown is excluded from the code-validation hash. After a
+successful or reused validation, a pending report gets one `/ponytail`
+documentation-only synchronization restricted to that report. This does not
+rerun tests or consume `MaxFixAttempts`; the review diff hash is recalculated
+before Reviewer.
 
 The controlled retry-policy checks run without a real phase or commit:
 
