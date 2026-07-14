@@ -283,7 +283,11 @@ function Get-ChangedFiles {
             continue
         }
 
-        $entry = if ($line.Length -ge 4) { $line.Substring(3).Trim() } else { $line.Trim() }
+        if ($line.Length -ge 4) {
+            $entry = $line.Substring(3).Trim()
+        } else {
+            $entry = $line.Trim()
+        }
         if ($entry -like '* -> *') {
             $entry = ($entry -split ' -> ')[-1]
         }
@@ -423,7 +427,12 @@ function Invoke-NativeProcess {
 
         $null = $process.WaitForExit(5000)
         $duration = (Get-Date) - $startTime
-        $exitCode = if ($process.HasExited) { $process.ExitCode } else { -1 }
+        $exitCode = -1
+
+        if ($process.HasExited) {
+            $exitCode = $process.ExitCode
+        }
+
         $stdout = $stdoutBuilder.ToString()
         $stderr = $stderrBuilder.ToString()
 
@@ -462,8 +471,14 @@ function Invoke-NativeProcess {
             throw $message
         }
 
+        $outputLines = @()
+
+        if (-not [string]::IsNullOrWhiteSpace($stdout)) {
+            $outputLines = $stdout -split "`r?`n"
+        }
+
         return [pscustomobject]@{
-            output        = @((if ($stdout) { $stdout -split "`r?`n" } else { @() }))
+            output        = @($outputLines)
             stdout        = $stdout
             stderr        = $stderr
             exitCode      = $exitCode
