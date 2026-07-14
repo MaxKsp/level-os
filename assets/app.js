@@ -1512,7 +1512,6 @@ async function getAccounts(){
 }
 const TIPO_CONTA_LABEL = { conta:'Conta corrente', poupanca:'Poupança', cartao:'Cartão de crédito' };
 function accTipoLabel(a){ return TIPO_CONTA_LABEL[a.tipo] || 'Conta corrente'; }
-function isContaLike(a){ return a.tipo !== 'cartao'; }  // corrente e poupança
 let __accView = 'conta';
 let __reservedByAcc = {};
 function accountCardHtml(a, reorder, idx, total){
