@@ -249,19 +249,19 @@ function Invoke-CodexPlan {
 
     $prompt = Get-PromptText -TemplatePath (Join-Path $RepoRoot 'automation/prompts/architect.md') -PhaseJson $PhaseJson -PlanJson ''
     $promptPath = Join-Path $RunDirectory 'architect-prompt.txt'
+    $planOutputPath = Join-Path $RunDirectory 'plan.json'
     $prompt | Out-File -LiteralPath $promptPath -Encoding utf8
 
     $codexCmd = Resolve-AgentCommandPath -Name 'codex'
     $result = Invoke-NativeAndCapture -FilePath $codexCmd -ArgumentList @(
         'exec',
         '--sandbox', 'read-only',
-        '--output-last-message',
+        '--output-last-message', $planOutputPath,
         '--output-schema', $SchemaPath,
         $prompt
     ) -OutputPath (Join-Path $RunDirectory 'plan.stdout.log')
 
     $planText = ($result.output -join [Environment]::NewLine).Trim()
-    $planText | Out-File -LiteralPath (Join-Path $RunDirectory 'plan.json') -Encoding utf8
     $planText | Out-File -LiteralPath (Join-Path $RunDirectory 'plan.txt') -Encoding utf8
     return $planText
 }
@@ -298,19 +298,19 @@ function Invoke-CodexReview {
 
     $prompt = Get-PromptText -TemplatePath (Join-Path $RepoRoot 'automation/prompts/reviewer.md') -PhaseJson $PhaseJson -PlanJson $PlanJson
     $promptPath = Join-Path $RunDirectory 'reviewer-prompt.txt'
+    $reviewOutputPath = Join-Path $RunDirectory 'review.json'
     $prompt | Out-File -LiteralPath $promptPath -Encoding utf8
 
     $codexCmd = Resolve-AgentCommandPath -Name 'codex'
     $result = Invoke-NativeAndCapture -FilePath $codexCmd -ArgumentList @(
-        'review',
+        'exec',
         '--sandbox', 'read-only',
-        '--output-last-message',
+        '--output-last-message', $reviewOutputPath,
         '--output-schema', $SchemaPath,
         $prompt
     ) -OutputPath (Join-Path $RunDirectory 'review.stdout.log')
 
     $reviewText = ($result.output -join [Environment]::NewLine).Trim()
-    $reviewText | Out-File -LiteralPath (Join-Path $RunDirectory 'review.json') -Encoding utf8
     $reviewText | Out-File -LiteralPath (Join-Path $RunDirectory 'review.txt') -Encoding utf8
     return $reviewText
 }
