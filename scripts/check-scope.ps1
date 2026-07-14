@@ -28,24 +28,38 @@ function Get-PhaseObject {
 }
 
 function Get-ChangedFilesFromGit {
-    $lines = & git status --porcelain
-    $files = @()
+    $trackedWorkingTree = @(& git -c core.quotepath=false diff --name-only --diff-filter=ACDMRTUXB --)
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Failed to list tracked working-tree changes.'
+    }
 
-    foreach ($line in $lines) {
-        if (-not $line) {
+    $trackedIndex = @(& git -c core.quotepath=false diff --cached --name-only --diff-filter=ACDMRTUXB --)
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Failed to list staged changes.'
+    }
+
+    $untracked = @(& git -c core.quotepath=false ls-files --others --exclude-standard)
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Failed to list untracked files.'
+    }
+
+    $files = @($trackedWorkingTree) + @($trackedIndex) + @($untracked)
+    $normalizedFiles = @()
+    foreach ($file in $files) {
+        if ([string]::IsNullOrWhiteSpace($file)) {
             continue
         }
 
-        $entry = if ($line.Length -ge 4) { $line.Substring(3).Trim() } else { $line.Trim() }
-        if ($entry -like '* -> *') {
-            $entry = ($entry -split ' -> ')[-1]
+        $normalized = $file.Trim().Replace('\', '/')
+        while ($normalized.StartsWith('./')) {
+            $normalized = $normalized.Substring(2)
         }
-        if ($entry) {
-            $files += $entry.Replace('\', '/')
+        if ($normalized -and -not $normalized.EndsWith('/')) {
+            $normalizedFiles += $normalized
         }
     }
 
-    return $files | Sort-Object -Unique
+    return $normalizedFiles | Sort-Object -Unique
 }
 
 function Test-PathMatch {
@@ -54,8 +68,15 @@ function Test-PathMatch {
         [string]$Rule
     )
 
-    $normalizedFile = $File.Replace('\', '/')
+    $normalizedFile = $File.Replace('\', '/').Trim()
     $normalizedRule = $Rule.Replace('\', '/').Trim()
+
+    while ($normalizedFile.StartsWith('./')) {
+        $normalizedFile = $normalizedFile.Substring(2)
+    }
+    while ($normalizedRule.StartsWith('./')) {
+        $normalizedRule = $normalizedRule.Substring(2)
+    }
 
     if ($normalizedRule.EndsWith('/')) {
         return $normalizedFile.StartsWith($normalizedRule, [System.StringComparison]::OrdinalIgnoreCase)
@@ -92,10 +113,25 @@ $phaseObject = Get-PhaseObject -Path (Join-Path $repoRoot $Phase)
 
 $allowed = @($phaseObject.allowedFiles | ForEach-Object { $_.ToString().Replace('\', '/') })
 $forbidden = @($phaseObject.forbiddenFiles | ForEach-Object { $_.ToString().Replace('\', '/') })
-$files = if ($ChangedFiles -and $ChangedFiles.Count -gt 0) {
-    $ChangedFiles | ForEach-Object { $_.Replace('\', '/') } | Sort-Object -Unique
+$files = @()
+if ($ChangedFiles -and $ChangedFiles.Count -gt 0) {
+    $normalizedChangedFiles = @()
+    foreach ($file in $ChangedFiles) {
+        if ([string]::IsNullOrWhiteSpace($file)) {
+            continue
+        }
+
+        $normalized = $file.Trim().Replace('\', '/')
+        while ($normalized.StartsWith('./')) {
+            $normalized = $normalized.Substring(2)
+        }
+        if ($normalized -and -not $normalized.EndsWith('/')) {
+            $normalizedChangedFiles += $normalized
+        }
+    }
+    $files = @($normalizedChangedFiles | Sort-Object -Unique)
 } else {
-    Get-ChangedFilesFromGit
+    $files = @(Get-ChangedFilesFromGit)
 }
 
 $outsideAllowlist = @()

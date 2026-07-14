@@ -282,28 +282,38 @@ function New-RunDirectory {
 }
 
 function Get-ChangedFiles {
-    $lines = @(& git status --porcelain)
-    $files = @()
-    foreach ($line in $lines) {
-        if (-not $line) {
+    $trackedWorkingTree = @(& git -c core.quotepath=false diff --name-only --diff-filter=ACDMRTUXB --)
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Failed to list tracked working-tree changes.'
+    }
+
+    $trackedIndex = @(& git -c core.quotepath=false diff --cached --name-only --diff-filter=ACDMRTUXB --)
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Failed to list staged changes.'
+    }
+
+    $untracked = @(& git -c core.quotepath=false ls-files --others --exclude-standard)
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Failed to list untracked files.'
+    }
+
+    $files = @($trackedWorkingTree) + @($trackedIndex) + @($untracked)
+    $normalizedFiles = @()
+    foreach ($file in $files) {
+        if ([string]::IsNullOrWhiteSpace($file)) {
             continue
         }
 
-        if ($line.Length -ge 4) {
-            $entry = $line.Substring(3).Trim()
-        } else {
-            $entry = $line.Trim()
+        $normalized = $file.Trim().Replace('\', '/')
+        while ($normalized.StartsWith('./')) {
+            $normalized = $normalized.Substring(2)
         }
-        if ($entry -like '* -> *') {
-            $entry = ($entry -split ' -> ')[-1]
-        }
-
-        if ($entry) {
-            $files += $entry.Replace('\', '/')
+        if ($normalized -and -not $normalized.EndsWith('/')) {
+            $normalizedFiles += $normalized
         }
     }
 
-    return $files | Sort-Object -Unique
+    return $normalizedFiles | Sort-Object -Unique
 }
 
 function Invoke-NativeProcess {
