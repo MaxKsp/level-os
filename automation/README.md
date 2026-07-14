@@ -42,6 +42,10 @@ Optional flags:
 - `-DryRun`
 - `-SkipArchitect`
 - `-MaxFixAttempts 2`
+- `-ArchitectTimeoutSeconds 300`
+- `-ImplementerTimeoutSeconds 900`
+- `-ReviewerTimeoutSeconds 300`
+- `-HeartbeatSeconds 10`
 - `-VerboseLogs`
 
 Current `-DryRun` behavior:
@@ -50,6 +54,46 @@ Current `-DryRun` behavior:
 - writes run artifacts for the planning step
 - does not call Claude
 - does not run validation, review, commit, or push
+
+## Timeouts and Heartbeats
+
+The pipeline applies a separate timeout to each long-running AI stage:
+
+- Architect: `-ArchitectTimeoutSeconds`
+- Implementer: `-ImplementerTimeoutSeconds`
+- Reviewer: `-ReviewerTimeoutSeconds`
+
+Progress heartbeat:
+
+- `-HeartbeatSeconds`
+
+Example:
+
+```powershell
+.\scripts\ai-pipeline.ps1 `
+  -Phase automation\phases\phase-13.json `
+  -DryRun `
+  -ArchitectTimeoutSeconds 180 `
+  -HeartbeatSeconds 10
+```
+
+During execution, the pipeline prints progress like:
+
+```text
+[Architect] running... 10s
+[Architect] running... 20s
+[Reviewer] running... 10s
+```
+
+On timeout or failure, the pipeline records:
+
+- command
+- arguments
+- PID
+- duration
+- stdout log path
+- stderr log path
+- last 30 lines of stdout/stderr for timed-out stages
 
 ## What Each Script Does
 

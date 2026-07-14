@@ -13,6 +13,14 @@ param(
 
     [int]$MaxFixAttempts = 2,
 
+    [int]$ArchitectTimeoutSeconds = 300,
+
+    [int]$ImplementerTimeoutSeconds = 900,
+
+    [int]$ReviewerTimeoutSeconds = 300,
+
+    [int]$HeartbeatSeconds = 10,
+
     [switch]$VerboseLogs
 )
 
@@ -146,6 +154,37 @@ function Get-LogTextOrEmpty {
     return $Text.TrimEnd()
 }
 
+function Get-LogTail {
+    param(
+        [string[]]$Lines,
+        [int]$MaxLines = 30
+    )
+
+    if (-not $Lines -or $Lines.Count -eq 0) {
+        return @()
+    }
+
+    return @($Lines | Select-Object -Last $MaxLines)
+}
+
+function Stop-ProcessTree {
+    param(
+        [int]$ProcessId
+    )
+
+    if ($ProcessId -le 0) {
+        return
+    }
+
+    $taskKill = Join-Path $env:SystemRoot 'System32\taskkill.exe'
+    if (Test-Path -LiteralPath $taskKill) {
+        & $taskKill /PID $ProcessId /T /F *> $null
+        return
+    }
+
+    Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+}
+
 function Get-PhaseObject {
     param([string]$Path)
     return Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
@@ -255,8 +294,11 @@ function Get-ChangedFiles {
     return $files | Sort-Object -Unique
 }
 
-function Invoke-NativeAndCapture {
+function Invoke-NativeProcess {
     param(
+        [Parameter(Mandatory = $true)]
+        [string]$StageName,
+
         [Parameter(Mandatory = $true)]
         [string]$FilePath,
 
@@ -264,11 +306,18 @@ function Invoke-NativeAndCapture {
         [string[]]$ArgumentList,
 
         [Parameter(Mandatory = $true)]
-        [string]$OutputPath
-        ,
-        [string]$StandardInputText
+        [string]$RunDirectory,
+
+        [Parameter(Mandatory = $true)]
+        [int]$TimeoutSeconds,
+
+        [string]$StandardInputText,
+
+        [int]$HeartbeatIntervalSeconds = 10
     )
 
+    $stdoutLogPath = Join-Path $RunDirectory ("{0}.stdout.log" -f $StageName.ToLower())
+    $stderrLogPath = Join-Path $RunDirectory ("{0}.stderr.log" -f $StageName.ToLower())
     $commandLine = Join-WindowsCommandLine -FilePath $FilePath -ArgumentList $ArgumentList
     $cmdExe = Resolve-CmdExecutable
     $invocationArgs = "/d /s /c `"$commandLine`""
@@ -286,53 +335,163 @@ function Invoke-NativeAndCapture {
     $process = New-Object System.Diagnostics.Process
     $process.StartInfo = $startInfo
     $startTime = Get-Date
+    $stdoutBuilder = New-Object System.Text.StringBuilder
+    $stderrBuilder = New-Object System.Text.StringBuilder
+    $stdoutTail = New-Object System.Collections.Generic.List[string]
+    $stderrTail = New-Object System.Collections.Generic.List[string]
+    $stdoutLock = New-Object object
+    $stderrLock = New-Object object
+    '' | Out-File -LiteralPath $stdoutLogPath -Encoding utf8
+    '' | Out-File -LiteralPath $stderrLogPath -Encoding utf8
+
+    $stdoutAction = {
+        param($sender, $eventArgs)
+        if ($null -ne $eventArgs.Data) {
+            [System.Threading.Monitor]::Enter($stdoutLock)
+            try {
+                [void]$stdoutBuilder.AppendLine($eventArgs.Data)
+                Add-Content -LiteralPath $stdoutLogPath -Value $eventArgs.Data -Encoding utf8
+                [void]$stdoutTail.Add($eventArgs.Data)
+                if ($stdoutTail.Count -gt 30) {
+                    $stdoutTail.RemoveAt(0)
+                }
+            }
+            finally {
+                [System.Threading.Monitor]::Exit($stdoutLock)
+            }
+        }
+    }
+
+    $stderrAction = {
+        param($sender, $eventArgs)
+        if ($null -ne $eventArgs.Data) {
+            [System.Threading.Monitor]::Enter($stderrLock)
+            try {
+                [void]$stderrBuilder.AppendLine($eventArgs.Data)
+                Add-Content -LiteralPath $stderrLogPath -Value $eventArgs.Data -Encoding utf8
+                [void]$stderrTail.Add($eventArgs.Data)
+                if ($stderrTail.Count -gt 30) {
+                    $stderrTail.RemoveAt(0)
+                }
+            }
+            finally {
+                [System.Threading.Monitor]::Exit($stderrLock)
+            }
+        }
+    }
+
+    $stdoutRegistration = $null
+    $stderrRegistration = $null
     $null = $process.Start()
+    $script:CurrentNativeProcess = $process
+    $script:CurrentNativeStage = $StageName
+    $script:CurrentNativeStdoutLog = $stdoutLogPath
+    $script:CurrentNativeStderrLog = $stderrLogPath
+
+    $stdoutRegistration = Register-ObjectEvent -InputObject $process -EventName OutputDataReceived -Action $stdoutAction
+    $stderrRegistration = Register-ObjectEvent -InputObject $process -EventName ErrorDataReceived -Action $stderrAction
+    $process.BeginOutputReadLine()
+    $process.BeginErrorReadLine()
+
     if ($PSBoundParameters.ContainsKey('StandardInputText')) {
         $process.StandardInput.Write($StandardInputText)
     }
     $process.StandardInput.Close()
-    $stdout = $process.StandardOutput.ReadToEnd()
-    $stderr = $process.StandardError.ReadToEnd()
-    $process.WaitForExit()
-    $duration = (Get-Date) - $startTime
-    $exitCode = $process.ExitCode
 
-    $logLines = @(
-        "Command: $FilePath",
-        "Arguments: $($ArgumentList -join ' | ')",
-        "WorkingDirectory: $((Get-Location).Path)",
-        "ExitCode: $exitCode",
-        "DurationMs: $([int][Math]::Round($duration.TotalMilliseconds))",
-        '',
-        '--- STDOUT ---',
-        (Get-LogTextOrEmpty -Text $stdout),
-        '',
-        '--- STDERR ---',
-        (Get-LogTextOrEmpty -Text $stderr)
-    )
-    $logLines -join [Environment]::NewLine | Out-File -LiteralPath $OutputPath -Encoding utf8
+    $lastHeartbeat = Get-Date
+    $timedOut = $false
 
-    if ($exitCode -ne 0) {
-        $message = @(
-            'Native command failed.',
-            "Command: $FilePath",
-            "Arguments: $($ArgumentList -join ' | ')",
-            "ExitCode: $exitCode",
-            "DurationMs: $([int][Math]::Round($duration.TotalMilliseconds))",
-            'stderr:',
-            (Get-LogTextOrEmpty -Text $stderr)
-        ) -join [Environment]::NewLine
-        throw $message
+    try {
+        while (-not $process.HasExited) {
+            $elapsed = (Get-Date) - $startTime
+
+            if ($elapsed.TotalSeconds -ge $TimeoutSeconds) {
+                $timedOut = $true
+                Stop-ProcessTree -ProcessId $process.Id
+                break
+            }
+
+            if (((Get-Date) - $lastHeartbeat).TotalSeconds -ge $HeartbeatIntervalSeconds) {
+                Write-Host ("[{0}] running... {1}s" -f $StageName, [int][Math]::Floor($elapsed.TotalSeconds))
+                $lastHeartbeat = Get-Date
+            }
+
+            Start-Sleep -Milliseconds 250
+        }
+
+        $null = $process.WaitForExit(5000)
+        $duration = (Get-Date) - $startTime
+        $exitCode = if ($process.HasExited) { $process.ExitCode } else { -1 }
+        $stdout = $stdoutBuilder.ToString()
+        $stderr = $stderrBuilder.ToString()
+
+        if ($timedOut) {
+            $message = @(
+                "Process timed out.",
+                "Stage: $StageName",
+                "Command: $FilePath",
+                "Arguments: $($ArgumentList -join ' | ')",
+                "PID: $($process.Id)",
+                "DurationMs: $([int][Math]::Round($duration.TotalMilliseconds))",
+                "StdoutLog: $stdoutLogPath",
+                "StderrLog: $stderrLogPath",
+                'LastStdoutLines:',
+                ((Get-LogTail -Lines @($stdoutTail)) -join [Environment]::NewLine),
+                'LastStderrLines:',
+                ((Get-LogTail -Lines @($stderrTail)) -join [Environment]::NewLine)
+            ) -join [Environment]::NewLine
+            throw $message
+        }
+
+        if ($exitCode -ne 0) {
+            $message = @(
+                'Native command failed.',
+                "Stage: $StageName",
+                "Command: $FilePath",
+                "Arguments: $($ArgumentList -join ' | ')",
+                "PID: $($process.Id)",
+                "ExitCode: $exitCode",
+                "DurationMs: $([int][Math]::Round($duration.TotalMilliseconds))",
+                "StdoutLog: $stdoutLogPath",
+                "StderrLog: $stderrLogPath",
+                'stderr:',
+                (Get-LogTextOrEmpty -Text $stderr)
+            ) -join [Environment]::NewLine
+            throw $message
+        }
+
+        return [pscustomobject]@{
+            output        = @((if ($stdout) { $stdout -split "`r?`n" } else { @() }))
+            stdout        = $stdout
+            stderr        = $stderr
+            exitCode      = $exitCode
+            command       = $FilePath
+            arguments     = @($ArgumentList)
+            duration      = $duration
+            stdoutLogPath = $stdoutLogPath
+            stderrLogPath = $stderrLogPath
+            pid           = $process.Id
+        }
     }
-
-    return [pscustomobject]@{
-        output   = @((if ($stdout) { $stdout -split "`r?`n" } else { @() }))
-        stdout   = $stdout
-        stderr   = $stderr
-        exitCode = $exitCode
-        command  = $FilePath
-        arguments = @($ArgumentList)
-        duration = $duration
+    finally {
+        if ($stdoutRegistration) {
+            Unregister-Event -SourceIdentifier $stdoutRegistration.Name -ErrorAction SilentlyContinue
+            Remove-Job -Id $stdoutRegistration.Id -Force -ErrorAction SilentlyContinue
+        }
+        if ($stderrRegistration) {
+            Unregister-Event -SourceIdentifier $stderrRegistration.Name -ErrorAction SilentlyContinue
+            Remove-Job -Id $stderrRegistration.Id -Force -ErrorAction SilentlyContinue
+        }
+        if ($process -and -not $process.HasExited) {
+            Stop-ProcessTree -ProcessId $process.Id
+        }
+        $script:CurrentNativeProcess = $null
+        $script:CurrentNativeStage = $null
+        $script:CurrentNativeStdoutLog = $null
+        $script:CurrentNativeStderrLog = $null
+        if ($process) {
+            $process.Dispose()
+        }
     }
 }
 
@@ -363,14 +522,14 @@ function Invoke-CodexPlan {
     $prompt | Out-File -LiteralPath $promptPath -Encoding utf8
 
     $codexCmd = Resolve-AgentCommandPath -Name 'codex'
-    $result = Invoke-NativeAndCapture -FilePath $codexCmd -ArgumentList @(
+    $result = Invoke-NativeProcess -StageName 'Architect' -FilePath $codexCmd -ArgumentList @(
         'exec',
         '--sandbox', 'read-only',
         '--cd', $RepoRoot,
         '--output-last-message', $planOutputPath,
         '--output-schema', $SchemaPath,
         '-'
-    ) -OutputPath (Join-Path $RunDirectory 'plan.stdout.log') -StandardInputText $prompt
+    ) -RunDirectory $RunDirectory -TimeoutSeconds $ArchitectTimeoutSeconds -HeartbeatIntervalSeconds $HeartbeatSeconds -StandardInputText $prompt
 
     if (-not (Test-Path -LiteralPath $planOutputPath)) {
         throw "Codex planning did not create output file: $planOutputPath"
@@ -394,9 +553,9 @@ function Invoke-ClaudeImplementation {
     $prompt | Out-File -LiteralPath $promptPath -Encoding utf8
 
     $claudeCmd = Resolve-AgentCommandPath -Name 'claude'
-    $result = Invoke-NativeAndCapture -FilePath $claudeCmd -ArgumentList @(
+    $result = Invoke-NativeProcess -StageName 'Implementer' -FilePath $claudeCmd -ArgumentList @(
         '-p'
-    ) -OutputPath (Join-Path $RunDirectory 'implementer.stdout.log') -StandardInputText $prompt
+    ) -RunDirectory $RunDirectory -TimeoutSeconds $ImplementerTimeoutSeconds -HeartbeatIntervalSeconds $HeartbeatSeconds -StandardInputText $prompt
 
     (Get-LogTextOrEmpty -Text $result.stdout) | Out-File -LiteralPath (Join-Path $RunDirectory 'implementer.txt') -Encoding utf8
 }
@@ -416,7 +575,7 @@ function Invoke-CodexReview {
     $prompt | Out-File -LiteralPath $promptPath -Encoding utf8
 
     $codexCmd = Resolve-AgentCommandPath -Name 'codex'
-    $result = Invoke-NativeAndCapture -FilePath $codexCmd -ArgumentList @(
+    $result = Invoke-NativeProcess -StageName 'Reviewer' -FilePath $codexCmd -ArgumentList @(
         'exec',
         '--sandbox', 'read-only',
         '--cd', $RepoRoot,
@@ -425,7 +584,7 @@ function Invoke-CodexReview {
         '--output-last-message', $reviewOutputPath,
         '--output-schema', $SchemaPath,
         '-'
-    ) -OutputPath (Join-Path $RunDirectory 'review.stdout.log') -StandardInputText $prompt
+    ) -RunDirectory $RunDirectory -TimeoutSeconds $ReviewerTimeoutSeconds -HeartbeatIntervalSeconds $HeartbeatSeconds -StandardInputText $prompt
 
     if (-not (Test-Path -LiteralPath $reviewOutputPath)) {
         throw "Codex review did not create output file: $reviewOutputPath"
@@ -465,9 +624,9 @@ $($Blockers -join [Environment]::NewLine)
 "@
 
     $claudeCmd = Resolve-AgentCommandPath -Name 'claude'
-    $result = Invoke-NativeAndCapture -FilePath $claudeCmd -ArgumentList @(
+    $result = Invoke-NativeProcess -StageName ("FixAttempt{0}" -f $AttemptNumber) -FilePath $claudeCmd -ArgumentList @(
         '-p'
-    ) -OutputPath (Join-Path $RunDirectory "fix-$AttemptNumber.stdout.log") -StandardInputText $prompt
+    ) -RunDirectory $RunDirectory -TimeoutSeconds $ImplementerTimeoutSeconds -HeartbeatIntervalSeconds $HeartbeatSeconds -StandardInputText $prompt
 }
 
 function Write-Summary {
@@ -520,6 +679,10 @@ function Write-Summary {
 }
 
 $startTime = Get-Date
+$script:CurrentNativeProcess = $null
+$script:CurrentNativeStage = $null
+$script:CurrentNativeStdoutLog = $null
+$script:CurrentNativeStderrLog = $null
 $repoRoot = Resolve-RepoRoot
 $powerShellExe = Get-PowerShellExecutable
 Set-Location -LiteralPath $repoRoot
@@ -538,6 +701,15 @@ $pushStatus = 'not-requested'
 $reviewApproved = $false
 $planApproved = $false
 $changedFiles = @()
+$cancelHandler = [ConsoleCancelEventHandler]{
+    param($sender, $eventArgs)
+    $eventArgs.Cancel = $true
+    if ($script:CurrentNativeProcess) {
+        Stop-ProcessTree -ProcessId $script:CurrentNativeProcess.Id
+    }
+    throw 'Execution cancelled by user.'
+}
+[Console]::add_CancelKeyPress($cancelHandler)
 
 if ($VerboseLogs) {
     Write-Host "Run directory: $runDirectory"
@@ -692,6 +864,10 @@ catch {
     throw
 }
 finally {
+    [Console]::remove_CancelKeyPress($cancelHandler)
+    if ($script:CurrentNativeProcess) {
+        Stop-ProcessTree -ProcessId $script:CurrentNativeProcess.Id
+    }
     if ($runDirectory) {
         Write-Summary -Path (Join-Path $runDirectory 'summary.md') -Data @{
             Phase          = $phaseObject.id
