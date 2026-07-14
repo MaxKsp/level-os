@@ -74,6 +74,7 @@ Optional flags:
 - `-ArchitectTimeoutSeconds 300`
 - `-ImplementerTimeoutSeconds 900`
 - `-ClaudePermissionMode acceptEdits`
+- `-ValidationCommandTimeoutSeconds 180`
 - `-ReviewerTimeoutSeconds 300`
 - `-HeartbeatSeconds 10`
 - `-VerboseLogs`
@@ -124,6 +125,22 @@ The pipeline applies a separate timeout to each long-running AI stage:
 - Architect: `-ArchitectTimeoutSeconds`
 - Implementer: `-ImplementerTimeoutSeconds`
 - Reviewer: `-ReviewerTimeoutSeconds`
+
+Every deterministic test, lint, and scope command has its own
+`-ValidationCommandTimeoutSeconds` timeout (180 seconds by default). Validation
+closes stdin immediately, reads stdout/stderr concurrently, logs the last
+started command, and terminates the process tree on timeout. There is no single
+900-second timeout for the whole validation stage.
+
+Controlled validation-runner check:
+
+```powershell
+.\scripts\test-validation-runner.ps1
+```
+
+It uses a temporary Git repository to verify concurrent stdout/stderr capture,
+closed stdin, per-command progress, timeout diagnostics, last-command logging,
+and descendant-process termination without running a real phase.
 
 Progress heartbeat:
 

@@ -9,11 +9,98 @@ param(
 
     [string[]]$ExcludedFiles = @(),
 
+    [int]$ValidationCommandTimeoutSeconds = 180,
+
     [switch]$VerboseLogs
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+if (-not ('ValidationProcessJob' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+public static class ValidationProcessJob
+{
+    [StructLayout(LayoutKind.Sequential)]
+    private struct JOBOBJECT_BASIC_LIMIT_INFORMATION
+    {
+        public long PerProcessUserTimeLimit;
+        public long PerJobUserTimeLimit;
+        public uint LimitFlags;
+        public UIntPtr MinimumWorkingSetSize;
+        public UIntPtr MaximumWorkingSetSize;
+        public uint ActiveProcessLimit;
+        public UIntPtr Affinity;
+        public uint PriorityClass;
+        public uint SchedulingClass;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct IO_COUNTERS
+    {
+        public ulong ReadOperationCount;
+        public ulong WriteOperationCount;
+        public ulong OtherOperationCount;
+        public ulong ReadTransferCount;
+        public ulong WriteTransferCount;
+        public ulong OtherTransferCount;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct JOBOBJECT_EXTENDED_LIMIT_INFORMATION
+    {
+        public JOBOBJECT_BASIC_LIMIT_INFORMATION BasicLimitInformation;
+        public IO_COUNTERS IoInfo;
+        public UIntPtr ProcessMemoryLimit;
+        public UIntPtr JobMemoryLimit;
+        public UIntPtr PeakProcessMemoryUsed;
+        public UIntPtr PeakJobMemoryUsed;
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr CreateJobObject(IntPtr securityAttributes, string name);
+
+    [DllImport("kernel32.dll")]
+    private static extern bool SetInformationJobObject(IntPtr job, int infoClass, IntPtr info, uint length);
+
+    [DllImport("kernel32.dll")]
+    public static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
+
+    [DllImport("kernel32.dll")]
+    public static extern bool CloseHandle(IntPtr handle);
+
+    public static IntPtr CreateKillOnCloseJob()
+    {
+        const uint JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000;
+        const int JobObjectExtendedLimitInformation = 9;
+        IntPtr job = CreateJobObject(IntPtr.Zero, null);
+        if (job == IntPtr.Zero) return IntPtr.Zero;
+
+        var info = new JOBOBJECT_EXTENDED_LIMIT_INFORMATION();
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+        int length = Marshal.SizeOf(typeof(JOBOBJECT_EXTENDED_LIMIT_INFORMATION));
+        IntPtr pointer = Marshal.AllocHGlobal(length);
+        try
+        {
+            Marshal.StructureToPtr(info, pointer, false);
+            if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation, pointer, (uint)length))
+            {
+                CloseHandle(job);
+                return IntPtr.Zero;
+            }
+            return job;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(pointer);
+        }
+    }
+}
+'@
+}
 
 function Resolve-RepoRoot {
     $root = & git rev-parse --show-toplevel 2>$null
@@ -33,6 +120,38 @@ function Resolve-CmdExecutable {
         throw "cmd.exe not found: $cmdPath"
     }
     return $cmdPath
+}
+
+function Stop-ProcessTree {
+    param([int]$ProcessId)
+
+    if ($ProcessId -le 0) {
+        return
+    }
+
+    try {
+        $children = @(Get-CimInstance -ClassName Win32_Process -Filter "ParentProcessId = $ProcessId" -ErrorAction Stop)
+        foreach ($child in $children) {
+            Stop-ProcessTree -ProcessId ([int]$child.ProcessId)
+        }
+        Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+        return
+    }
+    catch {
+        $taskKill = Join-Path $env:SystemRoot 'System32\taskkill.exe'
+        if (Test-Path -LiteralPath $taskKill) {
+            & $taskKill /PID $ProcessId /T /F *> $null
+            return
+        }
+    }
+
+    Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+}
+
+function ConvertTo-QuotedCommandArgument {
+    param([string]$Value)
+
+    return '"' + $Value.Replace('"', '""') + '"'
 }
 
 function Get-LogTextOrEmpty {
@@ -93,16 +212,24 @@ function Invoke-LoggedCommand {
         [Parameter(Mandatory = $true)]
         [string]$Label,
 
-        [string]$OutputDirectory
+        [string]$OutputDirectory,
+
+        [int]$TimeoutSeconds = 180
     )
 
-    Write-Host "==> $Label"
+    Write-Host "[Validation] starting: $Command"
+    $script:LastValidationCommand = $Command
+    if ($OutputDirectory) {
+        $Command | Out-File -LiteralPath (Join-Path $OutputDirectory 'validation-last-command.txt') -Encoding utf8
+    }
+
     $cmdExe = Resolve-CmdExecutable
     $startInfo = New-Object System.Diagnostics.ProcessStartInfo
     $startInfo.FileName = $cmdExe
     $startInfo.Arguments = "/d /s /c `"$Command`""
     $startInfo.WorkingDirectory = (Get-Location).Path
     $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardInput = $true
     $startInfo.RedirectStandardOutput = $true
     $startInfo.RedirectStandardError = $true
     $startInfo.CreateNoWindow = $true
@@ -110,17 +237,74 @@ function Invoke-LoggedCommand {
     $process = New-Object System.Diagnostics.Process
     $process.StartInfo = $startInfo
     $startedAt = Get-Date
-    $null = $process.Start()
-    $stdout = $process.StandardOutput.ReadToEnd()
-    $stderr = $process.StandardError.ReadToEnd()
-    $process.WaitForExit()
-    $exitCode = $process.ExitCode
+    $stdout = ''
+    $stderr = ''
+    $exitCode = -1
+    $timedOut = $false
+    $processStarted = $false
+    $jobHandle = [IntPtr]::Zero
+
+    try {
+        $jobHandle = [ValidationProcessJob]::CreateKillOnCloseJob()
+        $null = $process.Start()
+        $processStarted = $true
+        if ($jobHandle -ne [IntPtr]::Zero) {
+            $assignedToJob = [ValidationProcessJob]::AssignProcessToJobObject($jobHandle, $process.Handle)
+            if (-not $assignedToJob) {
+                $null = [ValidationProcessJob]::CloseHandle($jobHandle)
+                $jobHandle = [IntPtr]::Zero
+            }
+        }
+        $process.StandardInput.Close()
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+
+        $exited = $process.WaitForExit($TimeoutSeconds * 1000)
+        if (-not $exited) {
+            $timedOut = $true
+            if ($jobHandle -ne [IntPtr]::Zero) {
+                $null = [ValidationProcessJob]::CloseHandle($jobHandle)
+                $jobHandle = [IntPtr]::Zero
+            } else {
+                Stop-ProcessTree -ProcessId $process.Id
+            }
+            $null = $process.WaitForExit(5000)
+        } elseif ($jobHandle -ne [IntPtr]::Zero) {
+            $null = [ValidationProcessJob]::CloseHandle($jobHandle)
+            $jobHandle = [IntPtr]::Zero
+        }
+
+        $null = $stdoutTask.Wait(5000)
+        $null = $stderrTask.Wait(5000)
+        if ($stdoutTask.IsCompleted) {
+            $stdout = $stdoutTask.Result
+        }
+        if ($stderrTask.IsCompleted) {
+            $stderr = $stderrTask.Result
+        }
+        if ($process.HasExited) {
+            $exitCode = $process.ExitCode
+        }
+    }
+    finally {
+        if ($jobHandle -ne [IntPtr]::Zero) {
+            $null = [ValidationProcessJob]::CloseHandle($jobHandle)
+        }
+        if ($processStarted -and -not $process.HasExited) {
+            Stop-ProcessTree -ProcessId $process.Id
+        }
+        $process.Dispose()
+    }
+
     $duration = (Get-Date) - $startedAt
+    $durationText = ('{0:N2}s' -f $duration.TotalSeconds)
 
     $logText = @(
         "Command: $Command",
         "WorkingDirectory: $((Get-Location).Path)",
         "ExitCode: $exitCode",
+        "TimedOut: $timedOut",
+        "TimeoutSeconds: $TimeoutSeconds",
         "DurationMs: $([int][Math]::Round($duration.TotalMilliseconds))",
         '',
         '--- STDOUT ---',
@@ -131,11 +315,27 @@ function Invoke-LoggedCommand {
     ) -join [Environment]::NewLine
 
     if ($OutputDirectory) {
-        $logPath = Join-Path $OutputDirectory ($Label -replace '[^A-Za-z0-9\-_]+', '_').ToLower() + '.log'
+        $logFileName = (($Label -replace '[^A-Za-z0-9\-_]+', '_').ToLower() + '.log')
+        $logPath = Join-Path $OutputDirectory $logFileName
         $logText | Out-File -LiteralPath $logPath -Encoding utf8
     }
 
-    if ($VerboseLogs) {
+    $passed = (-not $timedOut -and $exitCode -eq 0)
+    if ($passed) {
+        Write-Host "[Validation] passed: $Command ($durationText)"
+    } else {
+        Write-Host '[Validation] failed'
+        Write-Host "Command: $Command"
+        Write-Host "ExitCode: $exitCode"
+        Write-Host "Duration: $durationText"
+        Write-Host "TimedOut: $timedOut"
+        Write-Host 'stdout:'
+        Write-Host (Get-LogTextOrEmpty -Text $stdout)
+        Write-Host 'stderr:'
+        Write-Host (Get-LogTextOrEmpty -Text $stderr)
+    }
+
+    if ($VerboseLogs -and $passed) {
         if ($stdout) {
             (Get-LogTextOrEmpty -Text $stdout).Split([Environment]::NewLine) | ForEach-Object { Write-Host $_ }
         }
@@ -149,7 +349,10 @@ function Invoke-LoggedCommand {
         command    = $Command
         exitCode   = $exitCode
         durationMs = [int][Math]::Round($duration.TotalMilliseconds)
-        passed     = ($exitCode -eq 0)
+        timedOut   = $timedOut
+        stdout     = $stdout
+        stderr     = $stderr
+        passed     = $passed
     }
 }
 
@@ -162,46 +365,58 @@ $phaseObject = Get-PhaseObject -Path $phasePath
 Assert-PhaseDefinition -Definition $phaseObject
 
 $results = New-Object System.Collections.Generic.List[object]
+$script:LastValidationCommand = ''
 
 if (-not $SkipScope) {
-    $scopeArgs = @('-NoProfile', '-File', (Join-Path $repoRoot 'scripts/check-scope.ps1'), '-Phase', $Phase)
+    $scopeCommandParts = @(
+        (ConvertTo-QuotedCommandArgument -Value $powerShellExe),
+        '-NoProfile',
+        '-NonInteractive',
+        '-File',
+        (ConvertTo-QuotedCommandArgument -Value (Join-Path $repoRoot 'scripts/check-scope.ps1')),
+        '-Phase',
+        (ConvertTo-QuotedCommandArgument -Value $Phase)
+    )
     if ($ExcludedFiles.Count -gt 0) {
-        $scopeArgs += '-ExcludedFiles'
-        $scopeArgs += $ExcludedFiles
+        $scopeCommandParts += '-ExcludedFiles'
+        foreach ($excludedFile in $ExcludedFiles) {
+            $scopeCommandParts += (ConvertTo-QuotedCommandArgument -Value $excludedFile)
+        }
     }
-    $scopeJson = & $powerShellExe @scopeArgs
-    $scopeExitCode = $LASTEXITCODE
+    $scopeCommand = $scopeCommandParts -join ' '
+    $scopeResult = Invoke-LoggedCommand -Command $scopeCommand -Label 'scope' -OutputDirectory $RunDirectory -TimeoutSeconds $ValidationCommandTimeoutSeconds
 
     if ($RunDirectory) {
-        $scopeJson | Out-File -LiteralPath (Join-Path $RunDirectory 'scope.json') -Encoding utf8
+        $scopeResult.stdout | Out-File -LiteralPath (Join-Path $RunDirectory 'scope.json') -Encoding utf8
     }
 
-    if ($scopeExitCode -ne 0) {
+    if (-not $scopeResult.passed) {
         throw 'Scope validation failed.'
     }
 }
 
 foreach ($command in @($phaseObject.phpTests)) {
-    $results.Add((Invoke-LoggedCommand -Command $command -Label "php-test-$($results.Count + 1)" -OutputDirectory $RunDirectory))
+    $results.Add((Invoke-LoggedCommand -Command $command -Label "php-test-$($results.Count + 1)" -OutputDirectory $RunDirectory -TimeoutSeconds $ValidationCommandTimeoutSeconds))
 }
 
 foreach ($command in @($phaseObject.jsTests)) {
-    $results.Add((Invoke-LoggedCommand -Command $command -Label "js-test-$($results.Count + 1)" -OutputDirectory $RunDirectory))
+    $results.Add((Invoke-LoggedCommand -Command $command -Label "js-test-$($results.Count + 1)" -OutputDirectory $RunDirectory -TimeoutSeconds $ValidationCommandTimeoutSeconds))
 }
 
 foreach ($command in @($phaseObject.phpLint)) {
-    $results.Add((Invoke-LoggedCommand -Command $command -Label "php-lint-$($results.Count + 1)" -OutputDirectory $RunDirectory))
+    $results.Add((Invoke-LoggedCommand -Command $command -Label "php-lint-$($results.Count + 1)" -OutputDirectory $RunDirectory -TimeoutSeconds $ValidationCommandTimeoutSeconds))
 }
 
 foreach ($command in @($phaseObject.jsLint)) {
-    $results.Add((Invoke-LoggedCommand -Command $command -Label "js-lint-$($results.Count + 1)" -OutputDirectory $RunDirectory))
+    $results.Add((Invoke-LoggedCommand -Command $command -Label "js-lint-$($results.Count + 1)" -OutputDirectory $RunDirectory -TimeoutSeconds $ValidationCommandTimeoutSeconds))
 }
 
-$failed = @($results | Where-Object { -not $_.passed })
+$resultItems = @($results | ForEach-Object { $_ })
+$failed = @($resultItems | Where-Object { -not $_.passed })
 $summary = [pscustomobject]@{
     phaseId  = $phaseObject.id
     passed   = ($failed.Count -eq 0)
-    results  = @($results)
+    results  = $resultItems
     failed   = @($failed)
 }
 

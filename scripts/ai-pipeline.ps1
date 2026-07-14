@@ -34,7 +34,7 @@ param(
 
     [int]$PostProcessTimeoutSeconds = 30,
 
-    [int]$ValidationTimeoutSeconds = 900,
+    [int]$ValidationCommandTimeoutSeconds = 180,
 
     [int]$ReviewerTimeoutSeconds = 300,
 
@@ -1103,7 +1103,7 @@ if ($AutoNextPhase) {
             '-ImplementerTimeoutSeconds', $ImplementerTimeoutSeconds,
             '-ClaudePermissionMode', $ClaudePermissionMode,
             '-PostProcessTimeoutSeconds', $PostProcessTimeoutSeconds,
-            '-ValidationTimeoutSeconds', $ValidationTimeoutSeconds,
+            '-ValidationCommandTimeoutSeconds', $ValidationCommandTimeoutSeconds,
             '-ReviewerTimeoutSeconds', $ReviewerTimeoutSeconds,
             '-HeartbeatSeconds', $HeartbeatSeconds
         )
@@ -1219,7 +1219,8 @@ try {
         '-NoProfile',
         '-File', (Join-Path $repoRoot 'scripts/validate-phase.ps1'),
         '-Phase', $Phase,
-        '-RunDirectory', $runDirectory
+        '-RunDirectory', $runDirectory,
+        '-ValidationCommandTimeoutSeconds', $ValidationCommandTimeoutSeconds
     )
     if ($GeneratedPhaseDefinition) {
         $validationArgs += '-ExcludedFiles'
@@ -1229,18 +1230,10 @@ try {
         $validationArgs += '-VerboseLogs'
     }
     Write-Host 'Implementer finished, starting validation'
-    try {
-        $validationResult = Invoke-NativeProcess `
-            -StageName 'Validation' `
-            -FilePath $powerShellExe `
-            -ArgumentList $validationArgs `
-            -RunDirectory $runDirectory `
-            -TimeoutSeconds $ValidationTimeoutSeconds `
-            -HeartbeatIntervalSeconds $HeartbeatSeconds
-        $validationJson = $validationResult.stdout
-    } catch {
+    & $powerShellExe @validationArgs
+    if ($LASTEXITCODE -ne 0) {
         $failures.Add('Deterministic validation failed after implementation.')
-        throw
+        throw 'Validation failed.'
     }
 
     $reviewJson = Invoke-CodexReview -RepoRoot $repoRoot -RunDirectory $runDirectory -PhaseJson $phaseJson -PlanJson $planJson -SchemaPath $reviewSchemaPath
