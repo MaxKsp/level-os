@@ -5,3 +5,4 @@ config.php
 .claude/
 .vscode/
 .serena/
+automation/runs/
