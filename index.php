@@ -793,6 +793,7 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="assets/qrcode.min.js"></script>
+<script src="assets/finance-account-movement.js?v=<?= @filemtime(__DIR__.'/assets/finance-account-movement.js') ?>"></script>
 <script src="assets/app.js?v=<?= @filemtime(__DIR__.'/assets/app.js') ?>"></script>
 </body>
 </html>

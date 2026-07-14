@@ -1409,13 +1409,8 @@ function syncAccountSelectState(){
 }
 document.getElementById('emRecorrente').onchange = syncAccountSelectState;
 
-/** sign +1 aplica a despesa na conta (debita saldo / soma fatura); -1 estorna. */
-function applyAccountMovement(accounts, accountId, value, sign){
-  const a = accounts.find(x=>x.id===accountId);
-  if (!a) return;
-  if (a.tipo==='cartao') a.fatura = Number(a.fatura||0) + sign*value;
-  else a.saldo = Number(a.saldo||0) - sign*value;
-}
+// applyAccountMovement() agora vive em assets/finance-account-movement.js,
+// carregado antes deste arquivo em index.php.
 
 document.getElementById('btnOpenExpModal').onclick = async ()=>{
   editingExpenseId = null;
