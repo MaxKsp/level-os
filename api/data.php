@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../finance.php';
 require_once __DIR__ . '/../app/Modules/Finance/FinanceDataBootstrap.php';
+require_once __DIR__ . '/../app/Modules/Finance/FinanceAuxiliaryKv.php';
 
 header('Content-Type: application/json; charset=utf-8');
 $uid = require_login();
@@ -60,9 +61,13 @@ if ($method === 'POST') {
         echo json_encode(['error' => 'invalid payload']);
         exit;
     }
-    $stmt = $db->prepare('INSERT INTO kv_store (user_id, data_key, data_value) VALUES (?, ?, ?)
-        ON DUPLICATE KEY UPDATE data_value = VALUES(data_value)');
-    $stmt->execute([$uid, $key, json_encode($body['value'])]);
+    if (in_array($key, FINANCE_AUX_KV_KEYS, true)) {
+        finance_auxiliary_kv_save($db, $uid, $key, $body['value']);
+    } else {
+        $stmt = $db->prepare('INSERT INTO kv_store (user_id, data_key, data_value) VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE data_value = VALUES(data_value)');
+        $stmt->execute([$uid, $key, json_encode($body['value'])]);
+    }
     echo json_encode(['ok' => true]);
     exit;
 }
