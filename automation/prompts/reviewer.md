@@ -1,20 +1,18 @@
-You are Codex reviewing only the current diff for an Orby migration phase.
+Review the current uncommitted git diff without modifying files.
 
-Review in read-only mode.
-
-Constraints:
-
-- review only the current diff
-- do not suggest widening scope
-- treat contract risk as highest priority
-- approve only if blockers are empty and scope is valid
-
-Return JSON only, matching the provided schema.
-
-Phase definition:
-
+Phase JSON:
 {{PHASE_JSON}}
 
-Approved plan:
+Allowed files:
+{{ALLOWED_FILES}}
 
-{{PLAN_JSON}}
+Forbidden files:
+{{FORBIDDEN_FILES}}
+
+Changed files:
+{{CHANGED_FILES}}
+
+Final validation result:
+{{VALIDATION_SUMMARY}}
+
+Analyze `git diff`. Return exclusively JSON compatible with review.schema.json. Do not alter any file.

@@ -36,6 +36,10 @@ param(
 
     [string]$ClaudePermissionMode = 'acceptEdits',
 
+    [string]$ClaudeSkill = 'ponytail',
+
+    [switch]$NoClaudeSkill,
+
     [int]$PostProcessTimeoutSeconds = 30,
 
     [int]$ValidationCommandTimeoutSeconds = 180,
@@ -369,6 +373,83 @@ function Get-SnapshotChangedFiles {
         }
     }
     return @($changed)
+}
+
+function Get-ValidatedDiffHash {
+    param(
+        [string]$RepoRoot,
+        $PhaseObject,
+        [string[]]$ExcludePaths = @()
+    )
+
+    $normalizedExclusions = @($ExcludePaths | ForEach-Object { $_.Replace('\', '/').TrimStart('.', '/') })
+    $builder = New-Object System.Text.StringBuilder
+    $diffArguments = @('-c','core.quotepath=false','diff','HEAD','--binary','--','.')
+    foreach ($excludedPath in $normalizedExclusions) {
+        if ($excludedPath) { $diffArguments += ":(exclude)$excludedPath" }
+    }
+    $trackedDiff = @(& git @diffArguments) -join "`n"
+    if ($LASTEXITCODE -ne 0) { throw 'Failed to calculate tracked diff for validation hash.' }
+    [void]$builder.AppendLine('TRACKED-DIFF')
+    [void]$builder.AppendLine($trackedDiff)
+
+    $allowed = @($PhaseObject.allowedFiles | ForEach-Object { $_.ToString().Replace('\', '/') })
+    $untracked = @(& git -c core.quotepath=false ls-files --others --exclude-standard)
+    if ($LASTEXITCODE -ne 0) { throw 'Failed to enumerate untracked files for validation hash.' }
+    foreach ($fileValue in @($untracked | Sort-Object -Unique)) {
+        $file = $fileValue.ToString().Replace('\', '/').TrimStart('.', '/')
+        if ($normalizedExclusions -contains $file) { continue }
+        $isAllowed = $false
+        foreach ($rule in $allowed) {
+            if (($rule.EndsWith('/') -and $file.StartsWith($rule, [System.StringComparison]::OrdinalIgnoreCase)) -or $file.Equals($rule, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $isAllowed = $true
+                break
+            }
+        }
+        if (-not $isAllowed) { continue }
+        $bytes = [System.IO.File]::ReadAllBytes((Join-Path $RepoRoot $file))
+        [void]$builder.AppendLine("UNTRACKED:$file")
+        [void]$builder.AppendLine([Convert]::ToBase64String($bytes))
+    }
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $hashBytes = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($builder.ToString()))
+        return ([BitConverter]::ToString($hashBytes)).Replace('-', '')
+    } finally {
+        $sha.Dispose()
+    }
+}
+
+function Find-ReusableValidation {
+    param([string]$RepoRoot, [string]$PhaseId, [string]$CurrentHash)
+
+    $runsRoot = Join-Path $RepoRoot 'automation/runs'
+    if (-not (Test-Path -LiteralPath $runsRoot -PathType Container)) { return $null }
+    $runDirectories = @(Get-ChildItem -LiteralPath $runsRoot -Directory | Sort-Object Name -Descending)
+    foreach ($directory in $runDirectories) {
+        $hashPath = Join-Path $directory.FullName 'validated-diff.sha256'
+        $resultPath = Join-Path $directory.FullName 'validation-result.json'
+        if (-not (Test-Path -LiteralPath $hashPath -PathType Leaf) -or -not (Test-Path -LiteralPath $resultPath -PathType Leaf)) { continue }
+        $validatedHash = (Get-Content -LiteralPath $hashPath -Raw).Trim()
+        if (-not $validatedHash.Equals($CurrentHash, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+        try {
+            $result = Get-Content -LiteralPath $resultPath -Raw | ConvertFrom-Json
+        } catch {
+            continue
+        }
+        $resultPassed = [System.Convert]::ToBoolean($result.passed)
+        if ($result.phaseId -eq $PhaseId -and $resultPassed) {
+            return [pscustomobject]@{ result = $result; hash = $validatedHash; sourceDirectory = $directory.FullName }
+        }
+    }
+    return $null
+}
+
+function Save-ValidatedDiff {
+    param([string]$RunDirectory, $ValidationResult, [string]$Hash)
+
+    $ValidationResult | ConvertTo-Json -Depth 8 | Out-File -LiteralPath (Join-Path $RunDirectory 'validation-result.json') -Encoding utf8
+    $Hash | Out-File -LiteralPath (Join-Path $RunDirectory 'validated-diff.sha256') -Encoding ascii
 }
 
 function New-RunDirectory {
@@ -844,6 +925,74 @@ function Get-PromptText {
     return $text
 }
 
+function Resolve-ClaudeSkillPath {
+    param(
+        [string]$RepoRoot,
+        [string]$SkillName,
+        [string]$HomeDirectory = $HOME
+    )
+
+    $candidates = @(
+        (Join-Path $RepoRoot ".claude/skills/$SkillName/SKILL.md"),
+        (Join-Path $HomeDirectory ".claude/skills/$SkillName/SKILL.md"),
+        (Join-Path $RepoRoot ".claude/commands/$SkillName.md"),
+        (Join-Path $HomeDirectory ".claude/commands/$SkillName.md")
+    )
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            try {
+                $content = Get-Content -LiteralPath $candidate -Raw -ErrorAction Stop
+            } catch {
+                throw "Claude skill is not readable: $candidate"
+            }
+            if ($content -match '(?im)^\s*user-invocable\s*:\s*false\s*$') {
+                throw "Claude skill is not user-invocable: $candidate"
+            }
+
+            $settingsCandidates = @(
+                (Join-Path $RepoRoot '.claude/settings.json'),
+                (Join-Path $RepoRoot '.claude/settings.local.json'),
+                (Join-Path $HomeDirectory '.claude/settings.json'),
+                (Join-Path $HomeDirectory '.claude/settings.local.json')
+            )
+            foreach ($settingsPath in $settingsCandidates) {
+                if (-not (Test-Path -LiteralPath $settingsPath -PathType Leaf)) { continue }
+                try {
+                    $settings = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
+                } catch {
+                    continue
+                }
+                if ($settings.PSObject.Properties.Name -contains 'skillOverrides') {
+                    $overrides = $settings.skillOverrides
+                    if ($null -ne $overrides -and $overrides.PSObject.Properties.Name -contains $SkillName) {
+                        $overrideValue = $overrides.$SkillName.ToString()
+                        if ($overrideValue.Equals('off', [System.StringComparison]::OrdinalIgnoreCase)) {
+                            throw "Claude skill /$SkillName is disabled by $settingsPath"
+                        }
+                    }
+                }
+            }
+            return [System.IO.Path]::GetFullPath($candidate)
+        }
+    }
+    throw "Required Claude skill /$SkillName was not found in repository or user skill/command paths."
+}
+
+function Add-ClaudeSkillInvocation {
+    param([Parameter(Mandatory = $true)][string]$Prompt, [string]$RepoRoot)
+
+    if ($NoClaudeSkill) {
+        return $Prompt
+    }
+    if (-not $script:ResolvedClaudeSkillPath) {
+        $script:ResolvedClaudeSkillPath = Resolve-ClaudeSkillPath -RepoRoot $RepoRoot -SkillName $ClaudeSkill
+        Write-Host "Claude skill: /$ClaudeSkill"
+        Write-Host "Claude skill path: $($script:ResolvedClaudeSkillPath)"
+        Write-Host 'Claude skill invocation: explicit'
+    }
+    return "/$ClaudeSkill`n`n$Prompt"
+}
+
 function Invoke-CodexPlan {
     param(
         [string]$RepoRoot,
@@ -901,6 +1050,7 @@ function Invoke-ClaudeImplementation {
     )
 
     $prompt = Get-PromptText -TemplatePath (Join-Path $RepoRoot 'automation/prompts/implementer.md') -PhaseJson $PhaseJson -PlanJson $PlanJson
+    $prompt = Add-ClaudeSkillInvocation -Prompt $prompt -RepoRoot $RepoRoot
     $promptPath = Join-Path $RunDirectory 'implementer-prompt.txt'
     $prompt | Out-File -LiteralPath $promptPath -Encoding utf8
 
@@ -979,34 +1129,62 @@ function Invoke-ClaudeImplementation {
     }
 }
 
+function Test-ReviewJson {
+    param([AllowEmptyString()][string]$Text)
+
+    if ([string]::IsNullOrWhiteSpace($Text)) {
+        return [pscustomobject]@{ valid = $false; value = $null; error = 'empty output' }
+    }
+    try {
+        $value = $Text | ConvertFrom-Json
+    } catch {
+        return [pscustomobject]@{ valid = $false; value = $null; error = $_.Exception.Message }
+    }
+    $required = @('approved','blockers','warnings','filesReviewed','recommendedCommitMessage')
+    foreach ($property in $required) {
+        if (-not ($value.PSObject.Properties.Name -contains $property)) {
+            return [pscustomobject]@{ valid = $false; value = $null; error = "missing property: $property" }
+        }
+    }
+    $unexpected = @($value.PSObject.Properties.Name | Where-Object { $required -notcontains $_ })
+    if ($unexpected.Count -gt 0) {
+        return [pscustomobject]@{ valid = $false; value = $null; error = "unexpected properties: $($unexpected -join ', ')" }
+    }
+    return [pscustomobject]@{ valid = $true; value = $value; error = '' }
+}
+
 function Invoke-CodexReview {
     param(
         [string]$RepoRoot,
         [string]$RunDirectory,
         [string]$PhaseJson,
-        [string]$PlanJson,
-        [string]$SchemaPath
+        [string]$SchemaPath,
+        [string[]]$ChangedFiles,
+        [string]$ValidationSummary
     )
 
     $reviewOutputPath = Join-Path $RunDirectory 'review.json'
+    $reviewRawPath = Join-Path $RunDirectory 'review.raw.txt'
+    $reviewPhase = $PhaseJson | ConvertFrom-Json
+    $reviewPrompt = Get-Content -LiteralPath (Join-Path $RepoRoot 'automation/prompts/reviewer.md') -Raw
+    $reviewPrompt = $reviewPrompt.Replace('{{PHASE_JSON}}', $PhaseJson)
+    $reviewPrompt = $reviewPrompt.Replace('{{ALLOWED_FILES}}', (@($reviewPhase.allowedFiles) -join [Environment]::NewLine))
+    $reviewPrompt = $reviewPrompt.Replace('{{FORBIDDEN_FILES}}', (@($reviewPhase.forbiddenFiles) -join [Environment]::NewLine))
+    $reviewPrompt = $reviewPrompt.Replace('{{CHANGED_FILES}}', ($ChangedFiles -join [Environment]::NewLine))
+    $reviewPrompt = $reviewPrompt.Replace('{{VALIDATION_SUMMARY}}', $ValidationSummary)
 
     $codexCmd = Resolve-AgentCommandPath -Name 'codex'
-    $reviewArgs = @(
-        'exec'
-    )
-
+    $reviewArgs = @('exec')
     if (-not $UseCodexUserConfig) {
         $reviewArgs += '--ignore-user-config'
         $reviewArgs += '--ephemeral'
     }
-
     $reviewArgs += @(
         '--sandbox', 'read-only',
         '--cd', $RepoRoot,
         '--output-last-message', $reviewOutputPath,
         '--output-schema', $SchemaPath,
-        'review',
-        '--uncommitted'
+        '-'
     )
     $null = Invoke-NativeProcess `
         -StageName 'Reviewer' `
@@ -1014,30 +1192,50 @@ function Invoke-CodexReview {
         -ArgumentList $reviewArgs `
         -RunDirectory $RunDirectory `
         -TimeoutSeconds $ReviewerTimeoutSeconds `
-        -HeartbeatIntervalSeconds $HeartbeatSeconds
+        -HeartbeatIntervalSeconds $HeartbeatSeconds `
+        -StandardInputText $reviewPrompt
 
-    if (-not (Test-Path -LiteralPath $reviewOutputPath)) {
+    if (-not (Test-Path -LiteralPath $reviewOutputPath -PathType Leaf)) {
         throw "Codex review did not create output file: $reviewOutputPath"
     }
-
-    $reviewText = (Get-Content -LiteralPath $reviewOutputPath -Raw).Trim()
-    try {
-        $reviewObject = $reviewText | ConvertFrom-Json
-    } catch {
-        throw "Codex review output is not valid JSON: $reviewOutputPath"
-    }
-    $requiredReviewProperties = @('approved','blockers','warnings','filesReviewed','recommendedCommitMessage')
-    foreach ($requiredReviewProperty in $requiredReviewProperties) {
-        if (-not ($reviewObject.PSObject.Properties.Name -contains $requiredReviewProperty)) {
-            throw "Codex review output does not match schema; missing: $requiredReviewProperty"
+    $reviewText = Get-Content -LiteralPath $reviewOutputPath -Raw
+    $reviewText | Out-File -LiteralPath $reviewRawPath -Encoding utf8
+    $reviewCheck = Test-ReviewJson -Text $reviewText
+    if (-not $reviewCheck.valid) {
+        $repairOutputPath = Join-Path $RunDirectory 'review-repair.json'
+        $schemaText = Get-Content -LiteralPath $SchemaPath -Raw
+        $repairPrompt = "Converta esta resposta para JSON valido sem alterar o significado.`n`nResposta invalida:`n$reviewText`n`nSchema obrigatorio:`n$schemaText"
+        $repairArgs = @('exec')
+        if (-not $UseCodexUserConfig) {
+            $repairArgs += '--ignore-user-config'
+            $repairArgs += '--ephemeral'
         }
+        $repairArgs += @(
+            '--sandbox', 'read-only',
+            '--cd', $RepoRoot,
+            '--output-last-message', $repairOutputPath,
+            '--output-schema', $SchemaPath,
+            '-'
+        )
+        $null = Invoke-NativeProcess `
+            -StageName 'ReviewerRepair' `
+            -FilePath $codexCmd `
+            -ArgumentList $repairArgs `
+            -RunDirectory $RunDirectory `
+            -TimeoutSeconds $ReviewerTimeoutSeconds `
+            -HeartbeatIntervalSeconds $HeartbeatSeconds `
+            -StandardInputText $repairPrompt
+        if (-not (Test-Path -LiteralPath $repairOutputPath -PathType Leaf)) {
+            throw 'Codex review JSON repair did not create review-repair.json.'
+        }
+        $reviewText = Get-Content -LiteralPath $repairOutputPath -Raw
+        $reviewCheck = Test-ReviewJson -Text $reviewText
+        if (-not $reviewCheck.valid) {
+            throw "Codex review JSON remained invalid after one repair attempt: $($reviewCheck.error)"
+        }
+        $reviewText | Out-File -LiteralPath $reviewOutputPath -Encoding utf8
     }
-    $unexpectedReviewProperties = @($reviewObject.PSObject.Properties.Name | Where-Object { $requiredReviewProperties -notcontains $_ })
-    if ($unexpectedReviewProperties.Count -gt 0) {
-        throw "Codex review output does not match schema; unexpected: $($unexpectedReviewProperties -join ', ')"
-    }
-    $reviewText | Out-File -LiteralPath (Join-Path $RunDirectory 'review.txt') -Encoding utf8
-    return $reviewText
+    return $reviewText.Trim()
 }
 
 function Invoke-FixAttempt {
@@ -1067,6 +1265,7 @@ $PlanJson
 Blockers:
 $($Blockers -join [Environment]::NewLine)
 "@
+    $prompt = Add-ClaudeSkillInvocation -Prompt $prompt -RepoRoot $RepoRoot
 
     $claudeCmd = Resolve-AgentCommandPath -Name 'claude'
     $result = Invoke-NativeProcess -StageName ("FixAttempt{0}" -f $AttemptNumber) -FilePath $claudeCmd -ArgumentList @(
@@ -1328,7 +1527,15 @@ function Invoke-ValidationCorrection {
     Assert-FilesWithinAllowlist -Files $changedBefore -PhaseObject $PhaseObject
     $backup = New-FixBackup -RepoRoot $RepoRoot -RunDirectory $RunDirectory -AttemptNumber $AttemptNumber -PhaseObject $PhaseObject
     $failedCommands = @($FailedItems | ForEach-Object {
-        [ordered]@{ command = $_.command; stdout = $_.stdout; stderr = $_.stderr }
+        $stdoutLines = @($_.stdout -split "`r?`n")
+        $stderrLines = @($_.stderr -split "`r?`n")
+        $stdoutStart = [Math]::Max(0, $stdoutLines.Count - 80)
+        $stderrStart = [Math]::Max(0, $stderrLines.Count - 80)
+        [ordered]@{
+            command = $_.command
+            stdout = (@($stdoutLines[$stdoutStart..($stdoutLines.Count - 1)]) -join [Environment]::NewLine)
+            stderr = (@($stderrLines[$stderrStart..($stderrLines.Count - 1)]) -join [Environment]::NewLine)
+        }
     }) | ConvertTo-Json -Depth 6
     $forbiddenFiles = @($PhaseObject.allowedFiles | ForEach-Object { $_.ToString().Replace('\', '/') } | Where-Object { @($classification.allowedFiles) -notcontains $_ })
     $forbiddenFiles += @('app/', 'assets/', 'index.php', 'api/', 'schema.sql', 'migrations/')
@@ -1344,6 +1551,7 @@ function Invoke-ValidationCorrection {
     $prompt = $prompt.Replace('{{FORBIDDEN_FILES}}', ($forbiddenFiles -join [Environment]::NewLine))
     $prompt = $prompt.Replace('{{FAILED_COMMANDS}}', $failedCommands)
     $prompt = $prompt.Replace('{{EXPECTED_CORRECTION}}', $classification.expectedCorrection)
+    $prompt = Add-ClaudeSkillInvocation -Prompt $prompt -RepoRoot $RepoRoot
     $promptPath = Join-Path $RunDirectory ("fix-prompt-attempt-{0}.txt" -f $AttemptNumber)
     $prompt | Out-File -LiteralPath $promptPath -Encoding utf8
 
@@ -1456,6 +1664,7 @@ $script:CurrentNativeProcess = $null
 $script:CurrentNativeStage = $null
 $script:CurrentNativeStdoutLog = $null
 $script:CurrentNativeStderrLog = $null
+$script:ResolvedClaudeSkillPath = $null
 $repoRoot = Resolve-RepoRoot
 $powerShellExe = Get-PowerShellExecutable
 Set-Location -LiteralPath $repoRoot
@@ -1515,6 +1724,7 @@ if ($AutoNextPhase) {
             '-ArchitectTimeoutSeconds', $ArchitectTimeoutSeconds,
             '-ImplementerTimeoutSeconds', $ImplementerTimeoutSeconds,
             '-ClaudePermissionMode', $ClaudePermissionMode,
+            '-ClaudeSkill', $ClaudeSkill,
             '-PostProcessTimeoutSeconds', $PostProcessTimeoutSeconds,
             '-ValidationCommandTimeoutSeconds', $ValidationCommandTimeoutSeconds,
             '-ReviewerTimeoutSeconds', $ReviewerTimeoutSeconds,
@@ -1525,6 +1735,7 @@ if ($AutoNextPhase) {
         if ($AutoCommit) { $childArgs += '-AutoCommit' }
         if ($Push) { $childArgs += '-Push' }
         if ($UseCodexUserConfig) { $childArgs += '-UseCodexUserConfig' }
+        if ($NoClaudeSkill) { $childArgs += '-NoClaudeSkill' }
         if ($VerboseLogs) { $childArgs += '-VerboseLogs' }
         if ($DryRun -or $StopAfterPlan) { $childArgs += '-DryRun' }
 
@@ -1664,7 +1875,26 @@ try {
     }
 
     $validationAttemptNumber = 1
-    $validationResult = Invoke-PhaseValidationAttempt -PowerShellExecutable $powerShellExe -ValidationArguments $validationArgs -RunDirectory $runDirectory -AttemptNumber $validationAttemptNumber
+    $currentDiffHash = Get-ValidatedDiffHash -RepoRoot $repoRoot -PhaseObject $phaseObject -ExcludePaths @($GeneratedPhaseDefinition)
+    $validatedDiffHash = ''
+    $validationReused = $false
+    $validationResult = $null
+    if ($ResumePhase) {
+        $resumeFiles = @(Get-ChangedFiles -ExcludePaths @($GeneratedPhaseDefinition))
+        Assert-FilesWithinAllowlist -Files $resumeFiles -PhaseObject $phaseObject
+        $reusableValidation = Find-ReusableValidation -RepoRoot $repoRoot -PhaseId $phaseObject.id -CurrentHash $currentDiffHash
+        if ($null -ne $reusableValidation) {
+            $validationReused = $true
+            $validatedDiffHash = $reusableValidation.hash
+            $validationResult = [pscustomobject]@{ exitCode = 0; data = $reusableValidation.result; path = (Join-Path $reusableValidation.sourceDirectory 'validation-result.json') }
+        }
+    }
+    Write-Host "Validation reused: $($validationReused.ToString().ToLowerInvariant())"
+    Write-Host "Validated diff hash: $validatedDiffHash"
+    Write-Host "Current diff hash: $currentDiffHash"
+    if (-not $validationReused) {
+        $validationResult = Invoke-PhaseValidationAttempt -PowerShellExecutable $powerShellExe -ValidationArguments $validationArgs -RunDirectory $runDirectory -AttemptNumber $validationAttemptNumber
+    }
     $validationAction = Get-ValidationRetryAction -ExitCode $validationResult.exitCode -AttemptsUsed $validationFixAttempts -MaximumAttempts $MaxFixAttempts -FailedItems @($validationResult.data.failed)
     while ($validationAction -eq 'retry') {
         $failedItems = @($validationResult.data.failed)
@@ -1727,7 +1957,15 @@ try {
         throw 'Validation failed after reaching MaxFixAttempts.'
     }
 
-    $reviewJson = Invoke-CodexReview -RepoRoot $repoRoot -RunDirectory $runDirectory -PhaseJson $phaseJson -PlanJson $planJson -SchemaPath $reviewSchemaPath
+    $currentDiffHash = Get-ValidatedDiffHash -RepoRoot $repoRoot -PhaseObject $phaseObject -ExcludePaths @($GeneratedPhaseDefinition)
+    $validatedDiffHash = $currentDiffHash
+    Save-ValidatedDiff -RunDirectory $runDirectory -ValidationResult $validationResult.data -Hash $validatedDiffHash
+    Write-Host "Validated diff hash: $validatedDiffHash"
+    Write-Host "Current diff hash: $currentDiffHash"
+
+    $changedForReview = @(Get-ChangedFiles -ExcludePaths @($GeneratedPhaseDefinition))
+    $validationSummary = [ordered]@{ phaseId = $phaseObject.id; passed = $true; failedCount = 0; reused = $validationReused; diffHash = $validatedDiffHash } | ConvertTo-Json -Compress
+    $reviewJson = Invoke-CodexReview -RepoRoot $repoRoot -RunDirectory $runDirectory -PhaseJson $phaseJson -SchemaPath $reviewSchemaPath -ChangedFiles $changedForReview -ValidationSummary $validationSummary
     $reviewObject = $reviewJson | ConvertFrom-Json
 
     while ((-not $reviewObject.approved -or @($reviewObject.blockers).Count -gt 0) -and $reviewFixAttempts -lt $MaxFixAttempts) {
@@ -1736,13 +1974,19 @@ try {
 
         Invoke-FixAttempt -RepoRoot $repoRoot -RunDirectory $runDirectory -PhaseJson $phaseJson -PlanJson $planJson -Blockers @($reviewObject.blockers) -AttemptNumber $reviewFixAttempts
 
-        $validationJson = & $powerShellExe @validationArgs
-        if ($LASTEXITCODE -ne 0) {
+        $reviewFixValidation = Invoke-PhaseValidationAttempt -PowerShellExecutable $powerShellExe -ValidationArguments $validationArgs -RunDirectory $runDirectory -AttemptNumber $reviewFixAttempts -ResultPrefix 'review-fix-validation'
+        if ($reviewFixValidation.exitCode -ne 0) {
             $failures.Add("Validation failed after fix attempt $attempts.")
             throw 'Validation failed after fix attempt.'
         }
 
-        $reviewJson = Invoke-CodexReview -RepoRoot $repoRoot -RunDirectory $runDirectory -PhaseJson $phaseJson -PlanJson $planJson -SchemaPath $reviewSchemaPath
+        $currentDiffHash = Get-ValidatedDiffHash -RepoRoot $repoRoot -PhaseObject $phaseObject -ExcludePaths @($GeneratedPhaseDefinition)
+        $validatedDiffHash = $currentDiffHash
+        Save-ValidatedDiff -RunDirectory $runDirectory -ValidationResult $reviewFixValidation.data -Hash $validatedDiffHash
+        $changedForReview = @(Get-ChangedFiles -ExcludePaths @($GeneratedPhaseDefinition))
+        $validationSummary = [ordered]@{ phaseId = $phaseObject.id; passed = $true; failedCount = 0; reused = $false; diffHash = $validatedDiffHash } | ConvertTo-Json -Compress
+
+        $reviewJson = Invoke-CodexReview -RepoRoot $repoRoot -RunDirectory $runDirectory -PhaseJson $phaseJson -SchemaPath $reviewSchemaPath -ChangedFiles $changedForReview -ValidationSummary $validationSummary
         $reviewObject = $reviewJson | ConvertFrom-Json
     }
 

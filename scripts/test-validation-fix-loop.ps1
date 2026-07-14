@@ -28,6 +28,9 @@ foreach ($functionName in @(
     'Get-RelatedProductionFiles',
     'Get-ValidationFailureClassification',
     'Get-ValidationRetryAction',
+    'Get-ValidatedDiffHash',
+    'Find-ReusableValidation',
+    'Save-ValidatedDiff',
     'New-FixBackup',
     'Restore-FixBackup'
 )) {
@@ -35,6 +38,7 @@ foreach ($functionName in @(
 }
 
 $phase = [pscustomobject]@{
+    id = 'phase-test'
     allowedFiles = @(
         'app/Modules/Finance/Frontend/finance-period-calculation.js',
         'assets/finance-period-calculation.js',
@@ -131,6 +135,17 @@ try {
     if ((Get-Content 'app/Modules/Finance/Frontend/finance-period-calculation.js' -Raw).Trim() -ne 'phase implementation') {
         throw 'Restricted test-only correction changed production.'
     }
+
+    $validatedHash = Get-ValidatedDiffHash -RepoRoot $testRoot -PhaseObject $phase
+    $validationData = [pscustomobject]@{ phaseId='phase-test'; passed=$true; results=@(); failed=@() }
+    Save-ValidatedDiff -RunDirectory $runDirectory -ValidationResult $validationData -Hash $validatedHash
+    $reused = Find-ReusableValidation -RepoRoot $testRoot -PhaseId 'phase-test' -CurrentHash $validatedHash
+    if ($null -eq $reused) { throw 'Unchanged validated diff was not reused.' }
+    'changed after validation' | Set-Content 'tests/js/finance_period_calculation_test.js' -Encoding utf8
+    $changedHash = Get-ValidatedDiffHash -RepoRoot $testRoot -PhaseObject $phase
+    if ($changedHash -eq $validatedHash) { throw 'Changed diff did not change validation hash.' }
+    $notReusable = Find-ReusableValidation -RepoRoot $testRoot -PhaseId 'phase-test' -CurrentHash $changedHash
+    if ($null -ne $notReusable) { throw 'Changed diff incorrectly reused validation.' }
 }
 finally {
     Set-Location -LiteralPath $originalLocation

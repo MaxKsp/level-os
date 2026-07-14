@@ -76,6 +76,8 @@ Optional flags:
 - `-ArchitectTimeoutSeconds 300`
 - `-ImplementerTimeoutSeconds 900`
 - `-ClaudePermissionMode acceptEdits`
+- `-ClaudeSkill ponytail`
+- `-NoClaudeSkill`
 - `-ValidationCommandTimeoutSeconds 180`
 - `-ReviewerTimeoutSeconds 300`
 - `-HeartbeatSeconds 10`
@@ -131,10 +133,17 @@ Artifacts include `validation-attempt-N.json`,
 `fix-implementer-attempt-N.stdout.log` / `.stderr.log` files. Reviewer runs only
 after validation passes.
 
-The Reviewer uses native `codex exec review --uncommitted`. Exec-global options
-(`--ignore-user-config`, `--ephemeral`, sandbox, working directory, output file,
-and schema) precede `review`; no trailing `-`, prompt, or stdin content is sent.
-Stdin is closed immediately and `review.json` must be created.
+The Reviewer uses ordinary `codex exec` with a minimal prompt over stdin and a
+mandatory output schema. It does not use the `review` subcommand or parse
+free-form Markdown. Valid JSON is accepted after one call; invalid output gets
+exactly one JSON-only repair call and then blocks the commit if still invalid.
+The raw first response is retained as `review.raw.txt`.
+
+By default every Claude prompt begins with `/ponytail`. The pipeline resolves
+the skill from repository/user skill paths and then repository/user command
+paths, rejects unreadable or `user-invocable: false` definitions, and respects
+accessible `skillOverrides.ponytail = off` configuration. `-NoClaudeSkill`
+explicitly disables this requirement without creating or changing any skill.
 
 Resume an already implemented phase with:
 
@@ -145,19 +154,21 @@ Resume an already implemented phase with:
 Resume mode accepts a dirty tree only when every changed file is in the phase
 allowlist or is the phase JSON itself. It skips Architect and the initial
 Implementer, starts with deterministic validation, applies the same correction
-cycle, then continues to Reviewer and human commit confirmation.
+cycle, then continues to Reviewer and human commit confirmation. A successful
+validation stores `validated-diff.sha256` and `validation-result.json`. Resume
+reuses them only when the current tracked diff plus allowed untracked file
+contents produce the same hash; any change forces complete validation.
 
 The controlled retry-policy checks run without a real phase or commit:
 
 ```powershell
 .\scripts\test-validation-fix-loop.ps1
 .\scripts\test-reviewer-runner.ps1
+.\scripts\test-claude-skill.ps1
 ```
 
-`test-reviewer-runner.ps1` uses a deterministic mock by default to verify the
-exact CLI argument order, closed stdin, output schema, and read-only working
-tree. After `codex login`, use `-Live` to repeat the same temporary-repository
-check against the installed Codex CLI.
+All three checks use deterministic mocks or temporary repositories and never
+invoke Codex or Claude.
 
 The controlled write check can be run independently without running a phase:
 
