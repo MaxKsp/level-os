@@ -2266,17 +2266,7 @@ async function renderFinance(){
     }
     // Lembrete de vencimento de fatura (cartões com vencimento e fatura > 0)
     const fatBox = document.getElementById('accFaturaAlert');
-    const todayD = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const reminders = [];
-    cartoes.forEach(c=>{
-      if (!c.vencimento || Number(c.fatura||0)<=0) return;
-      let dueM = now.getMonth(), dueY = now.getFullYear();
-      let due = new Date(dueY, dueM, clampDayOfMonth(dueY, dueM, c.vencimento));
-      if (dnum(due) < dnum(todayD)){ dueM++; due = new Date(dueY, dueM, clampDayOfMonth(dueY, dueM, c.vencimento)); }
-      const days = Math.round((due - todayD)/86400000);
-      if (days <= 7) reminders.push({ c, due, days });
-    });
-    reminders.sort((a,b)=>a.days-b.days);
+    const reminders = calculateInvoiceReminders(cartoes, now);
     fatBox.innerHTML = reminders.map(r=>{
       const quando = r.days===0 ? 'vence hoje' : r.days===1 ? 'vence amanhã' : 'vence em ' + r.days + ' dias (' + pad(r.due.getDate()) + '/' + pad(r.due.getMonth()+1) + ')';
       return `<div class="fat-alert"><span>🗓️</span> Fatura do ${esc(r.c.label)} ${quando} · ${fmtMoney(r.c.fatura)}</div>`;
