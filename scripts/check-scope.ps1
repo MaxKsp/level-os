@@ -108,6 +108,34 @@ function Test-IsSensitivePath {
     return $false
 }
 
+function Test-IsAbsolutelyProtectedPath {
+    param([string]$File)
+
+    $patterns = @(
+        '(^|/)\.env(\..+)?$',
+        '(^|/)config\.php$',
+        '(^|/)db\.php$',
+        '(^|/)auth\.php$',
+        '(^|/)schema\.sql$',
+        '(^|/)migrations/',
+        '(^|/).*secret.*$',
+        '(^|/).*credential.*$',
+        '(^|/)(id_rsa|id_dsa|id_ecdsa|id_ed25519)(\.pub)?$',
+        '(^|/).+\.(pem|p12|pfx|key)$',
+        '(^|/)(deploy|deployment)(/|\.|$)',
+        '(^|/)(docker-compose|compose)\.ya?ml$',
+        '(^|/)\.github/workflows/'
+    )
+
+    foreach ($pattern in $patterns) {
+        if ($File -match $pattern) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
 $repoRoot = Resolve-RepoRoot
 Set-Location -LiteralPath $repoRoot
 
@@ -142,6 +170,7 @@ $files = @($files | Where-Object { $normalizedExcludedFiles -notcontains $_ })
 $outsideAllowlist = @()
 $forbiddenTouched = @()
 $sensitiveTouched = @()
+$sensitiveViolations = @()
 
 foreach ($file in $files) {
     $inAllowlist = $false
@@ -156,15 +185,21 @@ foreach ($file in $files) {
         $outsideAllowlist += $file
     }
 
+    $isForbidden = $false
     foreach ($rule in $forbidden) {
         if (Test-PathMatch -File $file -Rule $rule) {
             $forbiddenTouched += $file
+            $isForbidden = $true
             break
         }
     }
 
-    if (Test-IsSensitivePath -File $file) {
+    $isAbsolutelyProtected = Test-IsAbsolutelyProtectedPath -File $file
+    if ((Test-IsSensitivePath -File $file) -or $isAbsolutelyProtected) {
         $sensitiveTouched += $file
+        if (-not $inAllowlist -or $isForbidden -or $isAbsolutelyProtected) {
+            $sensitiveViolations += $file
+        }
     }
 }
 
@@ -175,7 +210,8 @@ $result = [pscustomobject]@{
     outsideAllowlist  = @($outsideAllowlist | Sort-Object -Unique)
     forbiddenTouched  = @($forbiddenTouched | Sort-Object -Unique)
     sensitiveTouched  = @($sensitiveTouched | Sort-Object -Unique)
-    passed            = ($files.Count -gt 0 -and $outsideAllowlist.Count -eq 0 -and $forbiddenTouched.Count -eq 0 -and $sensitiveTouched.Count -eq 0)
+    sensitiveViolations = @($sensitiveViolations | Sort-Object -Unique)
+    passed            = ($files.Count -gt 0 -and $outsideAllowlist.Count -eq 0 -and $forbiddenTouched.Count -eq 0 -and $sensitiveViolations.Count -eq 0)
 }
 
 $result | ConvertTo-Json -Depth 6
