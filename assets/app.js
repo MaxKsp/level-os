@@ -2251,13 +2251,7 @@ async function renderFinance(){
     const projBox = document.getElementById('accProjection');
     if (contas.length===0){ projBox.innerHTML=''; }
     else {
-      const today = now.getDate();
-      const endMonth = new Date(now.getFullYear(), now.getMonth()+1, 0);
-      const remRange = { start: addDays(new Date(now.getFullYear(), now.getMonth(), today), 1), end: endMonth };
-      const aReceber = incLines.filter(l=> isIncomeActive(l,now) && l.payday && l.payday>=today)
-        .reduce((s,l)=>s+Number(l.value||0),0);
-      const aPagar = (today>=endMonth.getDate()) ? 0 : expLines.reduce((s,e)=>s+expenseTotalInRange(e, remRange),0);
-      const projetado = saldoTotal + aReceber - aPagar;
+      const { aReceber, aPagar, projetado } = calculateEndOfMonthProjection(saldoTotal, incLines, expLines, now);
       projBox.innerHTML = `<div class="projcard">
         <div class="pj-l">Projeção fim do mês</div>
         <div class="pj-v ${projetado<0?'brick':'sage'}">${fmtMoney(projetado)}</div>

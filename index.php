@@ -810,6 +810,7 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
 <script src="assets/finance-category-key-calculation.js?v=<?= @filemtime(__DIR__.'/assets/finance-category-key-calculation.js') ?>"></script>
 <script src="assets/finance-account-summary-calculation.js?v=<?= @filemtime(__DIR__.'/assets/finance-account-summary-calculation.js') ?>"></script>
 <script src="assets/finance-invoice-reminder-calculation.js?v=<?= @filemtime(__DIR__.'/assets/finance-invoice-reminder-calculation.js') ?>"></script>
+<script src="assets/finance-end-of-month-projection-calculation.js?v=<?= @filemtime(__DIR__.'/assets/finance-end-of-month-projection-calculation.js') ?>"></script>
 <script src="assets/app.js?v=<?= @filemtime(__DIR__.'/assets/app.js') ?>"></script>
 </body>
 </html>
