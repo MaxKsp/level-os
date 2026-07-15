@@ -294,8 +294,20 @@ async function storeSet(key, value){
       headers: {'Content-Type':'application/json', 'X-CSRF-Token': window.CSRF_TOKEN},
       body: JSON.stringify({key, value})
     });
-    if (r.status === 401) location.href = 'login.php';
-  } catch(e){ console.error(e); }
+    if (r.status === 401){ location.href = 'login.php'; return; }
+    if (!r.ok){
+      let msg = 'Nao consegui salvar agora.';
+      try{
+        const body = await r.json();
+        if (body && body.error) msg = body.error;
+      }catch(_){}
+      throw new Error(msg);
+    }
+  } catch(e){
+    console.error(e);
+    toast(e.message || 'Nao consegui salvar agora.', {error:true});
+    throw e;
+  }
 }
 
 let tasks = [];
@@ -1176,11 +1188,10 @@ async function getExpenseLines(){
 async function getIncomeLines(){
   return await storeGet('income_lines', []);
 }
-function isIncomeActive(line, now){
-  if (line.type !== 'temporaria') return true;
-  if (!line.endDate) return true;
-  return dnum(new Date(line.endDate+'T00:00:00')) >= dnum(now);
-}
+/* isIncomeActive: extraída (Fase 20) para
+   app/Modules/Finance/Frontend/finance-income-activation-calculation.js e
+   assets/finance-income-activation-calculation.js, carregadas antes deste
+   arquivo. */
 const TYPE_LABEL = {fixa:'Fixa', variavel:'Variável', temporaria:'Temporária'};
 
 
@@ -1194,41 +1205,10 @@ document.querySelectorAll('.fsub').forEach(t=>{
   };
 });
 
-/* ---- Cálculo CLT / PJ (estimativa de líquido) ---- */
-// Tabelas 2025: INSS progressivo e IRRF mensal.
-function calcINSS(gross){
-  const cap = 8157.41; const g = Math.min(Math.max(0, gross), cap);
-  const t = [[1518,0.075],[2793.88,0.09],[4190.83,0.12],[8157.41,0.14]];
-  let prev=0, tax=0;
-  for (const [top,rate] of t){ if (g>prev){ tax += (Math.min(g,top)-prev)*rate; prev=top; } else break; }
-  return tax;
-}
-function irrfFromBase(base){
-  const t = [[2259.20,0,0],[2826.65,0.075,169.44],[3751.05,0.15,381.44],[4664.68,0.225,662.77],[Infinity,0.275,896.00]];
-  for (const [top,rate,ded] of t){ if (base<=top) return Math.max(0, base*rate - ded); }
-  return 0;
-}
-function computeCLT(p){
-  const sal = Number(p.bruto||0);
-  const horaBase = sal/220;
-  const extras = (Number(p.he50||0)*horaBase*1.5) + (Number(p.he100||0)*horaBase*2);
-  const brutoTotal = sal + extras;
-  const inss = calcINSS(brutoTotal);
-  const deps = Number(p.deps||0)*189.59;
-  const baseLegal = Math.max(0, brutoTotal - inss - deps);
-  const baseSimpl = Math.max(0, brutoTotal - 564.80);
-  const irrf = Math.min(irrfFromBase(baseLegal), irrfFromBase(baseSimpl));
-  const convMed=Number(p.convMed||0), convOdo=Number(p.convOdo||0), outros=Number(p.outros||0);
-  const liquido = brutoTotal - inss - irrf - convMed - convOdo - outros;
-  return { sal, extras, brutoTotal, inss, irrf, convMed, convOdo, outros, liquido,
-    fgts: brutoTotal*0.08, decimo: sal, ferias: sal + sal/3 };
-}
-function computePJ(p){
-  const bruto = Number(p.bruto||0);
-  const impostos = bruto * (Number(p.imposto||0)/100);
-  const conv = Number(p.conv||0), outros = Number(p.outros||0);
-  return { bruto, impostos, conv, outros, liquido: bruto - impostos - conv - outros };
-}
+/* calcINSS, irrfFromBase, computeCLT, computePJ: extraídas (Fase 15) para
+   app/Modules/Finance/Frontend/finance-income-regime-calculation.js e
+   assets/finance-income-regime-calculation.js, carregadas antes deste
+   arquivo. */
 const imV = id => Number(document.getElementById(id).value||0);
 function cltParamsFromForm(){ return { bruto:imV('imBruto'), deps:imV('imDeps'), he50:imV('imHe50'), he100:imV('imHe100'), convMed:imV('imConvMed'), convOdo:imV('imConvOdo'), outros:imV('imOutros') }; }
 function pjParamsFromForm(){ return { bruto:imV('imPjBruto'), imposto:imV('imPjImposto'), conv:imV('imPjConv'), outros:imV('imPjOutros') }; }
@@ -1397,13 +1377,8 @@ function syncAccountSelectState(){
 }
 document.getElementById('emRecorrente').onchange = syncAccountSelectState;
 
-/** sign +1 aplica a despesa na conta (debita saldo / soma fatura); -1 estorna. */
-function applyAccountMovement(accounts, accountId, value, sign){
-  const a = accounts.find(x=>x.id===accountId);
-  if (!a) return;
-  if (a.tipo==='cartao') a.fatura = Number(a.fatura||0) + sign*value;
-  else a.saldo = Number(a.saldo||0) - sign*value;
-}
+// applyAccountMovement() agora vive em assets/finance-account-movement.js,
+// carregado antes deste arquivo em index.php.
 
 document.getElementById('btnOpenExpModal').onclick = async ()=>{
   editingExpenseId = null;
@@ -1537,7 +1512,6 @@ async function getAccounts(){
 }
 const TIPO_CONTA_LABEL = { conta:'Conta corrente', poupanca:'Poupança', cartao:'Cartão de crédito' };
 function accTipoLabel(a){ return TIPO_CONTA_LABEL[a.tipo] || 'Conta corrente'; }
-function isContaLike(a){ return a.tipo !== 'cartao'; }  // corrente e poupança
 let __accView = 'conta';
 let __reservedByAcc = {};
 function accountCardHtml(a, reorder, idx, total){
@@ -1721,22 +1695,8 @@ async function refreshDetail(){
   const accs = await getAccounts(); const a = accs.find(x=>x.id===__detailAccId);
   if (a) await openAccountDetail(a);
 }
-async function payFaturaAccount(acc){
-  if (acc.tipo!=='cartao' || Number(acc.fatura)<=0) return;
-  const valor = Number(acc.fatura);
-  if (!confirm(`Pagar a fatura de ${fmtMoney(valor)} do cartão "${acc.label}"?\n\nZera a fatura e registra a saída de hoje nas despesas.`)) return;
-  const accounts = await getAccounts();
-  const a = accounts.find(x=>x.id===acc.id); if (!a) return;
-  a.fatura = 0;
-  const lines = await getExpenseLines();
-  lines.push({ id: genId(), label: 'Pagamento fatura — ' + a.label, value: valor,
-    date: dkey(new Date()), time: pad(new Date().getHours())+':'+pad(new Date().getMinutes()),
-    recorrencia: 'none', categoria: 'outros', method: 'pix', bank: a.bank, createdAt: Date.now() });
-  await storeSet('accounts_v2', accounts);
-  await storeSet('expense_lines_v4', lines);
-  await refreshDetail(); renderFinance();
-  toast('Fatura paga');
-}
+// payFaturaAccount() agora vive em assets/pay-fatura-account.js,
+// carregado antes deste arquivo em index.php.
 async function detailAction(act, accId){
   const accounts = await getAccounts();
   const acc = accounts.find(a=>a.id===accId); if (!acc) return;
@@ -1902,30 +1862,9 @@ document.getElementById('trSave').onclick = async ()=>{
   const toId = document.getElementById('trTo').value;
   const value = Number(document.getElementById('trValue').value||0);
   const date = document.getElementById('trDate').value || dkey(new Date());
-  if (!fromId || !toId || fromId===toId){ toast('Escolha contas diferentes.', {error:true}); return; }
-  if (value<=0){ toast('Valor inválido.', {error:true}); return; }
-  const accounts = await getAccounts();
-  const from = accounts.find(a=>a.id===fromId), to = accounts.find(a=>a.id===toId);
-  if (!from || !to) return;
-  const toCard = to.tipo==='cartao';
-  from.saldo = Number(from.saldo||0) - value;
-  if (toCard) to.fatura = Math.max(0, Number(to.fatura||0) - value);
-  else to.saldo = Number(to.saldo||0) + value;
-  const tr = { id: genId(), fromId, toId, value, date, kind: toCard?'payment':'transfer', createdAt: Date.now() };
-  const transfers = await getTransfers(); transfers.push(tr);
-  await storeSet('accounts_v2', accounts);
-  await storeSet('transfers', transfers);
-  document.getElementById('transferModalOverlay').classList.remove('open');
-  renderFinance();
-  toast(toCard?'Fatura paga por transferência':'Transferência feita', { undo: async ()=>{
-    const accs = await getAccounts();
-    const f = accs.find(a=>a.id===fromId), t = accs.find(a=>a.id===toId);
-    if (f) f.saldo = Number(f.saldo||0) + value;
-    if (t){ if (toCard) t.fatura = Number(t.fatura||0) + value; else t.saldo = Number(t.saldo||0) - value; }
-    let trs = await getTransfers(); trs = trs.filter(x=>x.id!==tr.id);
-    await storeSet('accounts_v2', accs); await storeSet('transfers', trs);
-    renderFinance();
-  }});
+  // logica de transferBetweenAccounts() agora vive em assets/account-transfer.js,
+  // carregado antes deste arquivo em index.php.
+  await transferBetweenAccounts(fromId, toId, value, date);
 };
 async function accountAction(act, id){
   let accounts = await getAccounts();
@@ -1988,7 +1927,15 @@ document.getElementById('btnOpenAccModal').onclick = ()=>{
 document.getElementById('acCancel').onclick = ()=> document.getElementById('accountModalOverlay').classList.remove('open');
 document.getElementById('acSave').onclick = async ()=>{
   const label = document.getElementById('acLabel').value.trim();
-  if (!label) return;
+  if (!label){
+    toast('Informe um apelido para a conta.', {error:true});
+    document.getElementById('acLabel').focus();
+    return;
+  }
+  const saveBtn = document.getElementById('acSave');
+  const oldText = saveBtn.textContent;
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Salvando...';
   const tipo = document.getElementById('acTipo').value;
   const saldo = Number(document.getElementById('acSaldo').value||0);
   const chequeEspecial = tipo==='conta' ? Number(document.getElementById('acChequeEspecial').value||0) : 0;
@@ -2006,10 +1953,15 @@ document.getElementById('acSave').onclick = async ()=>{
   } else {
     accounts.push({ id: genId(), label, tipo, saldo, chequeEspecial, limite, fatura, fechamento, vencimento, bank, principal, createdAt: Date.now() });
   }
-  await storeSet('accounts_v2', accounts);
-  document.getElementById('accountModalOverlay').classList.remove('open');
-  renderFinance();
-  toast(editingAccountId ? 'Conta atualizada' : 'Conta criada');
+  try{
+    await storeSet('accounts_v2', accounts);
+    document.getElementById('accountModalOverlay').classList.remove('open');
+    renderFinance();
+    toast(editingAccountId ? 'Conta atualizada' : 'Conta criada');
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = oldText;
+  }
 };
 document.getElementById('acDelete').onclick = async ()=>{
   if (!editingAccountId) return;
@@ -2075,137 +2027,14 @@ document.querySelectorAll('#finPeriodNav .perpill').forEach(b=>{
     renderFinance();
   };
 });
-function periodRange(period, now){
-  if (period==='day') return { start:new Date(now.getFullYear(),now.getMonth(),now.getDate()), end:new Date(now.getFullYear(),now.getMonth(),now.getDate()) };
-  if (period==='week'){ const s=startOfWeek(now); return { start:s, end:addDays(s,6) }; }
-  if (period==='year') return { start:new Date(now.getFullYear(),0,1), end:new Date(now.getFullYear(),11,31) };
-  return { start:new Date(now.getFullYear(),now.getMonth(),1), end:new Date(now.getFullYear(),now.getMonth()+1,0) };
-}
 function periodLabel(period){
   return { day:'do dia', week:'da semana', month:'do mês', year:'do ano' }[period];
-}
-function prorate(monthlyValue, period){
-  if (period==='day') return monthlyValue/30;
-  if (period==='week') return monthlyValue/4.345;
-  if (period==='year') return monthlyValue*12;
-  return monthlyValue;
-}
-function inRange(dateStr, range){
-  const d = new Date(dateStr+'T00:00:00');
-  return dnum(d) >= dnum(range.start) && dnum(d) <= dnum(range.end);
-}
-/**
- * Totais e gráficos consideram o compromisso do período corrente, sem
- * inflar com meses futuros: Dia/Semana/Mês mostram o período completo
- * (inclusive o que ainda vai cair até o fim dele), e o Ano é cortado no
- * fim do MÊS atual — agosto em diante só entra quando chegar.
- */
-function clampRangeToToday(range, now){
-  const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth()+1, 0);
-  if (dnum(range.end) <= dnum(endOfCurrentMonth)) return range;
-  return { start: range.start, end: endOfCurrentMonth };
-}
-/** Prorata de valores mensais sem data, respeitando só o tempo já decorrido do período. */
-function prorateElapsed(monthlyValue, period, now){
-  if (period==='year') return monthlyValue * (now.getMonth() + 1);
-  return prorate(monthlyValue, period);
-}
-
-function clampDayOfMonth(year, month, day){
-  const lastDay = new Date(year, month+1, 0).getDate();
-  return Math.min(day, lastDay);
-}
-/**
- * Retorna as datas em que uma despesa efetivamente ocorre dentro de um período.
- * Despesas sem recorrência: só a própria data, se cair no período.
- * Despesas mensais: uma ocorrência por mês do período, no mesmo dia (ajustado se o mês for mais curto).
- */
-function expenseOccurrencesInRange(exp, range){
-  if (!exp.date) return [];
-  const anchor = new Date(exp.date+'T00:00:00');
-  // parcelado: N ocorrências mensais a partir da 1ª parcela
-  if (exp.parcelas >= 2){
-    const dom = anchor.getDate();
-    const occ = [];
-    for (let i=0;i<exp.parcelas;i++){
-      const m = new Date(anchor.getFullYear(), anchor.getMonth()+i, 1);
-      const od = new Date(m.getFullYear(), m.getMonth(), clampDayOfMonth(m.getFullYear(), m.getMonth(), dom));
-      if (dnum(od) >= dnum(range.start) && dnum(od) <= dnum(range.end)) occ.push(od);
-    }
-    return occ;
-  }
-  if (exp.recorrencia !== 'mensal'){
-    return inRange(exp.date, range) ? [anchor] : [];
-  }
-  const dayOfMonth = anchor.getDate();
-  const occurrences = [];
-  let cursor = new Date(range.start.getFullYear(), range.start.getMonth(), 1);
-  const endCursor = new Date(range.end.getFullYear(), range.end.getMonth(), 1);
-  let guard = 0;
-  while (dnum(cursor) <= dnum(endCursor) && guard < 600){
-    guard++;
-    const occDay = clampDayOfMonth(cursor.getFullYear(), cursor.getMonth(), dayOfMonth);
-    const occDate = new Date(cursor.getFullYear(), cursor.getMonth(), occDay);
-    if (dnum(occDate) >= dnum(anchor) && dnum(occDate) >= dnum(range.start) && dnum(occDate) <= dnum(range.end)){
-      occurrences.push(occDate);
-    }
-    cursor.setMonth(cursor.getMonth()+1);
-  }
-  return occurrences;
-}
-function expenseTotalInRange(exp, range){
-  return expenseOccurrencesInRange(exp, range).length * Number(exp.value||0);
-}
-/** "parcela X/N": qual parcela cai no mês de 'now' (clampado 1..N). */
-function parcelaLabel(exp, now){
-  if (!exp.parcelas || !exp.date) return '';
-  const a = new Date(exp.date+'T00:00:00');
-  let n = (now.getFullYear()-a.getFullYear())*12 + (now.getMonth()-a.getMonth()) + 1;
-  n = Math.max(1, Math.min(exp.parcelas, n));
-  return 'parcela ' + n + '/' + exp.parcelas;
-}
-function expenseTimeOf(exp){
-  if (exp.time) return exp.time;
-  if (exp.createdAt) { const d = new Date(exp.createdAt); return pad(d.getHours())+':'+pad(d.getMinutes()); }
-  return '12:00';
-}
-function expenseHourOf(exp){
-  return Number(expenseTimeOf(exp).split(':')[0]);
-}
-/** Lista achatada de {exp, date} pra cada ocorrência de cada despesa dentro do período (só despesas com data). */
-function expenseOccurrenceEntries(expLines, range){
-  const out = [];
-  expLines.forEach(e=>{
-    if (!e.date) return;
-    expenseOccurrencesInRange(e, range).forEach(date=> out.push({ exp: e, date }));
-  });
-  return out;
-}
-/**
- * Soma o valor de cada despesa dentro do período, agrupado pela chave de keyFn.
- * Despesas com data contam pelo número real de ocorrências no período; despesas
- * sem data (fixas mensais sem dia definido) entram prorateadas pro período,
- * do mesmo jeito que já acontece no resumo do topo.
- */
-function bucketPeriodTotals(expLines, range, period, keyFn, now){
-  const totals = {};
-  expLines.forEach(e=>{
-    const key = keyFn(e);
-    if (e.date){
-      const occ = expenseOccurrencesInRange(e, range).length;
-      if (occ>0) totals[key] = (totals[key]||0) + occ*Number(e.value||0);
-    } else {
-      totals[key] = (totals[key]||0) + prorateElapsed(Number(e.value||0), period, now);
-    }
-  });
-  return totals;
 }
 
 const CATEGORIA_LABEL = { moradia:'Moradia', transporte:'Transporte', alimentacao:'Alimentação', lazer:'Lazer', saude:'Saúde', educacao:'Educação', assinaturas:'Assinaturas', financiamento:'Financiamento', outros:'Outros' };
 
 /* categorias = presets fixos + as que o usuário cria (kv custom_categories) */
 let __customCats = [];
-function catSlug(name){ return (name||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,40) || ('cat'+Date.now()); }
 function allCategories(){
   const out = {...CATEGORIA_LABEL};
   __customCats.forEach(c=>{ if (c && c.key) out[c.key] = c.label; });
@@ -2338,34 +2167,10 @@ document.getElementById('goalsSave').onclick = async ()=>{
   toast('Metas salvas');
 };
 
-/* Detecta gastos fora do padrão: despesa datada do mês atual muito acima da
-   média histórica da mesma categoria (meses anteriores). Puro no cliente. */
-function detectAnomalies(expLines, now){
-  const curMonth = monthKey(now);
-  const dated = expLines.filter(e=> e.date && Number(e.value)>0);
-  // baseline por categoria: valores de meses ANTERIORES ao atual
-  const hist = {};
-  dated.forEach(e=>{
-    const m = e.date.slice(0,7);
-    if (m >= curMonth) return;               // só passado
-    (hist[e.categoria] = hist[e.categoria] || []).push(Number(e.value));
-  });
-  const out = [];
-  dated.filter(e=> e.date.slice(0,7)===curMonth).forEach(e=>{
-    const arr = hist[e.categoria];
-    if (!arr || arr.length < 4) return;      // amostra insuficiente
-    const n = arr.length;
-    const mean = arr.reduce((s,v)=>s+v,0)/n;
-    const std = Math.sqrt(arr.reduce((s,v)=>s+(v-mean)*(v-mean),0)/n);
-    const v = Number(e.value);
-    const threshold = mean + 2*std;
-    if (v < 30) return;                      // ignora valores baixos
-    if (v < mean*1.5) return;                // precisa ser bem acima da média
-    if (v <= threshold) return;              // dentro de 2 desvios = normal
-    out.push({ e, mean, pct: Math.round((v/mean-1)*100) });
-  });
-  return out.sort((a,b)=> Number(b.e.value)-Number(a.e.value));
-}
+/* detectAnomalies(expLines, now) extraído para
+   app/Modules/Finance/Frontend/finance-anomaly-detection.js (Fase 14),
+   publicado em assets/finance-anomaly-detection.js e carregado antes
+   deste arquivo em index.php. */
 async function renderAnomalies(expLines, now){
   const box = document.getElementById('anomalyBox');
   const anomalies = detectAnomalies(expLines, now);
@@ -2432,16 +2237,7 @@ async function renderFinance(){
     const vaultsAll = await getVaults();
     __reservedByAcc = {};
     vaultsAll.forEach(v=>{ __reservedByAcc[v.accountId] = (__reservedByAcc[v.accountId]||0) + Number(v.saved||0); });
-    const contas = accounts.filter(isContaLike);
-    const cartoes = accounts.filter(a=>a.tipo==='cartao');
-    const saldoTotal = contas.reduce((s,a)=>s+Number(a.saldo||0),0);
-    const faturaTotal = cartoes.reduce((s,a)=>s+Number(a.fatura||0),0);
-    const patrimonio = saldoTotal - faturaTotal;
-    const creditoCartoes = cartoes.reduce((s,a)=>s+Math.max(0, Number(a.limite||0)-Number(a.fatura||0)),0);
-    const chequeUsadoTotal = contas.reduce((s,a)=> s + (Number(a.saldo||0)<0 ? -Number(a.saldo) : 0), 0);
-    const chequeDisp = contas.reduce((s,a)=>{ const ce=Number(a.chequeEspecial||0); const used=Number(a.saldo||0)<0?-Number(a.saldo):0; return s+Math.max(0, ce-used); }, 0);
-    const creditoDisp = creditoCartoes + chequeDisp;
-    const overdraft = contas.filter(a=>Number(a.saldo||0)<0);
+    const { contas, cartoes, saldoTotal, faturaTotal, patrimonio, creditoDisp, chequeUsadoTotal, chequeDisp, overdraft } = calculateAccountSummary(accounts);
     const sumBox = document.getElementById('accSummary');
     if (accounts.length===0){ sumBox.innerHTML=''; }
     else {
@@ -2455,13 +2251,7 @@ async function renderFinance(){
     const projBox = document.getElementById('accProjection');
     if (contas.length===0){ projBox.innerHTML=''; }
     else {
-      const today = now.getDate();
-      const endMonth = new Date(now.getFullYear(), now.getMonth()+1, 0);
-      const remRange = { start: addDays(new Date(now.getFullYear(), now.getMonth(), today), 1), end: endMonth };
-      const aReceber = incLines.filter(l=> isIncomeActive(l,now) && l.payday && l.payday>=today)
-        .reduce((s,l)=>s+Number(l.value||0),0);
-      const aPagar = (today>=endMonth.getDate()) ? 0 : expLines.reduce((s,e)=>s+expenseTotalInRange(e, remRange),0);
-      const projetado = saldoTotal + aReceber - aPagar;
+      const { aReceber, aPagar, projetado } = calculateEndOfMonthProjection(saldoTotal, incLines, expLines, now);
       projBox.innerHTML = `<div class="projcard">
         <div class="pj-l">Projeção fim do mês</div>
         <div class="pj-v ${projetado<0?'brick':'sage'}">${fmtMoney(projetado)}</div>
@@ -2470,17 +2260,7 @@ async function renderFinance(){
     }
     // Lembrete de vencimento de fatura (cartões com vencimento e fatura > 0)
     const fatBox = document.getElementById('accFaturaAlert');
-    const todayD = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const reminders = [];
-    cartoes.forEach(c=>{
-      if (!c.vencimento || Number(c.fatura||0)<=0) return;
-      let dueM = now.getMonth(), dueY = now.getFullYear();
-      let due = new Date(dueY, dueM, clampDayOfMonth(dueY, dueM, c.vencimento));
-      if (dnum(due) < dnum(todayD)){ dueM++; due = new Date(dueY, dueM, clampDayOfMonth(dueY, dueM, c.vencimento)); }
-      const days = Math.round((due - todayD)/86400000);
-      if (days <= 7) reminders.push({ c, due, days });
-    });
-    reminders.sort((a,b)=>a.days-b.days);
+    const reminders = calculateInvoiceReminders(cartoes, now);
     fatBox.innerHTML = reminders.map(r=>{
       const quando = r.days===0 ? 'vence hoje' : r.days===1 ? 'vence amanhã' : 'vence em ' + r.days + ' dias (' + pad(r.due.getDate()) + '/' + pad(r.due.getMonth()+1) + ')';
       return `<div class="fat-alert"><span>🗓️</span> Fatura do ${esc(r.c.label)} ${quando} · ${fmtMoney(r.c.fatura)}</div>`;
@@ -2599,32 +2379,6 @@ document.addEventListener('click', (e)=>{
 document.getElementById('extSearch').oninput = ()=> renderFinance();
 
 /* ---- Relatório anual (IR) — impressão pra PDF ---- */
-function irMonthRange(year, m){ return { start:new Date(year,m,1), end:new Date(year,m+1,0) }; }
-function buildIrData(year, expLines, incLines, entries){
-  const months = [], catTotals = {};
-  let annualExp=0, annualInc=0, incFixed=0, incVar=0, incTemp=0, incIfood=0;
-  for (let m=0;m<12;m++){
-    const range = irMonthRange(year,m);
-    const mkey = year+'-'+pad(m+1);
-    let mExp=0;
-    expLines.forEach(e=>{
-      const v = expenseTotalInRange(e, range);
-      if (v>0){ mExp+=v; catTotals[e.categoria]=(catTotals[e.categoria]||0)+v; }
-    });
-    let mInc=0;
-    incLines.forEach(l=>{
-      if (l.createdAt){ const cd=new Date(l.createdAt); const ckey=cd.getFullYear()+'-'+pad(cd.getMonth()+1); if (ckey > mkey) return; }  // ainda não existia neste mês
-      if (!isIncomeActive(l, range.start)) return;
-      const val=Number(l.value||0); mInc+=val;
-      if (l.type==='variavel') incVar+=val; else if (l.type==='temporaria') incTemp+=val; else incFixed+=val;
-    });
-    const mIfood = entries.filter(en=> en.date && en.date.slice(0,7)===mkey).reduce((s,en)=>s+Number(en.valor||0),0);
-    mInc+=mIfood; incIfood+=mIfood;
-    annualExp+=mExp; annualInc+=mInc;
-    months.push({ label: MONTH_ABBR[m], inc:mInc, exp:mExp, saldo:mInc-mExp });
-  }
-  return { months, catTotals, annualExp, annualInc, incFixed, incVar, incTemp, incIfood };
-}
 async function renderIrReport(year){
   const expLines = await getExpenseLines();
   const incLines = await getIncomeLines();
@@ -2731,28 +2485,10 @@ document.getElementById('ofxConfirm').onclick = async ()=>{
   document.querySelectorAll('#ofxRows [data-i]').forEach(chk=>{
     if (chk.checked) picked.push(Number(chk.dataset.i));
   });
-  if (!picked.length){ toast('Nada selecionado.', {error:true}); return; }
-  const expLines = await getExpenseLines();
-  const incLines = await getIncomeLines();
-  let nExp=0, nInc=0;
-  picked.forEach(i=>{
-    const r = __ofxRows[i];
-    if (r.kind==='expense'){
-      const catSel = document.querySelector(`#ofxRows [data-cat="${i}"]`);
-      expLines.push({ id: genId(), label: r.desc || 'Importado', value: r.value, date: r.date,
-        time: '12:00', recorrencia: 'none', categoria: (catSel&&catSel.value)||'outros',
-        method: 'outro', bank: 'outro', accountId: null, createdAt: Date.now() });
-      nExp++;
-    } else {
-      incLines.push({ id: genId(), label: r.desc || 'Importado', value: r.value, type: 'variavel', endDate: null, createdAt: Date.now() });
-      nInc++;
-    }
+  await confirmOfxImport(__ofxRows, picked, (i)=>{
+    const catSel = document.querySelector(`#ofxRows [data-cat="${i}"]`);
+    return catSel && catSel.value;
   });
-  if (nExp) await storeSet('expense_lines_v4', expLines);
-  if (nInc) await storeSet('income_lines', incLines);
-  document.getElementById('ofxModalOverlay').classList.remove('open');
-  renderFinance();
-  toast(`${nExp+nInc} lançamento(s) importado(s)`);
 };
 
 let chartLine=null, chartBank=null, chartMethod=null, chartCategoria=null, chartHistory=null;
@@ -3539,7 +3275,15 @@ async function init(){
   renderHomeCharts();
   renderAgenda();
   setInterval(()=>{ renderHero(); if (document.getElementById('apage-inicio').classList.contains('active')) renderHomeCharts(); }, 20000);
-  if ('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+  if ('serviceWorker' in navigator){
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1'){
+      navigator.serviceWorker.getRegistrations()
+        .then(regs => regs.forEach(reg => reg.unregister()))
+        .catch(()=>{});
+    } else {
+      navigator.serviceWorker.register('sw.js').catch(()=>{});
+    }
+  }
   fetch('api/me.php').then(r=>r.ok?r.json():null).then(me=>{ if(me) setTopbarAvatar(me.avatar); }).catch(()=>{});
 }
 init();

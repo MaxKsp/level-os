@@ -146,8 +146,8 @@ function attempt_login(string $username, string $password): string {
     if (is_locked_out()) {
         return 'locked';
     }
-    $stmt = get_db()->prepare('SELECT id, password_hash, totp_enabled FROM users WHERE username = ?');
-    $stmt->execute([$username]);
+    $stmt = get_db()->prepare('SELECT id, password_hash, totp_enabled FROM users WHERE username = ? OR email = ? LIMIT 1');
+    $stmt->execute([$username, $username]);
     $user = $stmt->fetch();
     if (!$user || $user['password_hash'] === null || !password_verify($password, $user['password_hash'])) {
         record_failed_attempt();

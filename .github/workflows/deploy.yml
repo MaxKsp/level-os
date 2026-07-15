@@ -25,6 +25,7 @@ jobs:
             **/.git*/**
             **/.github/**
             **/.claude/**
+            **/CLAUDE.md
             **/README.md
             **/ROADMAP.md
             **/config.example.php

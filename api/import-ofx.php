@@ -5,6 +5,7 @@ require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../plan.php';
 require_once __DIR__ . '/../finance.php';
 require_once __DIR__ . '/../ofx.php';
+require_once __DIR__ . '/../app/Modules/Finance/FinanceOfxPreview.php';
 
 header('Content-Type: application/json; charset=utf-8');
 $uid = require_login();
@@ -24,26 +25,6 @@ if ($_FILES['ofx']['size'] > 5 * 1024 * 1024) {
 }
 
 $content = file_get_contents($_FILES['ofx']['tmp_name']);
-$parsed = parse_ofx($content);
-if (!$parsed['ok']) {
-    http_response_code(400);
-    echo json_encode(['error' => $parsed['error']]);
-    exit;
-}
-
-// marca provaveis duplicatas: mesmo (date,value) ja existente nos lancamentos
-$db = get_db();
-$existing = [];
-foreach (['expense', 'income'] as $set) {
-    foreach (finance_load_set($db, $uid, $set) as $r) {
-        $existing[($r['date'] ?? '') . '|' . number_format((float)($r['value'] ?? 0), 2, '.', '')] = true;
-    }
-}
-$rows = [];
-foreach ($parsed['rows'] as $r) {
-    $key = ($r['date'] ?? '') . '|' . number_format($r['value'], 2, '.', '');
-    $r['dup'] = isset($existing[$key]);
-    $rows[] = $r;
-}
-
-echo json_encode(['ok' => true, 'rows' => $rows]);
+$result = finance_ofx_preview(get_db(), $uid, $content);
+http_response_code($result['status']);
+echo json_encode($result['body']);

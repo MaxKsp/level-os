@@ -3,3 +3,6 @@ node_modules/
 *.log
 config.php
 .claude/
+.vscode/
+.serena/
+automation/runs/

@@ -793,6 +793,24 @@ try{ const p = JSON.parse(localStorage.getItem('pm_prefs')||'{}');
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="assets/qrcode.min.js"></script>
+<script src="assets/finance-account-movement.js?v=<?= @filemtime(__DIR__.'/assets/finance-account-movement.js') ?>"></script>
+<script src="assets/pay-fatura-account.js?v=<?= @filemtime(__DIR__.'/assets/pay-fatura-account.js') ?>"></script>
+<script src="assets/account-transfer.js?v=<?= @filemtime(__DIR__.'/assets/account-transfer.js') ?>"></script>
+<script src="assets/ofx-import-confirmation.js?v=<?= @filemtime(__DIR__.'/assets/ofx-import-confirmation.js') ?>"></script>
+<script src="assets/finance-anomaly-detection.js?v=<?= @filemtime(__DIR__.'/assets/finance-anomaly-detection.js') ?>"></script>
+<script src="assets/finance-income-regime-calculation.js?v=<?= @filemtime(__DIR__.'/assets/finance-income-regime-calculation.js') ?>"></script>
+<script src="assets/finance-expense-occurrence-calculation.js?v=<?= @filemtime(__DIR__.'/assets/finance-expense-occurrence-calculation.js') ?>"></script>
+<script src="assets/finance-annual-ir-calculation.js?v=<?= @filemtime(__DIR__.'/assets/finance-annual-ir-calculation.js') ?>"></script>
+<script src="assets/finance-period-calculation.js?v=<?= @filemtime(__DIR__.'/assets/finance-period-calculation.js') ?>"></script>
+<script src="assets/finance-expense-aggregation-calculation.js?v=<?= @filemtime(__DIR__.'/assets/finance-expense-aggregation-calculation.js') ?>"></script>
+<script src="assets/finance-income-activation-calculation.js?v=<?= @filemtime(__DIR__.'/assets/finance-income-activation-calculation.js') ?>"></script>
+<script src="assets/finance-expense-time-calculation.js?v=<?= @filemtime(__DIR__.'/assets/finance-expense-time-calculation.js') ?>"></script>
+<script src="assets/finance-expense-installment-calculation.js?v=<?= @filemtime(__DIR__.'/assets/finance-expense-installment-calculation.js') ?>"></script>
+<script src="assets/finance-account-type-calculation.js?v=<?= @filemtime(__DIR__.'/assets/finance-account-type-calculation.js') ?>"></script>
+<script src="assets/finance-category-key-calculation.js?v=<?= @filemtime(__DIR__.'/assets/finance-category-key-calculation.js') ?>"></script>
+<script src="assets/finance-account-summary-calculation.js?v=<?= @filemtime(__DIR__.'/assets/finance-account-summary-calculation.js') ?>"></script>
+<script src="assets/finance-invoice-reminder-calculation.js?v=<?= @filemtime(__DIR__.'/assets/finance-invoice-reminder-calculation.js') ?>"></script>
+<script src="assets/finance-end-of-month-projection-calculation.js?v=<?= @filemtime(__DIR__.'/assets/finance-end-of-month-projection-calculation.js') ?>"></script>
 <script src="assets/app.js?v=<?= @filemtime(__DIR__.'/assets/app.js') ?>"></script>
 </body>
 </html>

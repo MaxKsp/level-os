@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../finance.php';
+require_once __DIR__ . '/../app/Modules/Finance/FinanceApi.php';
 
 header('Content-Type: application/json; charset=utf-8');
 $uid = require_login();
@@ -15,25 +16,7 @@ if (strlen($raw) > 4 * 1024 * 1024) {
     echo json_encode(['error' => 'payload too large']);
     exit;
 }
-$body = json_decode($raw, true);
-$key = is_array($body) ? (string)($body['key'] ?? '') : '';
-$set = FINANCE_SETS[$key] ?? null;
-if ($set === null || !is_array($body) || !array_key_exists('value', $body) || !is_array($body['value'])) {
-    http_response_code(400);
-    echo json_encode(['error' => 'invalid finance payload']);
-    exit;
-}
-if (count($body['value']) > 5000) {
-    http_response_code(400);
-    echo json_encode(['error' => 'too many rows']);
-    exit;
-}
 
-try {
-    finance_save_set(get_db(), $uid, $set, $body['value']);
-    echo json_encode(['ok' => true]);
-} catch (Throwable $e) {
-    error_log('finance.php: ' . $e->getMessage());
-    http_response_code(500);
-    echo json_encode(['error' => 'erro ao salvar — banco atualizado? (ver migrations)']);
-}
+$result = finance_api_save_set(get_db(), $uid, $raw);
+http_response_code($result['status']);
+echo json_encode($result['body']);

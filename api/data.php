@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../finance.php';
+require_once __DIR__ . '/../app/Modules/Finance/FinanceDataBootstrap.php';
+require_once __DIR__ . '/../app/Modules/Finance/FinanceAuxiliaryKv.php';
 
 header('Content-Type: application/json; charset=utf-8');
 $uid = require_login();
@@ -16,7 +18,7 @@ if ($method === 'GET') {
     session_write_close();
     if (isset($_GET['all'])) {
         // migra kv->tabelas uma vez, entao serve financeiro das tabelas
-        try { finance_migrate_if_needed($db, $uid); } catch (Throwable $e) { error_log('migrate: '.$e->getMessage()); }
+        $financeData = finance_data_bootstrap($db, $uid);
         $stmt = $db->prepare("SELECT data_key, data_value FROM kv_store WHERE user_id = ? AND data_key NOT LIKE '\\_%'");
         $stmt->execute([$uid]);
         $out = [];
@@ -24,8 +26,8 @@ if ($method === 'GET') {
             $out[$row['data_key']] = json_decode($row['data_value']);
         }
         // fonte de verdade do financeiro = tabelas (sobrescreve o kv antigo)
-        foreach (FINANCE_SETS as $kvKey => $set) {
-            $out[$kvKey] = finance_load_set($db, $uid, $set);
+        foreach ($financeData as $kvKey => $value) {
+            $out[$kvKey] = $value;
         }
         echo json_encode($out);
         exit;
@@ -59,9 +61,13 @@ if ($method === 'POST') {
         echo json_encode(['error' => 'invalid payload']);
         exit;
     }
-    $stmt = $db->prepare('INSERT INTO kv_store (user_id, data_key, data_value) VALUES (?, ?, ?)
-        ON DUPLICATE KEY UPDATE data_value = VALUES(data_value)');
-    $stmt->execute([$uid, $key, json_encode($body['value'])]);
+    if (in_array($key, FINANCE_AUX_KV_KEYS, true)) {
+        finance_auxiliary_kv_save($db, $uid, $key, $body['value']);
+    } else {
+        $stmt = $db->prepare('INSERT INTO kv_store (user_id, data_key, data_value) VALUES (?, ?, ?)
+            ON DUPLICATE KEY UPDATE data_value = VALUES(data_value)');
+        $stmt->execute([$uid, $key, json_encode($body['value'])]);
+    }
     echo json_encode(['ok' => true]);
     exit;
 }

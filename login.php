@@ -83,8 +83,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <h1>Bem-vindo de volta</h1>
     <p class="sub">Sua rotina e suas finanças, num painel só.</p>
     <?php if ($error): ?><div class="error"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></div><?php endif; ?>
-    <label for="username">Usuário</label>
-    <input type="text" id="username" name="username" placeholder="seu.usuario" required autofocus>
+    <label for="username">Usuário ou e-mail</label>
+    <input type="text" id="username" name="username" placeholder="seu.usuario ou voce@exemplo.com" required autofocus>
     <label for="password">Senha</label>
     <input type="password" id="password" name="password" placeholder="••••••••" required>
     <button type="submit">Entrar</button>
