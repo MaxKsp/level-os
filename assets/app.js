@@ -2204,11 +2204,6 @@ async function renderFinance(){
   const mk = monthKey();
   const monthEntries = entries.filter(e=>e.date.startsWith(mk));
   const ifoodTotal = monthEntries.reduce((s,e)=>s+Number(e.valor||0),0);
-  const incomeFromLines = incLines.filter(l=>isIncomeActive(l,now)).reduce((s,l)=>s+Number(l.value||0),0);
-  const income = incomeFromLines + ifoodTotal;
-  const outflow = expLines.reduce((s,e)=>s+Number(e.value||0),0);
-  const saldo = income-outflow;
-  const hasVariableIncome = entries.length>0 || incLines.some(l=>l.type==='variavel');
 
   if (activePage === 'fpage-analises'){
     const range = periodRange(finPeriod, now);
