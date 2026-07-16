@@ -82,3 +82,7 @@ export function useBootstrap() {
   if (!state) throw new Error('useBootstrap deve ser usado dentro de BootstrapProvider');
   return state;
 }
+
+export function useOptionalBootstrap() {
+  return useContext(BootstrapContext);
+}
