@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Archivo Narrow", sans-serif;
+  --font-sans: "Inter", "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", monospace;
 
   /* Orby Custom Design System Palette */
@@ -130,11 +130,15 @@
 }
 
 body {
-  font-family: "Archivo Narrow", sans-serif;
-  background-color: #050507;
+  font-family: "Inter", "Segoe UI", sans-serif;
+  background-color: #0c0d10;
   color: #e0e3e5;
   overflow-x: hidden;
 }
+
+button, input { font: inherit; }
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 2px solid #b8c8ff; outline-offset: 2px; }
 
 /* Custom scrollbars */
 ::-webkit-scrollbar {
@@ -150,4 +154,3 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #323537;
 }
-
