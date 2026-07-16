@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+/*
+  Orby Design System - tokens
+  Espelha a paleta Material 3 (dark) já usada no frontend Vite existente
+  (frontend/src/index.css), agora como tokens semânticos consumidos via
+  classes utilitárias do Tailwind v4 (bg-surface, text-on-surface, etc.).
+*/
+@theme {
+  --font-sans: "Inter", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* Superfícies */
+  --color-background: #0c0d10;
+  --color-on-background: #e0e3e5;
+  --color-surface: #101415;
+  --color-surface-container-lowest: #0b0f10;
+  --color-surface-container-low: #131418;
+  --color-surface-container: #16191d;
+  --color-surface-container-high: #1d2022;
+  --color-surface-container-highest: #272a2c;
+
+  /* Texto / linhas */
+  --color-on-surface: #e0e3e5;
+  --color-on-surface-variant: #9299a5;
+  --color-muted: #737a86;
+  --color-outline: #424753;
+  --color-outline-variant: #24272d;
+
+  /* Marca / acentos (3 acentos: primary, tertiary, warning) */
+  --color-primary: #b8c8ff;
+  --color-on-primary: #1d2748;
+  --color-primary-container: #518efa;
+
+  --color-tertiary: #83d9b2;
+  --color-on-tertiary: #10251c;
+
+  --color-warning: #f4bd73;
+  --color-on-warning: #3a2a0c;
+
+  --color-error: #ffb4ab;
+  --color-on-error: #690005;
+
+  --radius: 1rem;
+}
+
+@layer utilities {
+  .text-glow-primary {
+    text-shadow: 0 0 12px rgba(184, 200, 255, 0.25);
+  }
+  .text-glow-tertiary {
+    text-shadow: 0 0 12px rgba(131, 217, 178, 0.25);
+  }
+  .tech-bg {
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+}
+
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  vertical-align: middle;
+  user-select: none;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-on-surface);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #050507;
+}
+::-webkit-scrollbar-thumb {
+  background: #24242d;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #323537;
+}
