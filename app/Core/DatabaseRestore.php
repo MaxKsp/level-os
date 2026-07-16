@@ -370,7 +370,11 @@ final class DatabaseRestore {
     /**
      * Depois do commit: confere contagem por tabela restaurada, confere
      * que toda tabela efemera continua vazia (nunca restaurada), e roda
-     * o schema auditor de novo no alvo.
+     * o schema auditor de novo no alvo. Se o schema auditor pos-restore
+     * NAO passar, isto lanca — run() nunca pode retornar sucesso nesse
+     * caso (os dados ja foram commitados, mas o resultado reportado pro
+     * operador precisa refletir a incompatibilidade encontrada, nunca
+     * "operation=restore" como se tivesse dado tudo certo).
      */
     public function postValidate(array $expectedTableCounts): array {
         foreach ($expectedTableCounts as $table => $expected) {
@@ -395,8 +399,11 @@ final class DatabaseRestore {
         }
 
         $auditResult = schema_auditor_audit($this->schemaContract, $this->introspector());
+        if (!$auditResult['passed']) {
+            throw new BackupCryptoException('post-restore schema audit did not pass');
+        }
 
-        return ['passed' => $auditResult['passed'], 'issues_count' => count($auditResult['issues'])];
+        return ['passed' => true, 'issues_count' => count($auditResult['issues'])];
     }
 
     /** Orquestra a sequencia completa: isolamento -> validacao -> preflight -> restauracao -> pos-validacao. */

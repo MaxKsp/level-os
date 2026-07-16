@@ -141,12 +141,24 @@ final class BackupArtifactWriter {
         return $this->bytesWritten;
     }
 
+    /**
+     * fwrite() pode gravar menos bytes do que pedido numa unica chamada
+     * (escrita parcial) — isso NAO e falha, e comportamento normal de
+     * stream. Repete ate gravar tudo; so lanca se uma chamada realmente
+     * falhar (false) ou parar de progredir (0 bytes, sem ser o fim dos
+     * dados a gravar).
+     */
     private function writeRaw(string $bytes): void {
-        $written = @fwrite($this->handle, $bytes);
-        if ($written === false || $written !== strlen($bytes)) {
-            throw new BackupCryptoException('failed to write the backup artifact');
+        $total = strlen($bytes);
+        $offset = 0;
+        while ($offset < $total) {
+            $written = @fwrite($this->handle, substr($bytes, $offset));
+            if ($written === false || $written <= 0) {
+                throw new BackupCryptoException('failed to write the backup artifact');
+            }
+            $offset += $written;
+            $this->bytesWritten += $written;
         }
-        $this->bytesWritten += $written;
     }
 }
 
