@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ModalProps {
@@ -18,38 +18,17 @@ export const Modal: React.FC<ModalProps> = ({
   children,
   maxWidth = 'max-w-md'
 }) => {
-  const titleId = useId();
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const returnFocusRef = useRef<HTMLElement | null>(null);
   // Prevent body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
-      returnFocusRef.current = document.activeElement as HTMLElement;
       document.body.style.overflow = 'hidden';
-      requestAnimationFrame(() => dialogRef.current?.querySelector<HTMLElement>('input, select, button, [href], [tabindex]:not([tabindex="-1"])')?.focus());
     } else {
       document.body.style.overflow = '';
     }
     return () => {
       document.body.style.overflow = '';
-      returnFocusRef.current?.focus();
     };
   }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-      if (event.key !== 'Tab' || !dialogRef.current) return;
-      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>('input, select, button, [href], [tabindex]:not([tabindex="-1"])')].filter((item) => !item.hasAttribute('disabled'));
-      if (!focusable.length) return;
-      const first = focusable[0]; const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isOpen, onClose]);
 
   return (
     <AnimatePresence>
@@ -57,10 +36,6 @@ export const Modal: React.FC<ModalProps> = ({
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
           {/* Backdrop */}
           <motion.div
-            ref={dialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -81,7 +56,7 @@ export const Modal: React.FC<ModalProps> = ({
 
             {/* Header */}
             <div className="flex justify-between items-center pb-3 border-b border-[#24242D] shrink-0">
-              <h3 id={titleId} className="font-sans font-bold text-base text-[#e0e3e5] flex items-center gap-2">
+              <h3 className="font-sans font-bold text-base text-[#e0e3e5] flex items-center gap-2">
                 {icon && (
                   <span className="material-symbols-outlined text-primary text-[20px]">
                     {icon}
@@ -90,8 +65,6 @@ export const Modal: React.FC<ModalProps> = ({
                 {title}
               </h3>
               <button
-                type="button"
-                aria-label="Fechar diálogo"
                 onClick={onClose}
                 className="text-[#8c909f] hover:text-[#e0e3e5] p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
               >

@@ -63,13 +63,9 @@ export interface IfoodEntry {
 /** Chave auxiliar `vaults` (kv). Shape de alto nível. */
 export interface Vault {
   id: string
-  label?: string
-  saldo?: number
+  label: string
+  saldo: number
   meta?: number | null
-  name?: string
-  saved?: number
-  goal?: number
-  accountId?: string
   [extra: string]: unknown
 }
 

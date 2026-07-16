@@ -32,7 +32,7 @@ export function availableCredit(accounts: AccountV2[]): number {
 
 /** Total guardado em cofrinhos. */
 export function totalVaults(data: Pick<FinanceBootstrap, "vaults">): number {
-  return data.vaults.reduce((sum, v) => sum + (v.saldo ?? v.saved ?? 0), 0)
+  return data.vaults.reduce((sum, v) => sum + (v.saldo ?? 0), 0)
 }
 
 /**

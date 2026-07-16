@@ -1,17 +1,14 @@
 import { Icon, ProgressRing, SectionCard } from "../../../design-system"
-import type { Checklist, Task } from "../../routine/contracts"
-import { occurrenceId, routineSummary, tasksOnDate } from "../../routine/selectors"
-import { navigate } from "../../../app/router"
+import type { Task } from "../../routine/contracts"
+import { routineSummary } from "../../routine/selectors"
 
 interface RoutineOverviewProps {
   tasks: Task[]
-  checklist: Checklist
-  date: Date
 }
 
-export function RoutineOverview({ tasks, checklist, date }: RoutineOverviewProps) {
-  const summary = routineSummary(tasks, checklist, date)
-  const upcoming = tasksOnDate(tasks, date).filter((task) => !checklist[occurrenceId(task, date)]).slice(0, 3)
+export function RoutineOverview({ tasks }: RoutineOverviewProps) {
+  const summary = routineSummary(tasks)
+  const upcoming = tasks.filter((t) => !t.completed).slice(0, 3)
 
   return (
     <SectionCard
@@ -19,12 +16,12 @@ export function RoutineOverview({ tasks, checklist, date }: RoutineOverviewProps
       description="Prioridades por horário"
       bodyClassName="p-0"
       action={
-        <button
-          onClick={() => navigate('/agenda')}
+        <a
+          href="#routine"
           className="text-sm font-medium text-primary hover:text-on-surface"
         >
           Abrir
-        </button>
+        </a>
       }
     >
       <div className="flex items-center gap-5 px-5 py-5 sm:px-6">

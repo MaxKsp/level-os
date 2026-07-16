@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { AppContextProvider } from '../context/AppContext';
 import {
   calculateRoutineProgress,
@@ -7,7 +7,18 @@ import {
   ROUTINE_PROGRESS_CIRCUMFERENCE,
 } from '../components/Dashboard/Dashboard';
 
+const tasks = (completed: number, total: number) =>
+  Array.from({ length: total }, (_, index) => ({
+    id: String(index),
+    time: '08:00',
+    title: `Tarefa ${index + 1}`,
+    subtitle: 'Teste',
+    completed: index < completed,
+  }));
+
 describe('progresso da rotina no Dashboard', () => {
+  beforeEach(() => localStorage.clear());
+
   it.each([
     [0, 0, 0],
     [0, 4, 0],
@@ -19,11 +30,12 @@ describe('progresso da rotina no Dashboard', () => {
   });
 
   it('expõe no círculo SVG o percentual calculado e sua circunferência', () => {
+    localStorage.setItem('orby_tasks', JSON.stringify(tasks(2, 4)));
     render(<AppContextProvider><Dashboard /></AppContextProvider>);
 
     const circle = screen.getByRole('progressbar', { name: /progresso da rotina/i });
-    expect(circle).toHaveAttribute('aria-valuenow', '71');
+    expect(circle).toHaveAttribute('aria-valuenow', '50');
     expect(circle).toHaveStyle({ strokeDasharray: String(ROUTINE_PROGRESS_CIRCUMFERENCE) });
-    expect(screen.getByText('71%')).toBeInTheDocument();
+    expect(screen.getByText('50%')).toBeInTheDocument();
   });
 });

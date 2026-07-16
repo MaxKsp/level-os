@@ -1,13 +1,47 @@
-import type { Checklist, Task } from './contracts';
-import { occurrenceId } from './selectors';
-
-const today = new Date();
-const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+/** Mock ISOLADO da Rotina para o preview (view models de front-end). */
+import type { Task } from "./contracts"
 
 export const tasksMock: Task[] = [
-  { id: '1', title: 'Meditação matinal', date, time: '07:00', cat: 'saude', duration: 15, recurrence: 'none', weeksCount: 0 },
-  { id: '2', title: 'Planejamento semanal', date, time: '10:00', cat: 'trabalho', duration: 30, recurrence: 'none', weeksCount: 0 },
-  { id: '3', title: 'Reunião de alinhamento', date, time: '14:00', cat: 'trabalho', duration: 45, recurrence: 'none', weeksCount: 0 },
-];
-
-export const checklistMock: Checklist = { [occurrenceId(tasksMock[0], today)]: true };
+  {
+    id: "1",
+    time: "07:00",
+    title: "Meditação matinal",
+    subtitle: "Sessão de bem-estar",
+    completed: true,
+  },
+  {
+    id: "2",
+    time: "08:30",
+    title: "Treino de cardio",
+    subtitle: "Corrida leve na esteira",
+    completed: true,
+  },
+  {
+    id: "3",
+    time: "10:00",
+    title: "Planejamento semanal",
+    subtitle: "Metas do time",
+    completed: true,
+  },
+  {
+    id: "4",
+    time: "14:00",
+    title: "Reunião de alinhamento",
+    subtitle: "Videochamada",
+    completed: false,
+  },
+  {
+    id: "5",
+    time: "16:30",
+    title: "Revisão de código",
+    subtitle: "Pull requests no GitHub",
+    completed: false,
+  },
+  {
+    id: "6",
+    time: "18:00",
+    title: "Comprar suplementos",
+    subtitle: "Farmácia central",
+    completed: false,
+  },
+]

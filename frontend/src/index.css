@@ -1,14 +1,5 @@
 @import "tailwindcss";
 
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
 @theme {
   --font-sans: "Inter", "Segoe UI", sans-serif;
   --font-mono: "IBM Plex Mono", monospace;
@@ -28,8 +19,6 @@
   --color-inverse-on-surface: #2d3133;
   --color-outline: #8c909f;
   --color-outline-variant: #424753;
-  --color-muted: #9ca3af;
-  --color-warning: #f6c65b;
   --color-surface-tint: #adc6ff;
   
   --color-primary: #adc6ff;

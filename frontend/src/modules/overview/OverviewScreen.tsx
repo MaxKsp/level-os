@@ -1,7 +1,7 @@
+import { financeBootstrapMock, netWorthTrendMock } from "../finance/mock"
+import { tasksMock } from "../routine/mock"
 import { routineSummary } from "../routine/selectors"
-import { Badge } from "../../design-system"
-import { useApp } from "../../context/AppContext"
-import { useBootstrap } from "../../app/BootstrapProvider"
+import { weightHistoryMock, workoutMock } from "../training/mock"
 import { OverviewHeader } from "./components/OverviewHeader"
 import { FinanceOverview } from "./components/FinanceOverview"
 import { RoutineOverview } from "./components/RoutineOverview"
@@ -16,28 +16,19 @@ import { VaultsOverview } from "./components/VaultsOverview"
  * `GET api/data.php?all=1` — o contrato já é espelhado em cada módulo.
  */
 export function OverviewScreen() {
-  const { data, error, loading, demo } = useBootstrap()
-  const { setIsExpenseModalOpen, setIsTaskModalOpen } = useApp()
-  const today = new Date()
-
-  if (loading) return <main className="mx-auto max-w-[1440px] px-6 pt-28 text-on-surface-variant">Carregando sua visão geral…</main>
-  if (error || !data) return <main className="mx-auto max-w-[1440px] px-6 pt-28"><h1 className="text-xl text-on-surface">Não foi possível carregar seus dados</h1><p className="mt-2 text-on-surface-variant">{error?.message}</p></main>
-  const routine = routineSummary(data.tasks, data.checklist, today)
+  const routine = routineSummary(tasksMock)
 
   return (
     <main className="mx-auto max-w-[1440px] px-4 pb-20 pt-24 sm:px-6 lg:px-8">
       <OverviewHeader
-        userName={data.profile.username}
-        date={today}
+        userName="Lucas"
+        date={new Date(2026, 6, 16)}
         pendingTasks={routine.pending}
-        onNewExpense={() => setIsExpenseModalOpen(true)}
-        onNewTask={() => setIsTaskModalOpen(true)}
       />
-      {demo && <div className="mb-4"><Badge tone="warning">Modo demonstração</Badge></div>}
 
       <div className="flex flex-col gap-8">
         <section id="finance" className="scroll-mt-24">
-          <FinanceOverview data={data.finance} trend={data.trend} />
+          <FinanceOverview data={financeBootstrapMock} trend={netWorthTrendMock} />
         </section>
 
         <section id="routine" aria-labelledby="modules-title" className="scroll-mt-24">
@@ -50,10 +41,10 @@ export function OverviewScreen() {
             </h2>
           </div>
           <div className="grid gap-3 lg:grid-cols-3">
-            <RoutineOverview tasks={data.tasks} checklist={data.checklist} date={today} />
+            <RoutineOverview tasks={tasksMock} />
             <span id="training" className="sr-only scroll-mt-24" />
-            <TrainingOverview workout={data.workout} weights={data.weights} />
-            <VaultsOverview vaults={data.finance.vaults} />
+            <TrainingOverview workout={workoutMock} weights={weightHistoryMock} />
+            <VaultsOverview vaults={financeBootstrapMock.vaults} />
           </div>
         </section>
       </div>

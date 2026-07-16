@@ -6,16 +6,12 @@ interface OverviewHeaderProps {
   userName: string
   date: Date
   pendingTasks: number
-  onNewExpense: () => void
-  onNewTask: () => void
 }
 
 export function OverviewHeader({
   userName,
   date,
   pendingTasks,
-  onNewExpense,
-  onNewTask,
 }: OverviewHeaderProps) {
   return (
     <section className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
@@ -33,11 +29,11 @@ export function OverviewHeader({
         </p>
       </div>
       <div className="flex gap-2">
-        <Button variant="secondary" size="md" onClick={onNewExpense}>
+        <Button variant="secondary" size="md">
           <Icon name="payments" className="text-[18px]" />
           Lançar despesa
         </Button>
-        <Button variant="primary" size="md" onClick={onNewTask}>
+        <Button variant="primary" size="md">
           <Icon name="add" className="text-[18px]" />
           Nova tarefa
         </Button>

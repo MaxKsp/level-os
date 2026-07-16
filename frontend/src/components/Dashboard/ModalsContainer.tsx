@@ -1,26 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
 import { motion, AnimatePresence } from 'motion/react';
-import { useBootstrap } from '../../app/BootstrapProvider';
-import { dateKey } from '../../modules/routine/selectors';
-import { navigate } from '../../app/router';
-import { ApiError } from '../../services/api-client';
 
 export const ModalsContainer: React.FC = () => {
-  const { data, createTask, createExpense } = useBootstrap();
-  const [taskDate, setTaskDate] = useState(() => dateKey(new Date()));
-  const [taskDuration, setTaskDuration] = useState('30');
-  const [taskRecurrence, setTaskRecurrence] = useState<'none' | 'weekly' | 'yearly'>('none');
-  const [mutationError, setMutationError] = useState('');
-  const [retrySeconds, setRetrySeconds] = useState(0);
   const {
-    tasks: legacyTasks,
-    exercises: legacyExercises,
-    handleToggleTask: legacyToggleTask,
-    handleToggleExercise: legacyToggleExercise,
+    tasks,
+    exercises,
+    handleToggleTask,
+    handleToggleExercise,
     
     // Search
     isSearchOpen,
@@ -62,38 +52,10 @@ export const ModalsContainer: React.FC = () => {
     setIsWorkoutActive,
     
     // Submissions
+    handleAddTaskSubmit,
+    handleAddExpenseSubmit,
     handleAddWeightSubmit,
   } = useApp();
-  void legacyTasks; void legacyExercises; void legacyToggleTask; void legacyToggleExercise;
-  const tasks = data?.tasks.map((task) => ({ ...task, completed: Boolean(data.checklist[`${task.id}:${dateKey(new Date())}`]) })) ?? [];
-  const exercises = (Array.isArray(data?.store.workouts) ? data.store.workouts : []).flatMap((workout) => {
-    const value = workout as { exercises?: { id: string; name: string; sets?: string | number; reps?: string | number }[] };
-    return (value.exercises ?? []).map((exercise) => ({ ...exercise, sets: `${exercise.sets ?? '—'} × ${exercise.reps ?? '—'}`, completed: false }));
-  });
-
-  const handleCreateTask = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!newTaskTitle.trim()) return;
-    setMutationError('');
-    try { await createTask({ id: crypto.randomUUID(), title: newTaskTitle.trim(), date: taskDate, time: newTaskTime, cat: newTaskSubtitle.trim() || 'geral', duration: Number(taskDuration) || 30, recurrence: taskRecurrence, weeksCount: taskRecurrence === 'weekly' ? 52 : 0 }); } catch (error) { if (error instanceof ApiError && error.status === 429) setRetrySeconds(error.retryAfter ?? 1); setMutationError('Não foi possível salvar. Seu formulário foi preservado.'); return; }
-    setNewTaskTitle('');
-    setNewTaskSubtitle('');
-    setIsTaskModalOpen(false);
-  };
-
-  useEffect(() => { if (retrySeconds <= 0) return; const timer = window.setInterval(() => setRetrySeconds((value) => Math.max(0, value - 1)), 1000); return () => window.clearInterval(timer); }, [retrySeconds]);
-
-  const handleCreateExpense = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const value = Number(expenseAmount);
-    if (!expenseDesc.trim() || !Number.isFinite(value) || value <= 0) return;
-    const now = new Date();
-    setMutationError('');
-    try { await createExpense({ id: crypto.randomUUID(), label: expenseDesc.trim(), value, date: dateKey(now), time: now.toTimeString().slice(0, 5), recorrencia: 'none', categoria: null, method: expenseType === 'invoice' ? 'credito' : 'saldo', bank: null, accountId: null, parcelas: 1, createdAt: Date.now() }); } catch (error) { setMutationError(error instanceof ApiError && error.status === 402 ? 'Seu plano não permite esta ação. O formulário foi preservado.' : 'Não foi possível salvar. O formulário foi preservado.'); return; }
-    setExpenseDesc('');
-    setExpenseAmount('');
-    setIsExpenseModalOpen(false);
-  };
 
   // Keyboard shortcut '/' for Global Search
   useEffect(() => {
@@ -172,7 +134,7 @@ export const ModalsContainer: React.FC = () => {
                             <div
                               key={t.id}
                               onClick={() => {
-                                navigate('/agenda');
+                                handleToggleTask(t.id);
                                 setIsSearchOpen(false);
                               }}
                               className="flex justify-between items-center bg-[#131318] hover:bg-white/5 p-3 rounded-xl cursor-pointer border border-[#24242D] transition-colors"
@@ -194,7 +156,7 @@ export const ModalsContainer: React.FC = () => {
                             <div
                               key={e.id}
                               onClick={() => {
-                                navigate('/treinos');
+                                handleToggleExercise(e.id);
                                 setIsSearchOpen(false);
                               }}
                               className="flex justify-between items-center bg-[#131318] hover:bg-white/5 p-3 rounded-xl cursor-pointer border border-[#24242D] transition-colors"
@@ -228,8 +190,7 @@ export const ModalsContainer: React.FC = () => {
         title="Nova Tarefa da Rotina"
         icon="add_circle"
       >
-        <form onSubmit={handleCreateTask} className="space-y-4">
-          {mutationError && <p role="alert" className="rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">{retrySeconds > 0 ? `Muitas tentativas. Tente novamente em ${retrySeconds}s.` : mutationError}</p>}
+        <form onSubmit={handleAddTaskSubmit} className="space-y-4">
           <Input
             label="Título da Tarefa"
             type="text"
@@ -256,18 +217,6 @@ export const ModalsContainer: React.FC = () => {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="Data" type="date" required value={taskDate} onChange={(e) => setTaskDate(e.target.value)} />
-            <Input label="Duração (min)" type="number" min="1" value={taskDuration} onChange={(e) => setTaskDuration(e.target.value)} />
-          </div>
-
-          <label className="flex flex-col gap-2 text-[11px] font-bold uppercase tracking-wider text-[#8c909f]">
-            Recorrência
-            <select value={taskRecurrence} onChange={(e) => setTaskRecurrence(e.target.value as 'none' | 'weekly' | 'yearly')} className="h-10 rounded-lg border border-[#424753] bg-[#191c1e] px-3 text-sm font-normal normal-case text-[#e0e3e5]">
-              <option value="none">Não repetir</option><option value="weekly">Semanal</option><option value="yearly">Anual</option>
-            </select>
-          </label>
-
           <div className="flex justify-end gap-2 pt-3 border-t border-[#24242D] mt-4">
             <Button type="button" variant="ghost" onClick={() => setIsTaskModalOpen(false)}>
               Cancelar
@@ -286,8 +235,7 @@ export const ModalsContainer: React.FC = () => {
         title="Lançar Nova Despesa"
         icon="payments"
       >
-        <form onSubmit={handleCreateExpense} className="space-y-4">
-          {mutationError && <p role="alert" className="rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">{retrySeconds > 0 ? `Muitas tentativas. Tente novamente em ${retrySeconds}s.` : mutationError}</p>}
+        <form onSubmit={handleAddExpenseSubmit} className="space-y-4">
           <Input
             label="Descrição"
             type="text"
@@ -418,7 +366,7 @@ export const ModalsContainer: React.FC = () => {
             {exercises.map((ex) => (
               <div
                 key={ex.id}
-                onClick={() => navigate('/treinos')}
+                onClick={() => handleToggleExercise(ex.id)}
                 className="flex justify-between items-center p-3.5 bg-[#131318] hover:bg-white/5 border border-[#24242D] rounded-xl cursor-pointer transition-all duration-200"
               >
                 <div>
@@ -447,8 +395,7 @@ export const ModalsContainer: React.FC = () => {
                 // Complete all exercises
                 setIsWorkoutActive(false);
                 setIsWorkoutModalOpen(false);
-                setMutationError('Treino concluído. Consulte o histórico na tela de Treinos.');
-                navigate('/treinos');
+                alert("Parabéns, Lucas! Treino Superior A: Peito e Tríceps concluído com sucesso!");
               }}
             >
               Concluir Treino
