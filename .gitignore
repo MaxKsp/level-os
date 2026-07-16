@@ -6,3 +6,7 @@ config.php
 .vscode/
 .serena/
 automation/runs/
+
+# Fase 4C — artefatos de backup nunca versionados (mesmo se gerados por
+# engano dentro do repo; o destino correto e sempre fora dele).
+*.orbybak
