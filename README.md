@@ -477,8 +477,6 @@ Gere chaves de criptografia com:
 php -r "echo base64_encode(random_bytes(32)), PHP_EOL;"
 ```
 
-Os nomes legados `ORBY_*` ainda são aceitos onde indicado em `config.example.php`, apenas para migração.
-
 ---
 
 ## Banco de dados e migrations
@@ -538,7 +536,7 @@ O workflow [`tests.yml`](.github/workflows/tests.yml) repete o quality gate em p
 
 ## Backup e recuperação
 
-O container `.orbybak` é versionado, autenticado e cifrado com libsodium secretstream. A restauração:
+O container de backup do Level OS é versionado, autenticado e cifrado com libsodium secretstream. A restauração:
 
 - valida contrato, versão, tipo e tamanho antes de escrever;
 - exige um banco de destino isolado;
@@ -548,7 +546,7 @@ O container `.orbybak` é versionado, autenticado e cifrado com libsodium secret
 
 ```bash
 php scripts/backup.php
-php scripts/restore.php caminho/backup.orbybak
+php scripts/restore.php --input=/caminho/backup-cifrado --confirm
 ```
 
 O envio automático de backup por e-mail permanece desativado enquanto não houver uma política operacional aprovada para o artefato cifrado.
