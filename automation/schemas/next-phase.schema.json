@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Level OS Next Phase Decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["completed", "reason", "phase"],
+  "properties": {
+    "completed": { "type": "boolean" },
+    "reason": { "type": "string" },
+    "phase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "description",
+        "allowedFiles",
+        "forbiddenFiles",
+        "phpTests",
+        "jsTests",
+        "phpLint",
+        "jsLint",
+        "commitMessage"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "allowedFiles": {
+          "type": "array",
+          "maxItems": 8,
+          "items": { "type": "string" }
+        },
+        "forbiddenFiles": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "phpTests": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "jsTests": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "phpLint": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "jsLint": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "commitMessage": { "type": "string" }
+      }
+    }
+  }
+}

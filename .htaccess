@@ -1,0 +1,60 @@
+DirectoryIndex index.php
+
+RewriteEngine On
+RewriteCond %{HTTPS} off
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Defesa em profundidade: estes diretorios pertencem ao desenvolvimento e
+# nunca devem ser executados ou baixados pelo servidor web.
+RewriteRule ^(?:automation|config|docs|migrations|scripts|tests|tmp)(?:/|$) - [F,L,NC]
+
+# Rotas client-side do React. Arquivos e endpoints PHP reais continuam sendo
+# atendidos normalmente; somente caminhos inexistentes caem no shell React.
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(?:agenda|financeiro|treinos|alimentacao|perfil)/?$ /index.php [L]
+
+# Arquivos que nunca devem ser servidos diretamente: credenciais, schema e
+# includes internos (só fazem sentido via require_once de outra página).
+<FilesMatch "^(config\.php|config\.example\.php|schema\.sql|db\.php|auth\.php|totp\.php)$">
+  Require all denied
+</FilesMatch>
+
+Options -Indexes
+
+<IfModule mod_headers.c>
+  Header unset X-Powered-By
+  Header always unset X-Powered-By
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Strict-Transport-Security "max-age=31536000"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  # 'unsafe-inline' é necessário porque o app usa <script>/style inline no
+  # index.php; a CSP ainda impede carregar script de qualquer host que não
+  # seja o próprio site ou o CDN do Chart.js.
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://lh3.googleusercontent.com; connect-src 'self' https://*.supabase.co https://*.ingest.us.sentry.io; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com https://*.supabase.co"
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript application/json image/svg+xml
+</IfModule>
+
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/svg+xml "access plus 30 days"
+  ExpiresByType application/javascript "access plus 7 days"
+  ExpiresByType image/png "access plus 30 days"
+  ExpiresByType text/css "access plus 7 days"
+</IfModule>
+
+# O service worker precisa ser revalidado sempre, senão updates demoram a chegar.
+<Files "sw.js">
+  <IfModule mod_headers.c>
+    Header set Cache-Control "no-cache, must-revalidate"
+  </IfModule>
+</Files>
+
+php_flag display_errors off
+php_flag expose_php off
+ServerSignature Off

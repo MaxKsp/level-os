@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Level OS Phase Review",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "approved",
+    "blockers",
+    "warnings",
+    "filesReviewed",
+    "recommendedCommitMessage"
+  ],
+  "properties": {
+    "approved": {
+      "type": "boolean"
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "filesReviewed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "recommendedCommitMessage": {
+      "type": "string"
+    }
+  }
+}

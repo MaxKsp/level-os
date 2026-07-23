@@ -1,0 +1,17 @@
+.DS_Store
+node_modules/
+frontend/dist/
+frontend/.env.local
+*.log
+config.php
+.claude/
+.agents/
+.codex/
+.vscode/
+.serena/
+automation/runs/
+tmp/
+
+# Fase 4C — artefatos de backup nunca versionados (mesmo se gerados por
+# engano dentro do repo; o destino correto e sempre fora dele).
+*.orbybak

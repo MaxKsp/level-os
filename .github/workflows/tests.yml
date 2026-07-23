@@ -1,0 +1,98 @@
+name: Testes automatizados
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend React
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout do repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar dependencias
+        working-directory: frontend
+        run: npm ci
+
+      - name: Validar tipos, testes e build
+        working-directory: frontend
+        run: npm run validate
+
+  backend:
+    name: Backend PHP e scripts JS
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout do repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo, pdo_sqlite, mbstring, json, sodium
+          coverage: none
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Criar config.php de teste
+        shell: bash
+        run: cp config.example.php config.php
+
+      - name: Validar sintaxe de todos os arquivos PHP versionados
+        shell: bash
+        run: |
+          set -e
+          files=()
+          while IFS= read -r -d '' f; do
+            files+=("$f")
+          done < <(git ls-files -z -- '*.php')
+
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "Nenhum arquivo PHP versionado foi encontrado." >&2
+            exit 1
+          fi
+
+          for f in "${files[@]}"; do
+            echo "Validando: $f"
+            php -l "$f"
+          done
+
+      - name: Validar sintaxe de todos os arquivos JavaScript versionados
+        shell: bash
+        run: |
+          set -e
+          files=()
+          while IFS= read -r -d '' f; do
+            files+=("$f")
+          done < <(git ls-files -z -- '*.js')
+
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "Nenhum arquivo JavaScript versionado foi encontrado." >&2
+            exit 1
+          fi
+
+          for f in "${files[@]}"; do
+            echo "Validando: $f"
+            node --check "$f"
+          done
+
+      - name: Rodar testes PHP (tests/run.php)
+        run: php tests/run.php

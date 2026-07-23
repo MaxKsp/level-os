@@ -1,0 +1,44 @@
+{
+  "id": "phase-13",
+  "title": "Extract OFX import final confirmation",
+  "description": "Extract only the final OFX import confirmation flow from assets/app.js into a dedicated script, keeping public endpoints, payload shape, and current Finance behavior unchanged.",
+  "allowedFiles": [
+    "assets/app.js",
+    "assets/ofx-import-confirmation.js",
+    "index.php",
+    "tests/js/ofx_import_confirmation_test.js",
+    "docs/architecture/finance/PHASE_13_OFX_CONFIRMATION_REPORT.md"
+  ],
+  "forbiddenFiles": [
+    "api/data.php",
+    "api/finance.php",
+    "api/import-ofx.php",
+    "app/Modules/Finance/",
+    "finance.php",
+    "ofx.php",
+    "db.php",
+    "schema.sql",
+    "migrations/",
+    "assets/finance-account-movement.js",
+    "assets/pay-fatura-account.js",
+    "assets/account-transfer.js"
+  ],
+  "phpTests": [
+    "C:\\Users\\Max\\tools\\php\\php.exe tests\\run.php"
+  ],
+  "jsTests": [
+    "node tests/js/finance_account_movement_test.js",
+    "node tests/js/pay_fatura_account_test.js",
+    "node tests/js/account_transfer_test.js",
+    "node tests/js/ofx_import_confirmation_test.js"
+  ],
+  "phpLint": [
+    "C:\\Users\\Max\\tools\\php\\php.exe -l index.php"
+  ],
+  "jsLint": [
+    "node --check assets/app.js",
+    "node --check assets/ofx-import-confirmation.js",
+    "node --check tests/js/ofx_import_confirmation_test.js"
+  ],
+  "commitMessage": "refactor(finance): extract ofx import confirmation flow"
+}

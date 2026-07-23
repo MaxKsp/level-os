@@ -1,0 +1,68 @@
+﻿{
+    "id":  "phase-17",
+    "title":  "Extract Finance annual IR calculations",
+    "description":  "Extract only irMonthRange() and buildIrData() from assets/app.js into app/Modules/Finance/Frontend/finance-annual-ir-calculation.js as the canonical source. Publish a byte-identical copy at assets/finance-annual-ir-calculation.js and load it as a classic script after the existing Finance calculation assets and before assets/app.js, without introducing a bundler or build step. Preserve global function names and signatures, Date behavior, twelve-month ordering, MONTH_ABBR labels, category aggregation, expense-occurrence totals, income activation and createdAt filtering, income-type breakdowns, iFood month matching, numeric coercion, return shapes, script ordering, deployment behavior, and all public contracts. Keep renderIrReport(), printing, DOM access, account loading, persistence, period navigation, anomaly detection, projections, charts, OFX handling, backend behavior, and tax-rule changes outside this phase. Add focused characterization coverage for month boundaries, recurring and installment expense aggregation, category totals, income activation and creation cutoffs, fixed/variable/temporary income breakdowns, iFood aggregation, numeric-string coercion, empty inputs, annual totals, balances, and deterministic byte-for-byte canonical-source/public-asset equality.",
+    "allowedFiles":  [
+                         "assets/app.js",
+                         "app/Modules/Finance/Frontend/finance-annual-ir-calculation.js",
+                         "assets/finance-annual-ir-calculation.js",
+                         "index.php",
+                         "tests/js/finance_annual_ir_calculation_test.js",
+                         "docs/architecture/finance/PHASE_17_ANNUAL_IR_CALCULATION_REPORT.md"
+                     ],
+    "forbiddenFiles":  [
+                           "api/data.php",
+                           "api/finance.php",
+                           "api/import-ofx.php",
+                           "app/Modules/Finance/FinanceApi.php",
+                           "app/Modules/Finance/FinanceAuxiliaryKv.php",
+                           "app/Modules/Finance/FinanceDataBootstrap.php",
+                           "app/Modules/Finance/FinanceMigration.php",
+                           "app/Modules/Finance/FinanceOfxPreview.php",
+                           "app/Modules/Finance/FinanceRead.php",
+                           "app/Modules/Finance/FinanceWrite.php",
+                           "app/Modules/Finance/Frontend/finance-anomaly-detection.js",
+                           "app/Modules/Finance/Frontend/finance-income-regime-calculation.js",
+                           "app/Modules/Finance/Frontend/finance-expense-occurrence-calculation.js",
+                           "assets/finance-anomaly-detection.js",
+                           "assets/finance-income-regime-calculation.js",
+                           "assets/finance-expense-occurrence-calculation.js",
+                           "assets/finance-account-movement.js",
+                           "assets/pay-fatura-account.js",
+                           "assets/account-transfer.js",
+                           "assets/ofx-import-confirmation.js",
+                           "finance.php",
+                           "ofx.php",
+                           "db.php",
+                           "config.php",
+                           ".env",
+                           "schema.sql",
+                           "migrations/",
+                           "scripts/",
+                           "automation/"
+                       ],
+    "phpTests":  [
+                     "C:\\Users\\Max\\tools\\php\\php.exe tests\\run.php"
+                 ],
+    "jsTests":  [
+                    "node tests/js/finance_account_movement_test.js",
+                    "node tests/js/pay_fatura_account_test.js",
+                    "node tests/js/account_transfer_test.js",
+                    "node tests/js/ofx_import_confirmation_test.js",
+                    "node tests/js/finance_anomaly_detection_test.js",
+                    "node tests/js/finance_income_regime_calculation_test.js",
+                    "node tests/js/finance_expense_occurrence_calculation_test.js",
+                    "node tests/js/finance_annual_ir_calculation_test.js",
+                    "powershell.exe -NoProfile -NonInteractive -Command \"$sourceHash = (Get-FileHash app/Modules/Finance/Frontend/finance-annual-ir-calculation.js -Algorithm SHA256).Hash; $assetHash = (Get-FileHash assets/finance-annual-ir-calculation.js -Algorithm SHA256).Hash; if ($sourceHash -ne $assetHash) { throw \u0027Frontend source and public asset differ.\u0027 }\""
+                ],
+    "phpLint":  [
+                    "C:\\Users\\Max\\tools\\php\\php.exe -l index.php"
+                ],
+    "jsLint":  [
+                   "node --check assets/app.js",
+                   "node --check app/Modules/Finance/Frontend/finance-annual-ir-calculation.js",
+                   "node --check assets/finance-annual-ir-calculation.js",
+                   "node --check tests/js/finance_annual_ir_calculation_test.js"
+               ],
+    "commitMessage":  "refactor(finance): extract annual IR calculations"
+}

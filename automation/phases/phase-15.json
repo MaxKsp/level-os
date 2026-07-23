@@ -1,0 +1,62 @@
+﻿{
+    "id":  "phase-15",
+    "title":  "Extract Finance income-regime calculations",
+    "description":  "Extract only calcINSS(), irrfFromBase(), computeCLT(), and computePJ() from assets/app.js into app/Modules/Finance/Frontend/finance-income-regime-calculation.js as the canonical source, publish a byte-identical copy at assets/finance-income-regime-calculation.js without adding a bundler or required build step, and load it before assets/app.js. Preserve the existing 2025 calculation tables, numeric coercion, return shapes, global function contracts, form handling, rendering, persistence, public endpoints, deployment behavior, and all current Finance behavior. Updating tax rules or moving recalcRegime(), DOM access, render/UI logic, and income persistence is explicitly outside this phase.",
+    "allowedFiles":  [
+                         "assets/app.js",
+                         "app/Modules/Finance/Frontend/finance-income-regime-calculation.js",
+                         "assets/finance-income-regime-calculation.js",
+                         "index.php",
+                         "tests/js/finance_income_regime_calculation_test.js",
+                         "docs/architecture/finance/PHASE_15_INCOME_REGIME_CALCULATION_REPORT.md"
+                     ],
+    "forbiddenFiles":  [
+                           "api/data.php",
+                           "api/finance.php",
+                           "api/import-ofx.php",
+                           "app/Modules/Finance/FinanceApi.php",
+                           "app/Modules/Finance/FinanceAuxiliaryKv.php",
+                           "app/Modules/Finance/FinanceDataBootstrap.php",
+                           "app/Modules/Finance/FinanceMigration.php",
+                           "app/Modules/Finance/FinanceOfxPreview.php",
+                           "app/Modules/Finance/FinanceRead.php",
+                           "app/Modules/Finance/FinanceWrite.php",
+                           "app/Modules/Finance/Frontend/finance-anomaly-detection.js",
+                           "assets/finance-anomaly-detection.js",
+                           "assets/finance-account-movement.js",
+                           "assets/pay-fatura-account.js",
+                           "assets/account-transfer.js",
+                           "assets/ofx-import-confirmation.js",
+                           "finance.php",
+                           "ofx.php",
+                           "db.php",
+                           "config.php",
+                           ".env",
+                           "schema.sql",
+                           "migrations/",
+                           "scripts/",
+                           "automation/"
+                       ],
+    "phpTests":  [
+                     "C:\\Users\\Max\\tools\\php\\php.exe tests\\run.php"
+                 ],
+    "jsTests":  [
+                    "node tests/js/finance_account_movement_test.js",
+                    "node tests/js/pay_fatura_account_test.js",
+                    "node tests/js/account_transfer_test.js",
+                    "node tests/js/ofx_import_confirmation_test.js",
+                    "node tests/js/finance_anomaly_detection_test.js",
+                    "node tests/js/finance_income_regime_calculation_test.js",
+                    "powershell.exe -NoProfile -NonInteractive -Command \"$sourceHash = (Get-FileHash app/Modules/Finance/Frontend/finance-income-regime-calculation.js -Algorithm SHA256).Hash; $assetHash = (Get-FileHash assets/finance-income-regime-calculation.js -Algorithm SHA256).Hash; if ($sourceHash -ne $assetHash) { throw \u0027Frontend source and public asset differ.\u0027 }\""
+                ],
+    "phpLint":  [
+                    "C:\\Users\\Max\\tools\\php\\php.exe -l index.php"
+                ],
+    "jsLint":  [
+                   "node --check assets/app.js",
+                   "node --check app/Modules/Finance/Frontend/finance-income-regime-calculation.js",
+                   "node --check assets/finance-income-regime-calculation.js",
+                   "node --check tests/js/finance_income_regime_calculation_test.js"
+               ],
+    "commitMessage":  "refactor(finance): extract income regime calculations"
+}

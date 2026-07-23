@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pt-BR" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Level OS — finanças, rotina e treino em evolução contínua." />
+    <script>
+      try {
+        const theme = localStorage.getItem('orby_theme') === 'light' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.removeAttribute('data-accent');
+        localStorage.removeItem('orby_accent');
+        localStorage.removeItem('orby_custom_accent');
+      } catch (_) {
+        document.documentElement.dataset.theme = 'dark';
+        document.documentElement.removeAttribute('data-accent');
+      }
+    </script>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="mask-icon" href="/favicon.svg" color="#31e6d4" />
+    <meta name="theme-color" content="#08090c" />
+    <title>Level OS</title>
+  </head>
+  <body class="min-h-screen antialiased">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

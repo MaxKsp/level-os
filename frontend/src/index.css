@@ -1,0 +1,600 @@
+@import "tailwindcss";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-sans: "Geist Variable", "Geist", "Segoe UI", sans-serif;
+  --font-mono: "Geist Variable", "Geist", "Segoe UI", sans-serif;
+  --font-mono--font-feature-settings: "tnum" 1;
+
+  /* Level OS — OLED noturno, aqua como assinatura e cor semântica disciplinada. */
+  --color-background: #08090c;
+  --color-on-background: #eaf0f2;
+  --color-surface: #101319;
+  --color-surface-dim: #0b0d11;
+  --color-surface-bright: #1c212b;
+  --color-surface-container-lowest: #08090c;
+  --color-surface-container-low: #0d1015;
+  --color-surface-container: #101319;
+  --color-surface-container-high: #151a22;
+  --color-surface-container-highest: #1c212b;
+  --color-surface-variant: #1c212b;
+  --color-on-surface: #eaf0f2;
+  --color-on-surface-variant: #a8b3bd;
+  --color-muted: #7a8592;
+  --color-inverse-surface: #eaf0f2;
+  --color-inverse-on-surface: #08090c;
+  --color-outline: #3c4652;
+  --color-outline-variant: #1c212b;
+  --color-surface-tint: #31e6d4;
+
+  --color-primary: #31e6d4;
+  --color-on-primary: #032b28;
+  --color-primary-container: #0b7a70;
+  --color-on-primary-container: #d8fffb;
+  --color-inverse-primary: #087c72;
+
+  --color-secondary: #8b7bff;
+  --color-on-secondary: #100b42;
+  --color-secondary-container: #40349f;
+  --color-on-secondary-container: #eeebff;
+
+  --color-tertiary: #43e08a;
+  --color-on-tertiary: #042a18;
+  --color-tertiary-container: #167a49;
+  --color-on-tertiary-container: #dcffeb;
+
+  --color-error: #ff5c5c;
+  --color-on-error: #330606;
+  --color-error-container: #8d2525;
+  --color-on-error-container: #ffe4e4;
+
+  --color-primary-fixed: #a9fff6;
+  --color-primary-fixed-dim: #31e6d4;
+  --color-on-primary-fixed: #032b28;
+  --color-on-primary-fixed-variant: #075e57;
+  --color-secondary-fixed: #e5e1ff;
+  --color-secondary-fixed-dim: #8b7bff;
+  --color-on-secondary-fixed: #100b42;
+  --color-on-secondary-fixed-variant: #40349f;
+  --color-tertiary-fixed: #c5ffdc;
+  --color-tertiary-fixed-dim: #43e08a;
+  --color-on-tertiary-fixed: #042a18;
+  --color-on-tertiary-fixed-variant: #12683e;
+
+  /* Alias semânticos no padrão shadcn/Radix, sem acoplar componentes à paleta. */
+  --color-card: var(--color-surface-container-low);
+  --color-card-foreground: var(--color-on-surface);
+  --color-border: var(--color-outline-variant);
+  --color-input: var(--color-surface-container);
+  --color-ring: var(--color-primary);
+
+  /* Tokens auxiliares do design system */
+  --color-warning: #f3b562;
+  --color-on-warning: #332005;
+
+  /* Chrome (topbar/bottom nav) — themeável */
+  --color-chrome: #08090c;
+
+  /* Identidade fixa: uma única assinatura aqua em todos os temas. */
+  --color-brand: #31e6d4;
+}
+
+/* ==========================================================================
+ * Temas claro/escuro. A cor de identidade permanece aqua fixa.
+ * Sobrescrevem as variáveis de token acima; as utilities do Tailwind já
+ * referenciam var(--color-*), então tudo que usa classes de token troca junto.
+ * Escuro é o padrão (definido no @theme). Apenas data-theme fica no <html>.
+ * ==========================================================================*/
+html {
+  color-scheme: dark;
+  --level-sidebar-width: 16rem;
+  --radius-control: 7px;
+  --radius-panel: 14px;
+  --shadow-panel: 0 1px 0 rgb(0 0 0 / 0.18);
+  --space-section: clamp(1.75rem, 2.4vw, 2.75rem);
+  --space-panel: clamp(1.25rem, 1.8vw, 2rem);
+}
+
+html[data-sidebar="collapsed"] { --level-sidebar-width: 5rem; }
+
+@media (min-width: 768px) {
+  html { scrollbar-gutter: stable; }
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+  --color-chrome: #f4f7f7;
+  --color-background: #f7f9f9;
+  --color-on-background: #101619;
+  --color-surface: #ffffff;
+  --color-surface-dim: #e7eded;
+  --color-surface-bright: #ffffff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #fbfcfc;
+  --color-surface-container: #f0f4f4;
+  --color-surface-container-high: #e8eeee;
+  --color-surface-container-highest: #dce4e4;
+  --color-surface-variant: #e8eeee;
+  --color-on-surface: #101619;
+  --color-on-surface-variant: #3c494d;
+  --color-outline: #667579;
+  --color-outline-variant: #d5dede;
+  --color-muted: #5d6b70;
+  --shadow-panel: 0 1px 0 rgb(20 35 37 / 0.08);
+  --color-primary: #31e6d4;
+  --color-on-primary: #032b28;
+  --color-primary-container: #c5f5ef;
+  --color-surface-tint: #31e6d4;
+  --color-tertiary: #168451;
+  --color-error: #c72d35;
+  --color-warning: #8b5b0a;
+}
+
+/* Em superfícies claras, texto aqua precisa de uma tinta mais escura para AA;
+ * fundos, ícones decorativos e a marca continuam usando #31e6d4. */
+html[data-theme="light"] .text-primary { color: #087c72; }
+
+/* ==========================================================================
+ * Animações (gráficos + entrada). Respeitam prefers-reduced-motion no fim.
+ * ==========================================================================*/
+@keyframes level-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes level-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes level-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Reveal por clip-path (wipe da esquerda p/ direita). Não usa stroke-dasharray
+ * — que quebra com vectorEffect=non-scaling-stroke. A linha é SEMPRE visível
+ * (base sem clip); a animação só adiciona a entrada. Reduced-motion → some
+ * instantâneo, linha permanece visível. */
+@keyframes level-reveal { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes level-page-enter {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes level-surface-in {
+  from { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.995); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes level-progress-grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes level-skeleton-shift {
+  0%, 100% { opacity: 0.48; }
+  50% { opacity: 0.82; }
+}
+.level-skeleton { animation: level-skeleton-shift 1.15s ease-in-out infinite; }
+@keyframes level-chevron-pulse {
+  0%, 100% { opacity: 0.62; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-1.5px); }
+}
+@keyframes level-xp-shimmer {
+  from { transform: translateX(-130%); }
+  to { transform: translateX(230%); }
+}
+.spark-reveal,
+.spark-dot,
+.bar-grow,
+.level-progress-fill,
+.rise { animation: none; }
+
+.level-mark__chevron {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.level-mark__chevron--secondary {
+  animation: level-chevron-pulse 2.8s ease-in-out infinite;
+}
+
+.level-xp-fill {
+  animation: level-progress-grow 0.72s cubic-bezier(0.22, 1, 0.36, 1) both;
+  overflow: hidden;
+}
+
+/* ==========================================================================
+ * Ambiente Level OS: base OLED sólida. A identidade vem da tipografia,
+ * hairlines e do único accent color, sem gradiente ou glassmorphism.
+ * ==========================================================================*/
+.level-app-shell {
+  isolation: isolate;
+  position: relative;
+}
+
+.level-app-content {
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+}
+
+.level-trial-active .level-page { padding-top: 8.25rem; }
+
+@media (min-width: 768px) {
+  .level-app-main .level-page { padding-top: 3rem; }
+  .level-trial-active .level-app-main .level-page { padding-top: 5.75rem; }
+}
+
+.level-shader-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  contain: strict;
+  opacity: var(--level-shader-opacity, 0.2);
+  pointer-events: none;
+}
+
+.level-shader-background--fallback {
+  background-image: radial-gradient(circle at 70% 22%, rgb(49 230 212 / 0.13), transparent 44%);
+}
+
+/* ==========================================================================
+ * Microinteracoes e superficies. Elementos nao clicaveis permanecem estaticos.
+ * ==========================================================================*/
+.level-topbar,
+.level-bottom-nav,
+.level-sidebar {
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--color-outline-variant) 84%, transparent);
+}
+
+.level-collapsible-content {
+  animation: level-fade 0.18s ease-out both;
+}
+
+.level-bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.level-topbar::after {
+  content: none;
+}
+
+.level-logo-mark {
+  transform-origin: 50% 50%;
+  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.group:hover .level-logo-mark {
+  transform: none;
+}
+
+.level-nav-link {
+  position: relative;
+  transition: color 180ms ease, background-color 180ms ease;
+}
+
+.level-nav-link::after {
+  background: var(--color-primary);
+  border-radius: 999px;
+  bottom: 3px;
+  content: "";
+  height: 2px;
+  left: 35%;
+  opacity: 0;
+  position: absolute;
+  right: 35%;
+  transform: scaleX(0.35);
+  transition: opacity 180ms ease, transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.level-nav-link--active::after {
+  opacity: 0.88;
+  transform: scaleX(1);
+}
+
+.level-control-button,
+.level-avatar-button {
+  transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.level-control-button:hover,
+.level-avatar-button:hover {
+  box-shadow: none;
+  transform: none;
+}
+
+.level-avatar-button:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 42%, transparent);
+}
+
+.level-button {
+  transform: translateZ(0);
+}
+
+.level-button:hover:not(:disabled) {
+  transform: none;
+}
+
+.level-button:active:not(:disabled) {
+  transform: none;
+}
+
+.level-button--primary:hover:not(:disabled) {
+  box-shadow: none;
+  filter: brightness(1.02);
+}
+
+.level-button--secondary:hover:not(:disabled) {
+  background: var(--color-surface-container-high);
+  border-color: color-mix(in srgb, var(--color-primary) 48%, var(--color-outline-variant));
+}
+
+.level-button--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-error) 24%, transparent);
+  border-color: color-mix(in srgb, var(--color-error) 54%, transparent);
+}
+
+.level-button--ghost:hover:not(:disabled) {
+  background: var(--color-surface-container-high);
+  color: var(--color-on-surface);
+}
+
+.level-panel,
+.level-stat-card,
+.level-chart-card { animation: none; }
+
+.level-panel {
+  transition: border-color 180ms ease, background-color 180ms ease;
+}
+
+.level-finance-hero::after {
+  content: none;
+}
+
+.level-panel::before,
+.level-stat-card::before {
+  content: none;
+}
+
+.level-stat-card::after {
+  content: none;
+}
+
+/* Ritmo visual compartilhado entre Visao Geral, Financas, Rotina, Treinos e Perfil. */
+.level-page {
+  position: relative;
+  row-gap: var(--space-section);
+}
+
+.level-page-header {
+  position: relative;
+}
+
+.level-page-title {
+  text-wrap: balance;
+}
+
+.level-page-title::after {
+  background: var(--color-primary);
+  border-radius: 999px;
+  content: "";
+  display: block;
+  height: 1px;
+  margin-top: 10px;
+  opacity: 0.72;
+  width: 24px;
+}
+
+.level-control,
+.level-icon-button,
+.level-swatch {
+  transform: translateZ(0);
+  transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.level-control:hover,
+.level-icon-button:hover {
+  box-shadow: none;
+  transform: none;
+}
+
+.level-control:active,
+.level-icon-button:active,
+.level-swatch:active {
+  transform: none;
+}
+
+.level-swatch:hover {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-on-surface) 10%, transparent);
+  transform: none;
+}
+
+.level-row-action {
+  position: relative;
+}
+
+.level-row-action::before {
+  background: var(--color-primary);
+  border-radius: 0 999px 999px 0;
+  content: "";
+  inset: 24% auto 24% 0;
+  opacity: 0;
+  position: absolute;
+  transform: scaleY(0.4);
+  transition: opacity 180ms ease, transform 180ms ease;
+  width: 2px;
+}
+
+.level-row-action:hover::before {
+  opacity: 0.62;
+  transform: scaleY(1);
+}
+
+.level-metric-cell {
+  position: relative;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+.level-metric-cell:hover {
+  background: var(--color-surface-container);
+}
+
+.level-data-row { transition: background-color 180ms ease; }
+
+@media (hover: hover) and (pointer: fine) {
+  .level-panel:hover { border-color: var(--color-outline-variant); }
+}
+
+html[data-theme="light"] .level-page-title {
+  text-shadow: none;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-chrome);
+  color: var(--color-on-background);
+  overflow-x: hidden;
+  letter-spacing: -0.011em;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Valores, horários e métricas: Geist com algarismos tabulares e zero sem ponto. */
+.font-mono,
+.numeric-value,
+[data-numeric="true"] {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+input[type="number"],
+input[inputmode="numeric"],
+input[inputmode="decimal"],
+time,
+output {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1;
+  font-variant-numeric: tabular-nums;
+}
+/* Títulos: peso equilibrado, tracking levemente negativo (nada de exagero). */
+h1, h2, h3 { letter-spacing: -0.02em; }
+
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  input:not([type="hidden"]),
+  select,
+  textarea,
+  .level-bottom-nav a {
+    min-height: 44px;
+  }
+}
+
+@keyframes level-up-glow {
+  0% { filter: drop-shadow(0 0 0 transparent); transform: scale(0.96); }
+  55% { filter: drop-shadow(0 0 18px color-mix(in srgb, var(--color-primary) 72%, transparent)); transform: scale(1.04); }
+  100% { filter: drop-shadow(0 0 7px color-mix(in srgb, var(--color-primary) 32%, transparent)); transform: scale(1); }
+}
+.level-up-glow { animation: level-up-glow 0.78s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .level-button:hover:not(:disabled),
+  .level-button:active:not(:disabled),
+  .level-control-button:hover,
+  .level-control:hover,
+  .level-control:active,
+  .level-icon-button:hover,
+  .level-icon-button:active,
+  .level-swatch:hover,
+  .level-swatch:active,
+  .level-avatar-button:hover,
+  .group:hover .level-logo-mark,
+  .level-mark__chevron {
+    transform: none;
+  }
+
+  .level-up-glow {
+    animation: none;
+    filter: none;
+    transform: none;
+  }
+
+  .level-page { animation: none; }
+
+  .level-button::before {
+    display: none;
+  }
+
+  .level-xp-fill::after {
+    display: none;
+  }
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-background);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-container-highest);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-outline);
+}
+
+/* O relatório anual pode ser impresso ou salvo em PDF sem o restante do app. */
+@media print {
+  @page { margin: 12mm; size: A4 portrait; }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .level-tax-report,
+  .level-tax-report * {
+    visibility: visible !important;
+  }
+
+  .level-tax-report {
+    background: white !important;
+    color: #111827 !important;
+    gap: 10px !important;
+    inset: 0 auto auto 0;
+    position: absolute;
+    width: 100%;
+  }
+
+  .level-tax-report section,
+  .level-tax-report header,
+  .level-tax-report > div,
+  .level-tax-report > p {
+    break-inside: avoid;
+  }
+
+  .level-tax-report [class*="text-on-surface"],
+  .level-tax-report [class*="text-muted"] {
+    color: #374151 !important;
+  }
+
+  .level-tax-report [class*="bg-surface"],
+  .level-tax-report [class*="bg-warning"] {
+    background: #f8fafc !important;
+  }
+}
