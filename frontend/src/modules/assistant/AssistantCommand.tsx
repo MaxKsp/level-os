@@ -180,18 +180,6 @@ export function AssistantCommand() {
   }, [assistant, reduce])
 
   useEffect(() => {
-    const key = (event: globalThis.KeyboardEvent) => {
-      const editable = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k" && !editable) {
-        event.preventDefault()
-        assistant.setOpen(true)
-      }
-    }
-    window.addEventListener("keydown", key)
-    return () => window.removeEventListener("keydown", key)
-  }, [assistant])
-
-  useEffect(() => {
     if (text.startsWith("/") && !text.includes(" ")) {
       setShowPalette(true)
       setActive(visibleSuggestions.findIndex((s) => s.prefix.startsWith(text)))

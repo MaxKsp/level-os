@@ -22,6 +22,10 @@ export function NutritionScreen() {
   const plan = nutrition.plan
 
   useEffect(() => {
+    void nutrition.refresh()
+  }, [nutrition.refresh])
+
+  useEffect(() => {
     if (plan && window.location.hash === "#nutrition-plan") {
       requestAnimationFrame(() => document.getElementById("nutrition-plan")?.scrollIntoView({ block: "start" }))
     }

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react"
 
 export interface DietMeal { name: string; description: string; estimatedCostBRL: number }
 export interface DietDay { day: number; meals: DietMeal[] }
@@ -77,9 +77,8 @@ export function NutritionProvider({ children }: { children: ReactNode }) {
     await refresh()
   }, [refresh])
 
-  useEffect(() => { void refresh() }, [refresh])
-
-  return <Ctx.Provider value={{ plan, history, status, refresh, clear, restore }}>{children}</Ctx.Provider>
+  const value = useMemo(() => ({ plan, history, status, refresh, clear, restore }), [clear, history, plan, refresh, restore, status])
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 
 export function useNutrition() {

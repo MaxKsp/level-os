@@ -167,6 +167,8 @@ export function ShaderBackground({ className, opacity = 0.28 }: ShaderBackground
     let raf = 0
     let elapsed = 0
     let previous = performance.now()
+    let lastDraw = 0
+    let frameInterval = 1000 / (reduce ? 20 : 30)
 
     const resize = () => {
       const width = Math.max(1, Math.floor(window.innerWidth * dpr))
@@ -179,7 +181,6 @@ export function ShaderBackground({ className, opacity = 0.28 }: ShaderBackground
     }
 
     const draw = () => {
-      resize()
       gl.uniform2f(resolution, canvas.width, canvas.height)
       gl.uniform1f(time, elapsed)
       const isLight = document.documentElement.dataset.theme === "light"
@@ -200,7 +201,10 @@ export function ShaderBackground({ className, opacity = 0.28 }: ShaderBackground
       const delta = Math.min((now - previous) / 1000, 0.08)
       previous = now
       elapsed += delta * (reduce ? 0.28 : 1)
-      draw()
+      if (now - lastDraw >= frameInterval) {
+        lastDraw = now
+        draw()
+      }
       raf = requestAnimationFrame(frame)
     }
 
@@ -214,8 +218,11 @@ export function ShaderBackground({ className, opacity = 0.28 }: ShaderBackground
       pageVisible = !document.hidden
       if (pageVisible) { draw(); start() } else stop()
     }
-    const onMotionChange = () => { reduce = reducedMotion.matches }
-    const onResize = () => { draw() }
+    const onMotionChange = () => {
+      reduce = reducedMotion.matches
+      frameInterval = 1000 / (reduce ? 20 : 30)
+    }
+    const onResize = () => { resize(); draw() }
     const onContextLost = (event: Event) => { event.preventDefault(); stop(); setFallback(true) }
 
     const intersection = typeof IntersectionObserver === "undefined" ? null : new IntersectionObserver(([entry]) => {
@@ -231,6 +238,7 @@ export function ShaderBackground({ className, opacity = 0.28 }: ShaderBackground
     canvas.addEventListener("webglcontextlost", onContextLost)
     reducedMotion.addEventListener("change", onMotionChange)
 
+    resize()
     draw()
     start()
 

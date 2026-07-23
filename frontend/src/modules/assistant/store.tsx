@@ -43,7 +43,12 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const refresh = useCallback(async (module?: AssistantResponse["module"]) => {
-    await Promise.allSettled([finance.refresh(), training.refresh(), nutrition.refresh(), app.refreshTasks(), progress.refresh()])
+    const requests: Promise<void>[] = [progress.refresh()]
+    if (module === "financeiro") requests.push(finance.refresh())
+    if (module === "agenda") requests.push(app.refreshTasks())
+    if (module === "treinos") requests.push(training.refresh())
+    if (module === "alimentacao") requests.push(nutrition.refresh())
+    await Promise.allSettled(requests)
     if (module === "financeiro") navigate("/financeiro")
     if (module === "agenda") navigate("/agenda")
     if (module === "treinos") navigate("/treinos")

@@ -6,12 +6,14 @@ import { useFinance } from "../../modules/finance/store"
 import { useTraining } from "../../modules/training/store"
 import { Icon } from "../../design-system"
 import { cn } from "../../lib/cn"
+import { useSearch } from "../../modules/search/store"
 
 type Scope = "todos" | "financas" | "rotina" | "treinos"
 interface SearchItem { id: string; scope: Exclude<Scope, "todos">; title: string; description: string; icon: string; to: string }
 
 export function GlobalSearch() {
-  const { isSearchOpen, setIsSearchOpen, searchQuery, setSearchQuery, tasks, exercises } = useApp()
+  const { tasks, exercises } = useApp()
+  const { isOpen: isSearchOpen, setIsOpen: setIsSearchOpen, query: searchQuery, setQuery: setSearchQuery } = useSearch()
   const fin = useFinance()
   const { workouts } = useTraining()
   const navigate = useNavigate()
@@ -40,7 +42,6 @@ export function GlobalSearch() {
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       const editable = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement
-      if (event.key === "/" && !editable) { event.preventDefault(); setIsSearchOpen(true) }
       if (!isSearchOpen) return
       if (event.key === "Escape") setIsSearchOpen(false)
       if (event.key === "ArrowDown") { event.preventDefault(); setActive((value) => Math.min(results.length - 1, value + 1)) }

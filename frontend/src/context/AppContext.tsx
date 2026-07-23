@@ -39,12 +39,7 @@ interface AppContextType {
   exercises: Exercise[];
   setExercises: React.Dispatch<React.SetStateAction<Exercise[]>>;
   
-  // Alerts & Modals
-  isSearchOpen: boolean;
-  setIsSearchOpen: (open: boolean) => void;
-  searchQuery: string;
-  setSearchQuery: (query: string) => void;
-  
+  // Modals
   isTaskModalOpen: boolean;
   setIsTaskModalOpen: (open: boolean) => void;
   isExpenseModalOpen: boolean;
@@ -106,10 +101,6 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const saved = localStorage.getItem(userStorageKey('level-os:exercises'));
     return saved ? JSON.parse(saved) : DEFAULT_EXERCISES;
   });
-
-  // Alert & Search
-  const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
-  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Modals
   const [isTaskModalOpen, setIsTaskModalOpen] = useState<boolean>(false);
@@ -230,10 +221,6 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         refreshTasks,
         exercises,
         setExercises,
-        isSearchOpen,
-        setIsSearchOpen,
-        searchQuery,
-        setSearchQuery,
         isTaskModalOpen,
         setIsTaskModalOpen,
         isExpenseModalOpen,

@@ -2,7 +2,6 @@ import { PanelLeftClose, PanelLeftOpen, Search } from "lucide-react"
 import { useLayoutEffect, useState } from "react"
 import { NavLink, useLocation, useNavigate } from "react-router-dom"
 import { NAV_ITEMS } from "../../app/nav"
-import { useApp } from "../../context/AppContext"
 import { Icon } from "../../design-system/Icon"
 import { cn } from "../../lib/cn"
 import { useAssistant } from "../../modules/assistant/store"
@@ -11,6 +10,7 @@ import { LevelChip } from "../../modules/progress/components/LevelChip"
 import { TrialChip } from "../../modules/subscription/TrialChip"
 import { LevelMark } from "../ui/LevelMark"
 import { AssistantAvatar } from "../../modules/assistant/AssistantAvatar"
+import { useSearch } from "../../modules/search/store"
 
 const SIDEBAR_KEY = "level-os:sidebar-collapsed"
 
@@ -20,7 +20,7 @@ function storedSidebarState(): boolean {
 
 /** Shell responsivo: sidebar colapsável no desktop e barra compacta no mobile. */
 export const TopNavBar = () => {
-  const { setIsSearchOpen } = useApp()
+  const { setIsOpen: setIsSearchOpen } = useSearch()
   const { identity } = useIdentity()
   const assistant = useAssistant()
   const navigate = useNavigate()

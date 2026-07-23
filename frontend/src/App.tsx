@@ -1,9 +1,9 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { BottomNav } from './components/Dashboard/BottomNav';
 import { TopNavBar } from './components/Dashboard/TopNavBar';
-import { AppContextProvider } from './context/AppContext';
+import { AppContextProvider, useApp } from './context/AppContext';
 import { FinanceProvider } from './modules/finance/store';
 import { TrainingProvider } from './modules/training/store';
 import { ShaderBackground } from './components/ui/ShaderBackground';
@@ -18,7 +18,9 @@ import { TrialBanner } from './modules/subscription/TrialBanner';
 import { CalendarProvider } from './modules/calendar/store';
 import { AssistantProvider } from './modules/assistant/store';
 import { NutritionProvider } from './modules/nutrition/store';
-import { AssistantCommand } from './modules/assistant/AssistantCommand';
+import { useAssistant } from './modules/assistant/store';
+import { usePreferences } from './modules/preferences/store';
+import { SearchProvider, useSearch } from './modules/search/store';
 
 const ModalsContainer = lazy(() => import('./components/Dashboard/ModalsContainer').then((module) => ({ default: module.ModalsContainer })));
 const OverviewScreen = lazy(() => import('./modules/overview/OverviewScreen').then((module) => ({ default: module.OverviewScreen })));
@@ -28,6 +30,7 @@ const RoutineScreen = lazy(() => import('./modules/routine/RoutineScreen').then(
 const TrainingScreen = lazy(() => import('./modules/training/TrainingScreen').then((module) => ({ default: module.TrainingScreen })));
 const NutritionScreen = lazy(() => import('./modules/nutrition/NutritionScreen').then((module) => ({ default: module.NutritionScreen })));
 const FirstLoginOnboarding = lazy(() => import('./modules/onboarding/FirstLoginOnboarding').then((module) => ({ default: module.FirstLoginOnboarding })));
+const AssistantCommand = lazy(() => import('./modules/assistant/AssistantCommand').then((module) => ({ default: module.AssistantCommand })));
 
 function PageFallback() {
   return <main className="level-page mx-auto max-w-[1180px] px-4 pb-24 pt-24 sm:px-6" aria-busy="true" aria-label="Carregando página">
@@ -40,8 +43,42 @@ function PageFallback() {
 function AppRoutes() {
   const location = useLocation();
   const { subscription, status } = useSubscription();
+  const app = useApp();
+  const assistant = useAssistant();
+  const search = useSearch();
+  const preferences = usePreferences();
+  const setAssistantOpen = assistant.setOpen;
+  const setSearchOpen = search.setIsOpen;
+  const [assistantUiLoaded, setAssistantUiLoaded] = useState(false);
+  const [modalUiLoaded, setModalUiLoaded] = useState(false);
   const blocked = status === 'ready' && !subscription.access;
   const urgentTrial = status === 'ready' && subscription.in_trial && subscription.trial_days_left <= 5;
+  const modalUiOpen = search.isOpen || app.isTaskModalOpen || app.isExpenseModalOpen || app.isWeightModalOpen || app.isWorkoutModalOpen;
+  const showOnboarding = preferences.status !== 'loading' && !preferences.onboarding_completed;
+
+  useEffect(() => {
+    if (assistant.open || assistant.result) setAssistantUiLoaded(true);
+  }, [assistant.open, assistant.result]);
+
+  useEffect(() => {
+    if (modalUiOpen) setModalUiLoaded(true);
+  }, [modalUiOpen]);
+
+  useEffect(() => {
+    const onShortcut = (event: KeyboardEvent) => {
+      const editable = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || (event.target instanceof HTMLElement && event.target.isContentEditable);
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k' && !editable) {
+        event.preventDefault();
+        setAssistantOpen(true);
+      } else if (event.key === '/' && !editable) {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onShortcut);
+    return () => window.removeEventListener('keydown', onShortcut);
+  }, [setAssistantOpen, setSearchOpen]);
+
   return <div id="top" className={`level-app-shell min-h-screen bg-background text-on-surface${urgentTrial ? ' level-trial-active' : ''}`}>
     <ShaderBackground opacity={0.2} />
     <div className="level-app-content">
@@ -71,11 +108,11 @@ function AppRoutes() {
         </AnimatePresence>}
       </div>
       {!blocked ? <BottomNav /> : null}
-      {!blocked ? <Suspense fallback={null}><ModalsContainer /></Suspense> : null}
+      {!blocked && (modalUiLoaded || modalUiOpen) ? <Suspense fallback={null}><ModalsContainer /></Suspense> : null}
       {!blocked ? <LevelUpOverlay /> : null}
       {!blocked ? <XpFeedback /> : null}
-      {!blocked ? <AssistantCommand /> : null}
-      {!blocked ? <Suspense fallback={null}><FirstLoginOnboarding /></Suspense> : null}
+      {!blocked && (assistantUiLoaded || assistant.open || Boolean(assistant.result)) ? <Suspense fallback={null}><AssistantCommand /></Suspense> : null}
+      {!blocked && showOnboarding ? <Suspense fallback={null}><FirstLoginOnboarding /></Suspense> : null}
     </div>
   </div>;
 }
@@ -87,15 +124,17 @@ export default function App() {
         <SubscriptionProvider>
           <ProgressProvider>
             <AppContextProvider>
-              <CalendarProvider>
-                <FinanceProvider>
-                  <TrainingProvider>
-                    <NutritionProvider>
-                      <AssistantProvider><AppRoutes /></AssistantProvider>
-                    </NutritionProvider>
-                  </TrainingProvider>
-                </FinanceProvider>
-              </CalendarProvider>
+              <SearchProvider>
+                <CalendarProvider>
+                  <FinanceProvider>
+                    <TrainingProvider>
+                      <NutritionProvider>
+                        <AssistantProvider><AppRoutes /></AssistantProvider>
+                      </NutritionProvider>
+                    </TrainingProvider>
+                  </FinanceProvider>
+                </CalendarProvider>
+              </SearchProvider>
             </AppContextProvider>
           </ProgressProvider>
         </SubscriptionProvider>
