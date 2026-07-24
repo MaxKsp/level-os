@@ -7,6 +7,7 @@ import { useTraining } from "../training/store"
 import { useNutrition } from "../nutrition/store"
 import { useApp } from "../../context/AppContext"
 import { useProgress } from "../progress/store"
+import { useOptionalSubscription } from "../subscription/store"
 
 export type AssistantModule = "financeiro" | "agenda" | "treinos" | "alimentacao"
 
@@ -18,6 +19,8 @@ interface Value {
   loading: boolean
   error: string | null
   result: AssistantResponse | null
+  paidAccess: boolean
+  planReady: boolean
   submit: (text: string) => Promise<void>
   undo: (actionToken?: string | null, module?: AssistantResponse["module"]) => Promise<void>
   resolveConfirmation: (actionToken: string, decision: "confirm" | "cancel", module?: AssistantResponse["module"], approval?: AssistantApproval) => Promise<void>
@@ -32,6 +35,11 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<AssistantResponse | null>(null)
   const finance = useFinance(), training = useTraining(), nutrition = useNutrition(), app = useApp(), progress = useProgress(), navigate = useNavigate()
+  const subscriptionContext = useOptionalSubscription()
+  const paidAccess = subscriptionContext === null
+    ? true
+    : subscriptionContext.status === "ready" && subscriptionContext.subscription.paid_access
+  const planReady = subscriptionContext?.status !== "loading"
 
   const setOpen = useCallback((value: boolean) => {
     setOpenState(value)
@@ -56,6 +64,10 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   }, [app, finance, navigate, nutrition, progress, training])
 
   const submit = async (text: string) => {
+    if (!paidAccess) {
+      setError("O Agente de IA é uma funcionalidade exclusiva do plano pago.")
+      return
+    }
     setLoading(true); setError(null)
     try {
       const response = await sendAssistantCommand(text, moduleContext)
@@ -69,6 +81,10 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   }
 
   const undo = async (actionToken?: string | null, module?: AssistantResponse["module"]) => {
+    if (!paidAccess) {
+      setError("O Agente de IA é uma funcionalidade exclusiva do plano pago.")
+      return
+    }
     const token = actionToken ?? result?.actionToken
     const sourceModule = module ?? result?.module
     if (!token) return
@@ -85,6 +101,10 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   }
 
   const resolveConfirmation = async (actionToken: string, decision: "confirm" | "cancel", module?: AssistantResponse["module"], approval?: AssistantApproval) => {
+    if (!paidAccess) {
+      setError("O Agente de IA é uma funcionalidade exclusiva do plano pago.")
+      return
+    }
     setLoading(true); setError(null)
     try {
       const response = await resolveAssistantConfirmation(actionToken, decision, approval)
@@ -98,7 +118,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <Ctx.Provider value={{ open, setOpen, openFor, moduleContext, loading, error, result, submit, undo, resolveConfirmation, dismiss: () => { setResult(null); setError(null) } }}>
+    <Ctx.Provider value={{ open, setOpen, openFor, moduleContext, loading, error, result, paidAccess, planReady, submit, undo, resolveConfirmation, dismiss: () => { setResult(null); setError(null) } }}>
       {children}
     </Ctx.Provider>
   )

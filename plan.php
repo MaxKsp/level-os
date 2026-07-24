@@ -64,3 +64,28 @@ function require_plan(int $uid, string $minPlan): void {
         exit;
     }
 }
+
+/**
+ * Exige uma assinatura realmente paga. Trials continuam liberando o uso
+ * geral do produto, mas nao passam por este gate de recursos premium.
+ */
+function require_paid_plan(int $uid, string $minPlan): void {
+    $policy = new SubscriptionPolicy(subscription_real_clock(...));
+    $snapshot = (new SubscriptionRepository(get_db()))->findByUserId($uid);
+    $currentPlan = $policy->effectivePlan($snapshot);
+    $paidAccess = $policy->hasPaidAccess($snapshot);
+    $storedPlan = $snapshot?->plan ?? 'free';
+
+    if (!$paidAccess || !$policy->allowsPlan($storedPlan, $minPlan)) {
+        http_response_code(402);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'error' => 'paid_plan_required',
+            'message' => 'O Agente de IA é uma funcionalidade exclusiva do plano pago.',
+            'required_plan' => $minPlan,
+            'current_plan' => $currentPlan,
+            'paid_access' => false,
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+}

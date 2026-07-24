@@ -12,8 +12,8 @@ async function read<T>(response: Response): Promise<T> {
         ? "Todos os provedores gratuitos atingiram o limite ou estão indisponíveis."
         : code === "assistant_daily_limit"
           ? "O limite diário do Agente de IA foi atingido. Consultas locais continuam disponíveis."
-          : code === "plan_required"
-            ? "O Agente de IA está disponível no plano individual."
+          : code === "plan_required" || code === "paid_plan_required"
+            ? "O Agente de IA é uma funcionalidade exclusiva do plano pago."
             : code === "invalid csrf token"
               ? "Sua sessão foi atualizada. Recarregue a página e tente novamente."
               : "Não foi possível executar a ação.")

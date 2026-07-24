@@ -6,6 +6,7 @@ export interface SubscriptionState {
   trial_ends_at: string | null
   trial_days_left: number
   access: boolean
+  paid_access: boolean
   price_cents: number
 }
 

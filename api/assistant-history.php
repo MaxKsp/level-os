@@ -11,7 +11,7 @@ header('Cache-Control: private, no-store');
 $uid = require_login();
 level_os_require_sodium_endpoint('assistant-history');
 require_rate_limit('assistant_history', 60, 60);
-require_plan($uid, 'individual');
+require_paid_plan($uid, 'individual');
 
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? ''));
 if (!in_array($method, ['GET', 'DELETE'], true)) {

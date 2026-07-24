@@ -15,7 +15,7 @@ if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST') {
     http_response_code(405); header('Allow: POST'); echo json_encode(['error'=>'method_not_allowed']); exit;
 }
 require_csrf();
-require_plan($uid, 'individual');
+require_paid_plan($uid, 'individual');
 $raw = file_get_contents('php://input', false, null, 0, 256 * 1024 + 1);
 $raw = is_string($raw) ? $raw : '';
 if (strlen($raw) > 256 * 1024) { http_response_code(413); echo json_encode(['error'=>'payload_too_large']); exit; }

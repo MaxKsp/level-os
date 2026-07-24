@@ -23,6 +23,7 @@ const LOCAL_PREVIEW: SubscriptionState = {
   trial_ends_at: null,
   trial_days_left: 18,
   access: true,
+  paid_access: false,
   price_cents: 1990,
 }
 
@@ -115,4 +116,8 @@ export function useSubscription(): SubscriptionContextValue {
   const value = useContext(SubscriptionContext)
   if (!value) throw new Error("useSubscription precisa estar dentro de SubscriptionProvider")
   return value
+}
+
+export function useOptionalSubscription(): SubscriptionContextValue | null {
+  return useContext(SubscriptionContext)
 }

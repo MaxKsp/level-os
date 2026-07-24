@@ -140,6 +140,7 @@ return function (): void {
     $trialSnapshot = SubscriptionRepository::buildSnapshot('free', 'active', null, $trialEnd);
     test_assert_same('individual', $policy->effectivePlan($trialSnapshot), 'Trial vigente deve liberar o nível individual sem alterar o plano armazenado.');
     test_assert_true($policy->allows($trialSnapshot, 'individual'), 'Trial vigente deve ser honrado por require_plan/allows.');
+    test_assert_true(!$policy->hasPaidAccess($trialSnapshot), 'Trial vigente nao deve ser confundido com assinatura paga.');
     $expiredTrial = SubscriptionRepository::buildSnapshot('free', 'active', null, gmdate('Y-m-d H:i:s', $fixedNow));
     test_assert_same('free', $policy->effectivePlan($expiredTrial), 'Trial expira exatamente no instante trial_ends_at.');
 
@@ -152,6 +153,7 @@ return function (): void {
     test_assert_true($policy->allows(null, 'free'), 'Sem snapshot, minPlan free deve ser permitido (free cobre free).');
     test_assert_true(!$policy->allows(null, 'individual'), 'Sem snapshot, minPlan individual deve ser negado.');
     test_assert_true($policy->allows($neverExpires, 'individual'), 'individual deve cobrir individual.');
+    test_assert_true($policy->hasPaidAccess($neverExpires), 'Assinatura individual ativa deve ser reconhecida como paga.');
     test_assert_true(!$policy->allows($expiredSnapshot, 'individual'), 'Snapshot expirado nao deve cobrir individual.');
     test_assert_true(!$policy->allowsPlan('individual', 'plano_desconhecido_xyz'), 'minPlan desconhecido nunca deve ser autorizado pelo plano individual.');
     test_assert_true(!$policy->allowsPlan('family', 'individual'), 'Plano family legado deve falhar fechado depois da migração para o plano único.');
@@ -193,7 +195,7 @@ return function (): void {
 
     $planSource = (string)file_get_contents($repoRoot . '/plan.php');
     test_assert_true(str_contains($planSource, "const PLAN_RANK = SUBSCRIPTION_PLAN_RANK;"), 'PLAN_RANK deve continuar publica em plan.php (fachada compativel).');
-    foreach (['user_plan', 'plan_allows', 'require_plan'] as $fn) {
+    foreach (['user_plan', 'plan_allows', 'require_plan', 'require_paid_plan'] as $fn) {
         $body = sub_extract_function_body($planSource, $fn);
         $count = substr_count($body, 'findByUserId(');
         test_assert_same(1, $count, "$fn() deve consultar a assinatura exatamente uma vez (findByUserId) dentro do proprio corpo — encontrado: $count.");
@@ -202,14 +204,14 @@ return function (): void {
     // ==== F: describeForApi() — shape exato do endpoint ====
 
     test_assert_same(
-        ['plan' => 'free', 'status' => 'active', 'current_period_end' => null, 'in_trial' => false, 'trial_ends_at' => null, 'trial_days_left' => 0, 'access' => false],
+        ['plan' => 'free', 'status' => 'active', 'current_period_end' => null, 'in_trial' => false, 'trial_ends_at' => null, 'trial_days_left' => 0, 'access' => false, 'paid_access' => false],
         $policy->describeForApi(null),
         'Sem row: plan=free, status=active (fallback legado), current_period_end=null.'
     );
 
     $inactiveExpired = SubscriptionRepository::buildSnapshot('individual', 'canceled', '2020-01-01 00:00:00');
     test_assert_same(
-        ['plan' => 'free', 'status' => 'canceled', 'current_period_end' => '2020-01-01 00:00:00', 'in_trial' => false, 'trial_ends_at' => null, 'trial_days_left' => 0, 'access' => false],
+        ['plan' => 'free', 'status' => 'canceled', 'current_period_end' => '2020-01-01 00:00:00', 'in_trial' => false, 'trial_ends_at' => null, 'trial_days_left' => 0, 'access' => false, 'paid_access' => false],
         $policy->describeForApi($inactiveExpired),
         'Row inativa: plan cai pra free, mas status e current_period_end continuam refletindo a row.'
     );
@@ -217,20 +219,20 @@ return function (): void {
     $activeButExpiredPeriod = gmdate('Y-m-d H:i:s', $fixedNow - 100);
     $activeButExpired = SubscriptionRepository::buildSnapshot('individual', 'active', $activeButExpiredPeriod);
     test_assert_same(
-        ['plan' => 'free', 'status' => 'active', 'current_period_end' => $activeButExpiredPeriod, 'in_trial' => false, 'trial_ends_at' => null, 'trial_days_left' => 0, 'access' => false],
+        ['plan' => 'free', 'status' => 'active', 'current_period_end' => $activeButExpiredPeriod, 'in_trial' => false, 'trial_ends_at' => null, 'trial_days_left' => 0, 'access' => false, 'paid_access' => false],
         $policy->describeForApi($activeButExpired),
         'Row ativa mas expirada: plan cai pra free, status/current_period_end continuam refletindo a row (nunca viram active/null so por conta da expiracao).'
     );
 
     $activeValid = SubscriptionRepository::buildSnapshot('individual', 'active', null);
     test_assert_same(
-        ['plan' => 'individual', 'status' => 'active', 'current_period_end' => null, 'in_trial' => false, 'trial_ends_at' => null, 'trial_days_left' => 0, 'access' => true],
+        ['plan' => 'individual', 'status' => 'active', 'current_period_end' => null, 'in_trial' => false, 'trial_ends_at' => null, 'trial_days_left' => 0, 'access' => true, 'paid_access' => true],
         $policy->describeForApi($activeValid),
         'Row ativa e valida: plan reflete o plano real.'
     );
 
     test_assert_same(
-        ['plan' => 'individual', 'status' => 'active', 'current_period_end' => null, 'in_trial' => true, 'trial_ends_at' => $trialEnd, 'trial_days_left' => 2, 'access' => true],
+        ['plan' => 'individual', 'status' => 'active', 'current_period_end' => null, 'in_trial' => true, 'trial_ends_at' => $trialEnd, 'trial_days_left' => 2, 'access' => true, 'paid_access' => false],
         $policy->describeForApi($trialSnapshot),
         'Trial vigente deve expor prazo e acesso calculados somente pelo relógio do servidor.'
     );

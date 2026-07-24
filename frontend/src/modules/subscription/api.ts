@@ -34,6 +34,7 @@ export async function loadSubscription(): Promise<SubscriptionState> {
     trial_ends_at: typeof body.trial_ends_at === "string" ? body.trial_ends_at : null,
     trial_days_left: Number.isFinite(Number(body.trial_days_left)) ? Math.max(0, Number(body.trial_days_left)) : 0,
     access: body.access === true,
+    paid_access: body.paid_access === true,
     price_cents: Number.isFinite(Number(body.price_cents)) ? Math.max(0, Math.round(Number(body.price_cents))) : 1990,
   }
 }

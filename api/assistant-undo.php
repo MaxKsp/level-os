@@ -15,7 +15,7 @@ if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST') {
     http_response_code(405); header('Allow: POST'); echo json_encode(['error'=>'method_not_allowed']); exit;
 }
 require_csrf();
-require_plan($uid, 'individual');
+require_paid_plan($uid, 'individual');
 $raw = file_get_contents('php://input', false, null, 0, 4097);
 $body = is_string($raw) ? json_decode($raw, true) : null;
 if (!is_array($body)) { http_response_code(400); echo json_encode(['error'=>'invalid_payload']); exit; }

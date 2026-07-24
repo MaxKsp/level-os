@@ -50,6 +50,14 @@ final class SubscriptionPolicy {
     }
 
     /**
+     * Acesso confirmado por assinatura paga. Diferente de effectivePlan(),
+     * esta verificacao nunca promove um trial vigente ao plano individual.
+     */
+    public function hasPaidAccess(?SubscriptionSnapshot $snapshot): bool {
+        return $snapshot !== null && $this->hasPaidAccessAt($snapshot, ($this->clock)());
+    }
+
+    /**
      * Mesma regra de allows(), mas a partir de um plano efetivo ja
      * calculado — usado pela fachada pra nao recalcular (nem reconsultar)
      * o plano duas vezes numa unica chamada (ex: require_plan()).
@@ -80,6 +88,7 @@ final class SubscriptionPolicy {
                 ? (int)ceil(($snapshot->trialEndsAtEpoch - $now) / 86400)
                 : 0,
             'access' => $plan !== 'free',
+            'paid_access' => $snapshot !== null && $this->hasPaidAccessAt($snapshot, $now),
         ];
     }
 

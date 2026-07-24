@@ -1,6 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import { ArrowLeftRight, BarChart3, Bot, ChefHat, Command, Dumbbell, Gauge, GraduationCap, ListTodo, LoaderCircle, Ruler, Scale, SendHorizonal, Trash2, TrendingDown, TrendingUp, Undo2, X } from "lucide-react"
+import { ArrowLeftRight, BarChart3, Bot, ChefHat, Command, Dumbbell, Gauge, GraduationCap, ListTodo, LoaderCircle, LockKeyhole, Ruler, Scale, SendHorizonal, Trash2, TrendingDown, TrendingUp, Undo2, X } from "lucide-react"
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react"
 import { cn } from "../../lib/cn"
 import type { AssistantResponse } from "./contracts"
@@ -116,7 +116,7 @@ export function AssistantCommand() {
   }, [])
 
   useEffect(() => {
-    if (!assistant.open || historyLoaded[activeHistoryKey]) return
+    if (!assistant.open || !assistant.paidAccess || historyLoaded[activeHistoryKey]) return
     let cancelled = false
     setHistoryLoading(true)
     setHistoryError(null)
@@ -146,7 +146,7 @@ export function AssistantCommand() {
         if (!cancelled) setHistoryLoading(false)
       })
     return () => { cancelled = true }
-  }, [activeHistoryKey, assistant.open, historyLoaded])
+  }, [activeHistoryKey, assistant.open, assistant.paidAccess, historyLoaded])
 
   const clearHistory = useCallback(async () => {
     if (clearingHistory) return
@@ -296,6 +296,54 @@ export function AssistantCommand() {
 
   const empty = messages.length === 0
   const lastAssistant = [...messages].reverse().find((m): m is Extract<ChatMessage, { role: "assistant" }> => m.role === "assistant")
+
+  if (!assistant.paidAccess) {
+    return (
+      <Dialog.Root open={assistant.open} onOpenChange={assistant.setOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay asChild>
+            <motion.div className="fixed inset-0 z-[130] bg-black/78 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} />
+          </Dialog.Overlay>
+          <div className="pointer-events-none fixed inset-0 z-[131] flex items-center justify-center p-4 sm:p-6">
+            <Dialog.Content asChild aria-describedby="assistant-paid-description">
+              <motion.section
+                initial={{ opacity: 0, y: reduce ? 0 : 18, scale: reduce ? 1 : 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                className="pointer-events-auto relative w-full max-w-md overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-low p-6 shadow-2xl"
+              >
+                <Dialog.Close className="absolute right-3 top-3 grid size-10 place-items-center rounded-lg text-muted hover:bg-surface-container-high" aria-label="Fechar">
+                  <X className="size-4" />
+                </Dialog.Close>
+                <span className="grid size-12 place-items-center rounded-xl bg-primary/10 text-primary">
+                  {assistant.planReady ? <LockKeyhole className="size-5" /> : <LoaderCircle className="size-5 animate-spin" />}
+                </span>
+                <Dialog.Title className="mt-5 text-xl font-semibold text-on-surface">
+                  {assistant.planReady ? "Agente de IA no plano pago" : "Verificando seu plano"}
+                </Dialog.Title>
+                <Dialog.Description id="assistant-paid-description" className="mt-2 text-sm leading-6 text-muted">
+                  {assistant.planReady
+                    ? "O Agente de IA é uma funcionalidade exclusiva do plano Individual pago. Durante o período gratuito, os demais módulos continuam disponíveis."
+                    : "Aguarde enquanto confirmamos sua assinatura."}
+                </Dialog.Description>
+                {assistant.planReady ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      assistant.setOpen(false)
+                      window.location.assign("/perfil#plan")
+                    }}
+                    className="mt-6 min-h-11 w-full rounded-lg bg-primary px-4 text-sm font-semibold text-on-primary hover:bg-primary/90"
+                  >
+                    Ver plano Individual
+                  </button>
+                ) : null}
+              </motion.section>
+            </Dialog.Content>
+          </div>
+        </Dialog.Portal>
+      </Dialog.Root>
+    )
+  }
 
   return (
     <>
