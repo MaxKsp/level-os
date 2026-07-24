@@ -4,6 +4,10 @@ export interface BodyIndices {
   bmi: { value: number; label: string } | null
   whr: { value: number; label: string } | null
   weightDelta: { value: number; sinceDate: string } | null
+  /** Massa gorda e magra em kg, só quando há peso + % de gordura registrados. */
+  composition: { fatMass: number; leanMass: number; fatPct: number } | null
+  /** Meta diária de água em litros (35 ml por kg de peso corporal). */
+  waterTarget: { liters: number; basedOnKg: number } | null
 }
 
 function bmiLabel(bmi: number): string {
@@ -23,13 +27,15 @@ function whrLabel(whr: number): string {
   return "Risco alto"
 }
 
-/** Calcula IMC, relação cintura-quadril e variação de peso a partir das medidas existentes. */
+/** Calcula IMC, RCQ, variação de peso, composição corporal e meta de água. */
 export function computeBodyIndices(measurements: Measurement[]): BodyIndices {
-  const latestOf = (type: Measurement["type"]) => measurements.find((m) => m.type === type)
+  const newestFirst = measurements.slice().sort((a, b) => b.date.localeCompare(a.date))
+  const latestOf = (type: Measurement["type"]) => newestFirst.find((m) => m.type === type)
   const weight = latestOf("peso")
   const height = latestOf("altura")
   const waist = latestOf("cintura")
   const hip = latestOf("quadril")
+  const bodyfat = latestOf("gordura")
 
   let bmi: BodyIndices["bmi"] = null
   if (weight && height && height.value > 0) {
@@ -45,10 +51,35 @@ export function computeBodyIndices(measurements: Measurement[]): BodyIndices {
   }
 
   let weightDelta: BodyIndices["weightDelta"] = null
-  const weights = measurements.filter((m) => m.type === "peso")
+  const weights = newestFirst.filter((m) => m.type === "peso")
   if (weights.length >= 2) {
     weightDelta = { value: weights[0].value - weights[weights.length - 1].value, sinceDate: weights[weights.length - 1].date }
   }
 
-  return { bmi, whr, weightDelta }
+  // Composição a partir de dados registrados — sem estimativa por idade/sexo,
+  // que não são cadastrados. Só aparece quando o usuário loga o % de gordura.
+  let composition: BodyIndices["composition"] = null
+  if (weight && bodyfat && bodyfat.value > 0 && bodyfat.value < 75) {
+    const fatMass = weight.value * (bodyfat.value / 100)
+    composition = { fatMass, leanMass: weight.value - fatMass, fatPct: bodyfat.value }
+  }
+
+  let waterTarget: BodyIndices["waterTarget"] = null
+  if (weight && weight.value > 0) {
+    waterTarget = { liters: (weight.value * 35) / 1000, basedOnKg: weight.value }
+  }
+
+  return { bmi, whr, weightDelta, composition, waterTarget }
+}
+
+/**
+ * Série temporal (mais antigo → mais novo) de um tipo de medida, pronta para o
+ * gráfico de evolução. As medidas chegam do store em ordem decrescente.
+ */
+export function measurementSeries(measurements: Measurement[], type: Measurement["type"]): { values: number[]; labels: string[] } {
+  const rows = measurements.filter((m) => m.type === type).slice().sort((a, b) => a.date.localeCompare(b.date))
+  return {
+    values: rows.map((m) => m.value),
+    labels: rows.map((m) => new Date(m.date + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })),
+  }
 }
