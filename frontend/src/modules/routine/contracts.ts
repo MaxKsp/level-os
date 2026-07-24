@@ -29,4 +29,12 @@ export interface Task {
   repeatUntil?: string
   /** Ocorrências concluídas de uma tarefa recorrente. */
   completedDates?: string[]
+  /** Ocorrências removidas sem apagar a série inteira. */
+  excludedDates?: string[]
+  /** Minutos antes do horário em que o usuário quer ser lembrado. */
+  reminderMinutes?: number[]
+  /** Pausa temporária da série, preservando todo o histórico. */
+  paused?: boolean
+  /** Referência da série quando uma ocorrência é adiada e vira tarefa avulsa. */
+  sourceScheduleId?: string
 }

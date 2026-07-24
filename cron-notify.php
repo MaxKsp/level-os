@@ -89,6 +89,9 @@ foreach ($users as $user) {
     $dueLogKeys = [];
     foreach ($tasks as $t) {
         if (empty($t['time']) || empty($t['title'])) continue;
+        if (!empty($t['paused'])) continue;
+        $excludedDates = is_array($t['excludedDates'] ?? null) ? $t['excludedDates'] : [];
+        if (in_array($todayKey, $excludedDates, true)) continue;
         $repeat = is_string($t['repeat'] ?? null) ? $t['repeat'] : 'none';
         if ($repeat !== 'none') {
             $startDate = is_string($t['date'] ?? null) ? $t['date'] : '';
@@ -120,12 +123,27 @@ foreach ($users as $user) {
         if (!$matches) continue;
         [$h, $m] = array_map('intval', explode(':', $t['time']));
         $taskMin = $h * 60 + $m;
-        $diff = $taskMin - $nowMin;
-        if ($diff < 0 || $diff > NOTIFY_WINDOW_MIN) continue;
-        $logKey = $todayKey . ':' . ($t['id'] ?? ($t['title'] . $t['time']));
-        if (isset($log[$logKey])) continue;
-        $due[] = $t;
-        $dueLogKeys[] = $logKey;
+        $reminders = is_array($t['reminderMinutes'] ?? null) ? $t['reminderMinutes'] : [0];
+        $reminders = array_slice(array_values(array_unique(array_filter(
+            array_map('intval', $reminders),
+            static fn(int $minutes): bool => $minutes >= 0 && $minutes <= 1440
+        ))), 0, 8);
+        if ($reminders === []) $reminders = [0];
+
+        foreach ($reminders as $minutesBefore) {
+            $reminderMin = $taskMin - $minutesBefore;
+            // Avisos que cairiam no dia anterior ficam a cargo do próximo ciclo
+            // quando houver suporte a projeção multidiária no cron.
+            if ($reminderMin < 0) continue;
+            $diff = $reminderMin - $nowMin;
+            if ($diff < 0 || $diff > NOTIFY_WINDOW_MIN) continue;
+            $logKey = $todayKey . ':' . ($t['id'] ?? ($t['title'] . $t['time'])) . ':r' . $minutesBefore;
+            if (isset($log[$logKey])) continue;
+            $dueTask = $t;
+            $dueTask['reminderMinutesBefore'] = $minutesBefore;
+            $due[] = $dueTask;
+            $dueLogKeys[] = $logKey;
+        }
     }
 
     if (!$due) {

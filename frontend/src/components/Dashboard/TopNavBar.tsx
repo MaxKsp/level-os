@@ -1,4 +1,4 @@
-import { PanelLeftClose, PanelLeftOpen, Search } from "lucide-react"
+import { Bell, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react"
 import { useLayoutEffect, useState } from "react"
 import { NavLink, useLocation, useNavigate } from "react-router-dom"
 import { NAV_ITEMS } from "../../app/nav"
@@ -11,6 +11,7 @@ import { TrialChip } from "../../modules/subscription/TrialChip"
 import { LevelMark } from "../ui/LevelMark"
 import { AssistantAvatar } from "../../modules/assistant/AssistantAvatar"
 import { useSearch } from "../../modules/search/store"
+import { TaskNotificationCenter } from "../../modules/routine/TaskNotificationCenter"
 
 const SIDEBAR_KEY = "level-os:sidebar-collapsed"
 
@@ -26,6 +27,7 @@ export const TopNavBar = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(storedSidebarState)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
   const initials = identity.username.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "LV"
   const avatarUrl = identity.avatar ? (identity.avatar.startsWith("http") || identity.avatar.startsWith("/") ? identity.avatar : `/${identity.avatar}`) : null
   const profileActive = location.pathname === "/perfil"
@@ -47,6 +49,7 @@ export const TopNavBar = () => {
           <span className="text-xs font-semibold tracking-[0.16em]">LEVEL OS</span>
         </button>
         <div className="flex items-center gap-1">
+          <button type="button" aria-label="Abrir notificações" onClick={() => setNotificationsOpen(true)} className="grid size-11 place-items-center rounded-md text-muted hover:bg-surface-container-high hover:text-on-surface"><Bell className="size-4" aria-hidden="true" /></button>
           <button type="button" aria-label="Abrir perfil" onClick={() => navigate("/perfil")} className={cn("level-avatar-button grid size-11 place-items-center rounded-md", profileActive && "bg-primary/10 ring-1 ring-primary/35")}>{avatar("size-8")}</button>
           <button type="button" aria-label="Abrir busca global" onClick={() => setIsSearchOpen(true)} className="grid size-11 place-items-center rounded-md text-muted hover:bg-surface-container-high hover:text-on-surface"><Search className="size-4" aria-hidden="true" /></button>
           <button type="button" aria-label="Agente de IA" onClick={() => assistant.setOpen(true)} className="grid size-11 place-items-center rounded-md border border-primary/25 bg-primary/[0.07] text-primary"><AssistantAvatar className="size-4" /></button>
@@ -90,12 +93,17 @@ export const TopNavBar = () => {
             <Search className="size-5 shrink-0" aria-hidden="true" />
             {!collapsed ? <><span>Buscar</span><kbd className="ml-auto text-[10px] text-muted">/</kbd></> : null}
           </button>
+          <button type="button" aria-label="Notificações" title={collapsed ? "Notificações" : undefined} onClick={() => setNotificationsOpen(true)} className={cn("flex min-h-11 w-full items-center rounded-md border-l-2 border-transparent text-left text-sm font-medium text-muted transition-colors hover:bg-surface-container-high hover:text-on-surface", collapsed ? "justify-center px-0" : "gap-3 px-3")}>
+            <Bell className="size-5 shrink-0" aria-hidden="true" />
+            {!collapsed ? <span>Notificações</span> : null}
+          </button>
           <button type="button" onClick={() => navigate("/perfil")} aria-label="Abrir perfil" title={collapsed ? "Perfil" : undefined} className={cn("level-avatar-button flex min-h-12 w-full items-center rounded-md text-left transition-colors hover:bg-surface-container-high", collapsed ? "justify-center" : "gap-3 px-2", profileActive && "bg-primary/[0.09] ring-1 ring-inset ring-primary/25")}>
             {avatar("size-10")}
             {!collapsed ? <div className="min-w-0"><p className="truncate text-sm font-medium text-on-surface">{identity.username}</p><p className="truncate text-xs text-muted">{identity.email || "Perfil local"}</p></div> : null}
           </button>
         </div>
       </aside>
+      <TaskNotificationCenter isOpen={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
     </>
   )
 }

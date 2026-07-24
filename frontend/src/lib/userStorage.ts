@@ -9,6 +9,7 @@ const USER_DATA_KEYS = [
   "level-os:exercises",
   "level-os:finance:v1",
   "level-os:notifications:v1",
+  "level-os:task-notification-log:v1",
   "level-os:onboarding-completed",
   "level-os:profile:v1",
   "level-os:training:v2",

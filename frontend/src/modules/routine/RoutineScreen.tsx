@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { Button } from "../../components/ui/Button"
+import { Modal } from "../../components/ui/Modal"
 import { useAssistant } from "../assistant/store"
 import { AssistantAvatar } from "../assistant/AssistantAvatar"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -9,7 +10,8 @@ import { cn } from "../../lib/cn"
 import { useApp } from "../../context/AppContext"
 import type { Task } from "../../context/AppContext"
 import { TODAY_ISO } from "./mock"
-import { PRIORITY_LABEL, PRIORITY_TONE, progressPercent, taskRepeatLabel, tasksOn } from "./selectors"
+import { PRIORITY_LABEL, PRIORITY_TONE, progressPercent, routineConsistency, taskRepeatLabel, tasksOn } from "./selectors"
+import { TaskActionModal } from "./TaskActionModal"
 import type { CalendarView, GoogleCalendarConnection, GoogleCalendarEvent } from "../calendar/contracts"
 import { useCalendarRange } from "../calendar/store"
 import {
@@ -23,6 +25,7 @@ import {
 
 type View = CalendarView
 type ToggleTask = (id: string, occurrenceDate?: string) => void
+type ManageTask = (id: string, occurrenceDate: string) => void
 const VIEWS: { key: View; label: string }[] = [
   { key: "dia", label: "Dia" },
   { key: "semana", label: "Semana" },
@@ -46,7 +49,15 @@ export function RoutineScreen() {
   const assistant = useAssistant()
   const [view, setView] = useState<View>("dia")
   const [cursor, setCursor] = useState<Date>(parseISO(TODAY_ISO))
+  const [managedOccurrence, setManagedOccurrence] = useState<{ taskId: string; date: string } | null>(null)
+  const [schedulesOpen, setSchedulesOpen] = useState(false)
   const toggle = handleToggleTask
+  const recurringTasks = useMemo(() => tasks.filter((task) => task.repeat && task.repeat !== "none"), [tasks])
+  const consistency = useMemo(() => {
+    const start = addDays(parseISO(TODAY_ISO), -29)
+    return routineConsistency(tasks, isoOf(start), isoOf(addDays(parseISO(TODAY_ISO), 1)), TODAY_ISO)
+  }, [tasks])
+  const managedTask = managedOccurrence ? tasks.find((task) => task.id === managedOccurrence.taskId) ?? null : null
 
   const range = useMemo(() => calendarRangeForView(view, cursor), [cursor, view])
   const calendar = useCalendarRange(range)
@@ -68,6 +79,9 @@ export function RoutineScreen() {
           <p className="mt-2 text-on-surface-variant">Agenda por dia, semana, mês e ano.</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="md" onClick={() => setSchedulesOpen(true)}>
+            <Icon name="event_repeat" className="text-[18px]" /> Agendamentos
+          </Button>
           <Button variant="secondary" size="md" onClick={() => assistant.openFor("agenda")}>
             <AssistantAvatar module="agenda" className="size-4" /> Secretária Nina
           </Button>
@@ -76,6 +90,13 @@ export function RoutineScreen() {
           </Button>
         </div>
       </header>
+
+      <section aria-label="Consistência da rotina" className="grid grid-cols-2 gap-3 border-y border-outline-variant py-4 sm:grid-cols-4">
+        <RoutineMetric label="Consistência · 30 dias" value={`${consistency.percent}%`} />
+        <RoutineMetric label="Sequência atual" value={`${consistency.currentStreak} dias`} />
+        <RoutineMetric label="Concluídas" value={`${consistency.completed}`} />
+        <RoutineMetric label="Planejadas" value={`${consistency.planned}`} />
+      </section>
 
       <Tabs value={view} onValueChange={(value) => setView(value as View)} className="w-full max-w-sm">
         <TabsList variant="line" aria-label="Visualização da rotina" className="w-full">
@@ -91,16 +112,41 @@ export function RoutineScreen() {
         retry={calendar.retry}
       />
 
-      {view === "dia" && <DiaView date={cursor} setDate={setCursor} tasks={tasks} events={calendar.events} toggle={toggle} isToday={isToday} />}
-      {view === "semana" && <SemanaView cursor={cursor} setCursor={setCursor} tasks={tasks} events={calendar.events} toggle={toggle} isToday={isToday} />}
-      {view === "mes" && <MesView cursor={cursor} setCursor={setCursor} counts={counts} tasks={tasks} events={calendar.events} toggle={toggle} isToday={isToday} onOpenDay={(d) => { setCursor(d); setView("dia") }} />}
+      {view === "dia" && <DiaView date={cursor} setDate={setCursor} tasks={tasks} events={calendar.events} toggle={toggle} manage={(taskId, date) => setManagedOccurrence({ taskId, date })} isToday={isToday} />}
+      {view === "semana" && <SemanaView cursor={cursor} setCursor={setCursor} tasks={tasks} events={calendar.events} toggle={toggle} manage={(taskId, date) => setManagedOccurrence({ taskId, date })} isToday={isToday} />}
+      {view === "mes" && <MesView cursor={cursor} setCursor={setCursor} counts={counts} tasks={tasks} events={calendar.events} toggle={toggle} manage={(taskId, date) => setManagedOccurrence({ taskId, date })} isToday={isToday} onOpenDay={(d) => { setCursor(d); setView("dia") }} />}
       {view === "ano" && <AnoView cursor={cursor} setCursor={setCursor} counts={counts} onOpenMonth={(d) => { setCursor(d); setView("mes") }} />}
+
+      <Modal isOpen={schedulesOpen} onClose={() => setSchedulesOpen(false)} title="Agendamentos" description="Gerencie séries recorrentes sem alterar o histórico." icon="event_repeat" maxWidth="max-w-lg">
+        {recurringTasks.length === 0 ? <Empty label="Nenhum agendamento recorrente." /> : (
+          <ul className="divide-y divide-outline-variant">
+            {recurringTasks.map((task) => (
+              <li key={task.id}>
+                <button
+                  type="button"
+                  onClick={() => { setSchedulesOpen(false); setManagedOccurrence({ taskId: task.id, date: TODAY_ISO }) }}
+                  className="level-row-action flex min-h-14 w-full items-center gap-3 py-3 text-left transition-colors hover:bg-surface-container motion-reduce:transition-none"
+                >
+                  <Icon name={task.paused ? "pause" : "event_repeat"} className={`text-[19px] ${task.paused ? "text-warning" : "text-primary"}`} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-on-surface">{task.title}</span>
+                    <span className="block truncate text-xs text-muted">{taskRepeatLabel(task)} · {task.time}{task.paused ? " · Pausado" : ""}</span>
+                  </span>
+                  <Icon name="chevron_right" className="text-[17px] text-muted" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Modal>
+
+      <TaskActionModal task={managedTask} occurrenceDate={managedOccurrence?.date ?? TODAY_ISO} onClose={() => setManagedOccurrence(null)} />
     </main>
   )
 }
 
 /* ------------------------------------------------------------------ Dia */
-function DiaView({ date, setDate, tasks, events, toggle, isToday }: { date: Date; setDate: (d: Date) => void; tasks: Task[]; events: GoogleCalendarEvent[]; toggle: ToggleTask; isToday: (d: Date) => boolean }) {
+function DiaView({ date, setDate, tasks, events, toggle, manage, isToday }: { date: Date; setDate: (d: Date) => void; tasks: Task[]; events: GoogleCalendarEvent[]; toggle: ToggleTask; manage: ManageTask; isToday: (d: Date) => boolean }) {
   const dayTasks = tasksOn(tasks, isoOf(date), TODAY_ISO)
   const items = timelineOnDate(tasks, events, isoOf(date), TODAY_ISO)
   const done = dayTasks.filter((t) => t.completed).length
@@ -123,7 +169,7 @@ function DiaView({ date, setDate, tasks, events, toggle, isToday }: { date: Date
           <Empty label="Nenhuma tarefa ou evento neste dia." />
         ) : (
           <ul className="divide-y divide-outline-variant">
-            {items.map((item) => <li key={item.key}><TimelineRow item={item} toggle={toggle} /></li>)}
+            {items.map((item) => <li key={item.key}><TimelineRow item={item} toggle={toggle} manage={manage} /></li>)}
           </ul>
         )}
       </SectionCard>
@@ -132,7 +178,7 @@ function DiaView({ date, setDate, tasks, events, toggle, isToday }: { date: Date
 }
 
 /* --------------------------------------------------------------- Semana */
-function SemanaView({ cursor, setCursor, tasks, events, toggle, isToday }: { cursor: Date; setCursor: (d: Date) => void; tasks: Task[]; events: GoogleCalendarEvent[]; toggle: ToggleTask; isToday: (d: Date) => boolean }) {
+function SemanaView({ cursor, setCursor, tasks, events, toggle, manage, isToday }: { cursor: Date; setCursor: (d: Date) => void; tasks: Task[]; events: GoogleCalendarEvent[]; toggle: ToggleTask; manage: ManageTask; isToday: (d: Date) => boolean }) {
   const start = weekStart(cursor)
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i))
   const end = addDays(start, 6)
@@ -154,7 +200,7 @@ function SemanaView({ cursor, setCursor, tasks, events, toggle, isToday }: { cur
               <ul className="flex flex-col gap-1">
                 {list.length === 0 ? <li className="px-1 py-1 text-xs text-muted">—</li> : list.map((item) => (
                   <li key={item.key}>
-                    <WeekTimelineItem item={item} toggle={toggle} />
+                    <WeekTimelineItem item={item} toggle={toggle} manage={manage} />
                   </li>
                 ))}
               </ul>
@@ -167,7 +213,7 @@ function SemanaView({ cursor, setCursor, tasks, events, toggle, isToday }: { cur
 }
 
 /* ------------------------------------------------------------------ Mês */
-function MesView({ cursor, setCursor, counts, tasks, events, toggle, isToday, onOpenDay }: { cursor: Date; setCursor: (d: Date) => void; counts: Map<string, number>; tasks: Task[]; events: GoogleCalendarEvent[]; toggle: ToggleTask; isToday: (d: Date) => boolean; onOpenDay: (d: Date) => void }) {
+function MesView({ cursor, setCursor, counts, tasks, events, toggle, manage, isToday, onOpenDay }: { cursor: Date; setCursor: (d: Date) => void; counts: Map<string, number>; tasks: Task[]; events: GoogleCalendarEvent[]; toggle: ToggleTask; manage: ManageTask; isToday: (d: Date) => boolean; onOpenDay: (d: Date) => void }) {
   const [sel, setSel] = useState<Date>(cursor)
   const y = cursor.getFullYear(), m = cursor.getMonth()
   const first = new Date(y, m, 1)
@@ -207,7 +253,7 @@ function MesView({ cursor, setCursor, counts, tasks, events, toggle, isToday, on
         </div>
         <SectionCard title={sel.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" })} description={`${selectedTasks.filter((t) => t.completed).length}/${selectedTasks.length} concluídas${selectedGoogle ? ` · ${selectedGoogle} do Google` : ""}`} bodyClassName="p-0">
           {selectedItems.length === 0 ? <Empty label="Sem tarefas ou eventos neste dia." /> : (
-            <ul className="divide-y divide-outline-variant">{selectedItems.map((item) => <li key={item.key}><TimelineRow item={item} toggle={toggle} /></li>)}</ul>
+            <ul className="divide-y divide-outline-variant">{selectedItems.map((item) => <li key={item.key}><TimelineRow item={item} toggle={toggle} manage={manage} /></li>)}</ul>
           )}
         </SectionCard>
       </div>
@@ -289,9 +335,9 @@ function CalendarNotice({ connection, connectionStatus, status, error, retry }: 
   return null
 }
 
-function TimelineRow({ item, toggle }: { item: TimelineItem; toggle: ToggleTask }) {
+function TimelineRow({ item, toggle, manage }: { item: TimelineItem; toggle: ToggleTask; manage: ManageTask }) {
   return item.source === "level"
-    ? <TaskRow task={item.task} toggle={toggle} showTime />
+    ? <TaskRow task={item.task} toggle={toggle} manage={manage} showTime />
     : <GoogleEventRow event={item.event} />
 }
 
@@ -318,14 +364,19 @@ function GoogleEventRow({ event }: { event: GoogleCalendarEvent }) {
   )
 }
 
-function WeekTimelineItem({ item, toggle }: { item: TimelineItem; toggle: ToggleTask }) {
+function WeekTimelineItem({ item, toggle, manage }: { item: TimelineItem; toggle: ToggleTask; manage: ManageTask }) {
   if (item.source === "level") {
     const task = item.task
     return (
-      <button onClick={() => toggle(task.id, task.date)} className="level-control flex w-full items-start gap-1.5 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-surface-container">
-        <Icon name={task.completed ? "check_circle" : "radio_button_unchecked"} filled={task.completed} className={cn("mt-0.5 text-[15px]", task.completed ? "text-tertiary" : "text-muted")} />
-        <span className={cn("text-xs leading-tight", task.completed ? "text-muted line-through" : "text-on-surface")}>{task.title}</span>
-      </button>
+      <div className="group flex items-start rounded-lg transition-colors hover:bg-surface-container">
+        <button onClick={() => toggle(task.id, task.date)} className="level-control flex min-w-0 flex-1 items-start gap-1.5 px-1.5 py-1 text-left">
+          <Icon name={task.completed ? "check_circle" : "radio_button_unchecked"} filled={task.completed} className={cn("mt-0.5 text-[15px]", task.completed ? "text-tertiary" : "text-muted")} />
+          <span className={cn("text-xs leading-tight", task.completed ? "text-muted line-through" : "text-on-surface")}>{task.title}</span>
+        </button>
+        <button type="button" aria-label={`Gerenciar ${task.title}`} onClick={() => manage(task.id, task.date ?? TODAY_ISO)} className="level-icon-button grid size-7 shrink-0 place-items-center rounded-md text-muted hover:text-on-surface">
+          <Icon name="tune" className="text-[13px]" />
+        </button>
+      </div>
     )
   }
   const link = safeGoogleCalendarUrl(item.event.htmlLink)
@@ -353,10 +404,11 @@ function PeriodNav({ title, onPrev, onNext, onToday, badge }: { title: string; o
   )
 }
 
-function TaskRow({ task, toggle, showTime }: { task: Task; toggle: ToggleTask; showTime?: boolean }) {
+function TaskRow({ task, toggle, manage, showTime }: { task: Task; toggle: ToggleTask; manage: ManageTask; showTime?: boolean }) {
   const repeatLabel = taskRepeatLabel(task)
   return (
-    <button onClick={() => toggle(task.id, task.date)} className="level-row-action flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-surface-container">
+    <div className="level-row-action flex w-full items-center transition-colors hover:bg-surface-container">
+      <button onClick={() => toggle(task.id, task.date)} className="level-control flex min-w-0 flex-1 items-center gap-3 px-5 py-3 text-left">
       <Icon name={task.completed ? "check_circle" : "radio_button_unchecked"} filled={task.completed} className={cn("text-[20px]", task.completed ? "text-tertiary" : "text-muted")} />
       {showTime ? <span className="w-12 shrink-0 font-mono text-xs text-muted">{task.time}</span> : null}
       <div className="min-w-0 flex-1">
@@ -367,7 +419,20 @@ function TaskRow({ task, toggle, showTime }: { task: Task; toggle: ToggleTask; s
         </p>
       </div>
       {task.priority ? <span className={cn("shrink-0 rounded-md px-2 py-0.5 text-[11px] font-medium", PRIORITY_TONE[task.priority])}>{PRIORITY_LABEL[task.priority]}</span> : null}
-    </button>
+      </button>
+      <button type="button" aria-label={`Gerenciar ${task.title}`} onClick={() => manage(task.id, task.date ?? TODAY_ISO)} className="level-icon-button mr-3 grid size-10 shrink-0 place-items-center rounded-lg text-muted transition-colors hover:bg-surface-container-high hover:text-on-surface">
+        <Icon name="tune" className="text-[17px]" />
+      </button>
+    </div>
+  )
+}
+
+function RoutineMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] font-medium text-muted">{label}</p>
+      <p className="mt-1 truncate font-mono text-lg font-semibold text-on-surface">{value}</p>
+    </div>
   )
 }
 

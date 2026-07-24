@@ -20,6 +20,7 @@ function localIsoDate(date: Date): string {
 }
 
 export function taskOccursOn(task: Task, isoDate: string, fallbackIso?: string): boolean {
+  if (task.paused || (task.excludedDates ?? []).includes(isoDate)) return false
   const repeat = task.repeat ?? "none"
   const startIso = task.date ?? fallbackIso
   if (repeat === "none") return startIso === isoDate
@@ -51,6 +52,65 @@ export function taskRepeatLabel(task: Task): string | null {
   const labels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
   const days = [...new Set(task.repeatDays ?? [])].sort((a, b) => a - b)
   return days.length ? days.map((day) => labels[day]).join(", ") : "Personalizado"
+}
+
+export interface RoutineConsistency {
+  planned: number
+  completed: number
+  percent: number
+  currentStreak: number
+}
+
+export function routineConsistency(
+  tasks: Task[],
+  startIso: string,
+  endIsoExclusive: string,
+  todayIso: string,
+): RoutineConsistency {
+  const occurrenceByDate = new Map<string, Task[]>()
+  for (const task of tasks) {
+    for (const date of taskOccurrenceDates(task, startIso, endIsoExclusive)) {
+      const list = occurrenceByDate.get(date) ?? []
+      list.push(task)
+      occurrenceByDate.set(date, list)
+    }
+  }
+
+  let planned = 0
+  let completed = 0
+  for (const [date, entries] of occurrenceByDate) {
+    if (date > todayIso) continue
+    planned += entries.length
+    completed += entries.filter((task) => task.repeat && task.repeat !== "none"
+      ? (task.completedDates ?? []).includes(date)
+      : task.completed).length
+  }
+
+  let currentStreak = 0
+  const cursor = parseIsoDate(todayIso)
+  if (cursor) {
+    for (let guard = 0; guard < 366; guard += 1) {
+      const date = localIsoDate(cursor)
+      const entries = occurrenceByDate.get(date) ?? []
+      if (entries.length === 0) {
+        cursor.setDate(cursor.getDate() - 1)
+        continue
+      }
+      const done = entries.every((task) => task.repeat && task.repeat !== "none"
+        ? (task.completedDates ?? []).includes(date)
+        : task.completed)
+      if (!done) break
+      currentStreak += 1
+      cursor.setDate(cursor.getDate() - 1)
+    }
+  }
+
+  return {
+    planned,
+    completed,
+    percent: progressPercent(completed, planned),
+    currentStreak,
+  }
 }
 
 export function taskOccurrenceDates(
