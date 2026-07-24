@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/AssistantActionCatalog.php';
+require_once __DIR__ . '/AssistantFinanceInterpreter.php';
 
 final class AssistantPromptOptimizer {
     /**
@@ -72,7 +73,7 @@ final class AssistantPromptOptimizer {
         if (!$question) return null;
 
         $supported = match ($module) {
-            'financeiro' => self::containsAny($normalized, ['saldo','patrim','gasto','gastei','gastando','despesa','categoria','dinheiro']),
+            'financeiro' => self::containsAny($normalized, ['saldo','patrim','gasto','gastei','gastando','despesa','categoria','dinheiro','renda','receita','ganhei','recebi']),
             'agenda' => self::containsAny($normalized, ['produtividade','tarefa','rotina']),
             'treinos' => self::containsAny($normalized, ['treino','cardio','imc','peso','medida']),
             'alimentacao' => self::containsAny($normalized, ['alimentacao','alimentação','dieta','plano alimentar','cardapio','cardápio','refeicao','refeição']),
@@ -93,9 +94,8 @@ final class AssistantPromptOptimizer {
             'agenda' => preg_match('/\b(?:criar|adicionar|registrar) (?:uma )?tarefa\b/', $normalized) === 1 ? 'add_task' : null,
             'financeiro' => match (true) {
                 preg_match('/\b(?:transferir|transferi|transferencia)\b/', $normalized) === 1 => 'add_transfer',
-                preg_match('/\b(?:registrar|adicionar|lancar) (?:uma )?renda\b/', $normalized) === 1 => 'add_income',
-                preg_match('/\b(?:lancar|registrar|adicionar) (?:uma )?(?:despesa|gasto)\b/', $normalized) === 1,
-                    str_starts_with($normalized, 'lancar r$') => 'add_expense',
+                AssistantFinanceInterpreter::detectAction($text, $module) !== null
+                    => AssistantFinanceInterpreter::detectAction($text, $module),
                 default => null,
             },
             'treinos' => match (true) {
@@ -189,6 +189,13 @@ final class AssistantPromptOptimizer {
 
     private static function ascii(string $value): string {
         $value = mb_strtolower(trim($value), 'UTF-8');
+        $value = strtr($value, [
+            'á'=>'a', 'à'=>'a', 'â'=>'a', 'ã'=>'a', 'ä'=>'a',
+            'é'=>'e', 'è'=>'e', 'ê'=>'e', 'ë'=>'e',
+            'í'=>'i', 'ì'=>'i', 'î'=>'i', 'ï'=>'i',
+            'ó'=>'o', 'ò'=>'o', 'ô'=>'o', 'õ'=>'o', 'ö'=>'o',
+            'ú'=>'u', 'ù'=>'u', 'û'=>'u', 'ü'=>'u', 'ç'=>'c',
+        ]);
         $ascii = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
         return preg_replace('/\s+/', ' ', is_string($ascii) ? $ascii : $value) ?? $value;
     }

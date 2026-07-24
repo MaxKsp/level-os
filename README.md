@@ -454,7 +454,7 @@ O cartão usa uma recorrência mensal sem plano associado e direciona ao checkou
 
 | Variável | Finalidade |
 |---|---|
-| `LEVELOS_ASSISTANT_DATA_KEY` | Chave base64 de 32 bytes para histórico cifrado |
+| `LEVELOS_ASSISTANT_DATA_KEY` | Chave base64 de 32 bytes para histórico cifrado; recomendada. Se ausente, é derivada com HKDF de `LEVELOS_GOOGLE_TOKEN_KEY` |
 | `LEVELOS_ASSISTANT_DAILY_TOKEN_LIMIT` | Cota diária por usuário; `0` desativa |
 | `LEVELOS_ASSISTANT_HISTORY_DAYS` | Retenção do histórico, de 7 a 365 dias |
 | `LEVELOS_ASSISTANT_EXPENSE_CONFIRM_CENTS` | Limite de confirmação de despesas |

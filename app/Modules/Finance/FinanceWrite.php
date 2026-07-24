@@ -74,8 +74,8 @@ function finance_save_set(PDO $db, int $uid, string $set, array $rows, bool $awa
                 } else { // income_var
                     $clientId = (string)($t['id'] ?? uniqid('v'));
                     $valueCents = fin_money_to_cents($t['valor'] ?? 0);
-                    $ins->execute([$uid, 'income_var', $clientId, null, fin_cents_to_decimal($valueCents), $valueCents,
-                        $t['date'] ?? null, null, null, null, null, null, null, null, null, null,
+                    $ins->execute([$uid, 'income_var', $clientId, $t['label'] ?? null, fin_cents_to_decimal($valueCents), $valueCents,
+                        $t['date'] ?? null, null, null, null, null, null, null, null, null, $t['accountId'] ?? null,
                         isset($t['km']) && $t['km'] !== null ? (int)$t['km'] : null, null, null,
                         null]);
                 }

@@ -45,11 +45,12 @@ final class AssistantService {
             $preferredAction = $standaloneAction ?? AssistantPromptOptimizer::preferredAction($routingText, $module);
             $localRoute = AssistantPromptOptimizer::localRoute($routingText, $module);
             $scopeRefusal = AssistantPromptOptimizer::isOutOfScope($displayText, $module);
-            $localDecision = $localRoute !== null || $scopeRefusal;
+            $localFinanceAction = AssistantFinanceInterpreter::detectAction($routingText, $module);
+            $localDecision = $localRoute !== null || $scopeRefusal || $localFinanceAction !== null;
             $this->requireAvailableUsage($userId, $localDecision);
             $context = $this->executor->context(
                 $userId,
-                $localDecision ? null : $module,
+                ($localRoute !== null || $scopeRefusal) ? null : $module,
                 $preferredAction,
             );
             $routed = $this->router->route($userId, $scopeRefusal ? $displayText : $routingText, $context, $module);
@@ -421,11 +422,31 @@ final class AssistantService {
         if (($account['principal'] ?? false) === true && str_contains($text, 'principal')) {
             return count(array_filter($accounts, static fn(array $item): bool => ($item['principal'] ?? false) === true)) === 1;
         }
+
+        $rawTokens = preg_split('/[^\pL\pN]+/u', (string)($account['label'] ?? ''), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        foreach ($rawTokens as $rawToken) {
+            $token = self::normalizeAccountText($rawToken);
+            if (strlen($token) < 3 || in_array($token, [
+                'conta', 'corrente', 'poupanca', 'cartao', 'credito', 'debito', 'principal',
+            ], true) || !str_contains($text, $token)) {
+                continue;
+            }
+            $owners = array_filter($accounts, static fn(array $item): bool =>
+                str_contains(self::normalizeAccountText((string)($item['label'] ?? '')), $token));
+            if (count($owners) === 1) return true;
+        }
         return false;
     }
 
     private static function normalizeAccountText(string $value): string {
         $value = mb_strtolower(trim($value), 'UTF-8');
+        $value = strtr($value, [
+            'á'=>'a', 'à'=>'a', 'â'=>'a', 'ã'=>'a', 'ä'=>'a',
+            'é'=>'e', 'è'=>'e', 'ê'=>'e', 'ë'=>'e',
+            'í'=>'i', 'ì'=>'i', 'î'=>'i', 'ï'=>'i',
+            'ó'=>'o', 'ò'=>'o', 'ô'=>'o', 'õ'=>'o', 'ö'=>'o',
+            'ú'=>'u', 'ù'=>'u', 'û'=>'u', 'ü'=>'u', 'ç'=>'c',
+        ]);
         $ascii = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $value);
         return preg_replace('/[^a-z0-9]/', '', is_string($ascii) ? $ascii : $value) ?? '';
     }

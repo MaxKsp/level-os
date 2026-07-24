@@ -39,9 +39,11 @@ return static function (): void {
     ], false);
 
     $provider = new class implements LlmProvider {
+        public int $calls = 0;
         public function name(): string { return 'test-provider'; }
         public function supportsTools(): bool { return true; }
         public function complete(array $payload): array {
+            $this->calls++;
             return [
                 'choices'=>[['message'=>['tool_calls'=>[['function'=>[
                     'name'=>'add_transfer',
@@ -53,6 +55,54 @@ return static function (): void {
     };
     $repository = new AssistantRepository($db, new TokenCrypto(base64_encode(random_bytes(32))));
     $service = new AssistantService($db, $repository, new AssistantRouter([$provider], $repository), new AssistantActionExecutor($db));
+
+    $expense = $service->handle(
+        7,
+        'request_local_expense_0001',
+        'Lançar R$ 42,90 de alimentação hoje na conta principal',
+        'financeiro',
+    );
+    test_assert_same('applied', $expense['status'] ?? null, 'A complete everyday expense must execute locally.');
+    test_assert_same('mercado', $expense['data']['category'] ?? null, 'The saved expense must use a real platform category.');
+    test_assert_same(0, $provider->calls, 'A complete everyday expense must not depend on an external provider.');
+    test_assert_equals(957.10, finance_load_set($db, 7, 'accounts')[0]['saldo'], 'The local expense must update the selected account balance.');
+
+    finance_save_set($db, 9, 'accounts', [
+        ['id'=>'next-cc', 'label'=>'Next - CC', 'tipo'=>'corrente', 'saldo'=>10, 'principal'=>true],
+    ], false);
+    $income = $service->handle(
+        9,
+        'request_local_income_00001',
+        'Ganhei 40 reais, adicione na conta do Next, só tem ela cadastrada',
+        'financeiro',
+    );
+    test_assert_same('applied', $income['status'] ?? null, 'A received one-off amount must execute locally.');
+    test_assert_same('avulso', $income['data']['type'] ?? null, 'A one-off received amount must be categorized as avulso.');
+    test_assert_equals(50.0, finance_load_set($db, 9, 'accounts')[0]['saldo'], 'One-off income must increase the selected account balance.');
+    $savedVariableIncome = finance_load_set($db, 9, 'income_var');
+    test_assert_same(1, count($savedVariableIncome), 'One-off income must appear in the variable-income ledger.');
+    test_assert_same('next-cc', $savedVariableIncome[0]['accountId'] ?? null, 'One-off income must retain its destination account.');
+    test_assert_same(0, $provider->calls, 'A received one-off amount must not depend on an external provider.');
+    $undoneIncome = $service->undo(9, (string)$income['actionToken']);
+    test_assert_same('undone', $undoneIncome['status'] ?? null, 'A locally registered one-off income must retain safe undo.');
+    test_assert_equals(10.0, finance_load_set($db, 9, 'accounts')[0]['saldo'], 'Undo must restore the income destination balance.');
+    test_assert_same([], finance_load_set($db, 9, 'income_var'), 'Undo must remove the one-off income ledger entry.');
+
+    finance_save_set($db, 10, 'accounts', [
+        ['id'=>'next-cc', 'label'=>'Next - CC', 'tipo'=>'corrente', 'saldo'=>0, 'principal'=>false],
+        ['id'=>'nubank-cc', 'label'=>'Nubank - CC', 'tipo'=>'corrente', 'saldo'=>0, 'principal'=>true],
+    ], false);
+    $namedIncome = $service->handle(
+        10,
+        'request_named_income_00001',
+        'Recebi R$ 25 na conta do Next hoje',
+        'financeiro',
+    );
+    test_assert_same('Next - CC', $namedIncome['data']['account'] ?? null, 'A unique bank token must resolve safely among multiple accounts.');
+    $namedAccounts = finance_load_set($db, 10, 'accounts');
+    test_assert_equals(25.0, $namedAccounts[0]['saldo'], 'The explicitly named account must receive the income.');
+    test_assert_equals(0.0, $namedAccounts[1]['saldo'], 'Other user accounts must remain unchanged.');
+
     $preview = $service->handle(7, 'request_confirmation_0001', 'Transfira R$ 200 da Conta A para a Conta B', null);
 
     test_assert_same('confirmation', $preview['status'], 'Transfers must require explicit confirmation before execution.');

@@ -8,6 +8,7 @@ require_once dirname(__DIR__) . '/Training/TrainingService.php';
 require_once dirname(__DIR__) . '/Nutrition/NutritionPlanService.php';
 require_once dirname(__DIR__) . '/Progress/ProgressService.php';
 require_once __DIR__ . '/DietPlanCostCalculator.php';
+require_once __DIR__ . '/AssistantFinanceInterpreter.php';
 
 final class AssistantActionExecutor {
     public function __construct(private readonly PDO $db) {
@@ -37,7 +38,7 @@ final class AssistantActionExecutor {
                 ], array_slice($accounts, 0, 40)),
             ];
             if ($preferredAction === null || $preferredAction === 'add_expense') {
-                $context['finance']['categories'] = ['moradia','alimentacao','transporte','saude','educacao','lazer','assinaturas','outros'];
+                $context['finance']['categories'] = AssistantFinanceInterpreter::expenseCategories();
             }
         }
         $needsWorkoutIds = $preferredAction === null || $preferredAction === 'log_workout_session';
@@ -108,7 +109,7 @@ final class AssistantActionExecutor {
         if ($kind === 'finance_item') {
             $set = (string)($undo['set'] ?? '');
             $id = (string)($undo['id'] ?? '');
-            if (!in_array($set, ['expense', 'income', 'transfers'], true) || $id === '') {
+            if (!in_array($set, ['expense', 'income', 'income_var', 'transfers'], true) || $id === '') {
                 throw new RuntimeException('Undo financeiro inválido.');
             }
             $items = $this->loadFinanceUndoSet($userId, $set);
@@ -205,6 +206,31 @@ final class AssistantActionExecutor {
         if (!in_array($type, ['fixa','variavel','momentanea','avulso'], true)) throw new InvalidArgumentException('Tipo de renda inválido.');
         $accounts = finance_load_set($this->db, $uid, 'accounts');
         $account = $this->resolveAccount($accounts, $args['account'] ?? null);
+        if ($type === 'avulso') {
+            $variableIncome = finance_load_set($this->db, $uid, 'income_var');
+            $id = 'as_inc_' . substr(bin2hex(random_bytes(12)), 0, 24);
+            $row = [
+                'id'=>$id, 'label'=>'Renda avulsa', 'valor'=>fin_cents_to_number($valueCents),
+                'date'=>$date, 'km'=>null, 'accountId'=>$account['id'],
+            ];
+            $nextAccounts = array_map(static function(array $item) use ($account, $valueCents): array {
+                if ((string)$item['id'] !== (string)$account['id']) return $item;
+                $item['saldo'] = fin_cents_to_number(fin_money_to_cents($item['saldo'] ?? 0) + $valueCents);
+                return $item;
+            }, $accounts);
+            $nextVariableIncome = [...$variableIncome, $row];
+            finance_save_set($this->db, $uid, 'accounts', $nextAccounts, false);
+            finance_save_set($this->db, $uid, 'income_var', $nextVariableIncome, true);
+            $xpRef = 'financeiro:income_var:' . $id;
+            $message = 'Renda avulsa de R$ ' . number_format(fin_cents_to_number($valueCents), 2, ',', '.')
+                . ' registrada em ' . (string)$account['label'] . '.';
+            return $this->mutationResult('add_income', $message, 'financeiro', [
+                'kind'=>'finance_item','set'=>'income_var','id'=>$id,'itemHash'=>$this->itemHash($row),
+                'accounts'=>[['before'=>$account,'after'=>$this->findItem($nextAccounts, (string)$account['id'])]],'xpRef'=>$xpRef,
+            ], ['id'=>$id,'value'=>fin_cents_to_number($valueCents),'date'=>$date,'type'=>$type,
+                'account'=>(string)$account['label']]);
+        }
+
         $income = finance_load_set($this->db, $uid, 'income');
         $id = 'as_inc_' . substr(bin2hex(random_bytes(12)), 0, 24);
         $payday = isset($args['payday']) && $args['payday'] !== null ? (int)$args['payday'] : (int)substr($date, 8, 2);

@@ -32,6 +32,9 @@ return static function (): void {
     test_assert_same(['create_diet_plan', 'query'], assistant_action_names_for_module('alimentacao'), 'Nutrition agent exposes only nutrition actions.');
     test_assert_same('add_expense', AssistantPromptOptimizer::preferredAction('Lançar R$ 50 de alimentação hoje na conta principal', 'financeiro'), 'Finance shortcut routes directly to expense.');
     test_assert_same('add_expense', AssistantPromptOptimizer::preferredAction('Lançar despesa de R$ 600 hoje', 'financeiro'), 'Explicit expense wording must retain its action across clarifications.');
+    test_assert_same('add_income', AssistantPromptOptimizer::preferredAction('Ganhei 40 reais, adicione na conta do Next', 'financeiro'), 'Natural received-income wording must route to income.');
+    test_assert_same(null, AssistantPromptOptimizer::preferredAction('Quanto ganhei este mês?', 'financeiro'), 'An income question must never be mistaken for a mutation.');
+    test_assert_same('query', AssistantPromptOptimizer::localRoute('Quanto ganhei este mês?', 'financeiro')['action'] ?? null, 'Income questions must stay read-only.');
     test_assert_same('add_transfer', AssistantPromptOptimizer::preferredAction('Foi hoje, transferi 600 reais do Next para o Nubank', 'financeiro'), 'An explicit transfer follow-up must start a new action.');
     test_assert_same('add_task', AssistantPromptOptimizer::preferredAction('Criar tarefa pagar conta amanhã às 09:00', 'agenda'), 'Routine shortcut routes directly to task.');
     test_assert_same('create_workout_program', AssistantPromptOptimizer::preferredAction('Monte um programa de treino para hipertrofia', 'treinos'), 'Training shortcut routes directly to a program.');
@@ -174,21 +177,52 @@ return static function (): void {
     test_assert_same('out_of_scope', $crossAction['route']['refusal'] ?? null, 'A provider action outside the active module must be rejected after routing.');
 
     $failing = new class implements LlmProvider {
+        public int $calls = 0;
         public function name(): string { return 'first'; }
         public function supportsTools(): bool { return true; }
-        public function complete(array $payload): array { throw new LlmProviderException('quota', 'first', 429, 'quota'); }
+        public function complete(array $payload): array {
+            $this->calls++;
+            throw new LlmProviderException('quota', 'first', 429, 'quota');
+        }
     };
-    try {
-        (new AssistantRouter([$failing], $repository))->route(
-            7,
-            'Registrar um gasto de R$ 10 na conta principal.',
-            ['today'=>'2026-07-18'],
-            'financeiro',
-        );
-        throw new RuntimeException('Exhausted providers must fail.');
-    } catch (AssistantProvidersExhausted $exception) {
-        test_assert_same(['quota'], $exception->failureKinds(), 'Provider exhaustion must retain a safe failure classification.');
-    }
+    $financeContext = [
+        'today'=>'2026-07-18',
+        'finance'=>[
+            'accounts'=>[
+                ['id'=>'next-cc','label'=>'Next - CC','type'=>'corrente','principal'=>true],
+                ['id'=>'nubank-cc','label'=>'Nubank - CC','type'=>'corrente','principal'=>false],
+            ],
+            'categories'=>AssistantFinanceInterpreter::expenseCategories(),
+        ],
+    ];
+    $localExpense = (new AssistantRouter([$failing], $repository))->route(
+        7,
+        'Lançar R$ 42,90 de alimentação hoje na conta principal.',
+        $financeContext,
+        'financeiro',
+    );
+    test_assert_same('level-os', $localExpense['provider'], 'A routine expense must remain available during provider outages.');
+    test_assert_same('add_expense', $localExpense['route']['action'] ?? null, 'The local finance interpreter must produce an expense.');
+    test_assert_equals(42.90, $localExpense['route']['arguments']['value'] ?? null, 'The interpreter must preserve pt-BR decimal money.');
+    test_assert_same('mercado', $localExpense['route']['arguments']['category'] ?? null, 'Food expenses must use the real Mercado platform category.');
+    test_assert_same('Next - CC', $localExpense['route']['arguments']['account'] ?? null, 'The principal account must resolve to its canonical label.');
+    test_assert_same(0, $failing->calls, 'A deterministic expense must not call an external provider.');
+
+    $localIncome = (new AssistantRouter([$failing], $repository))->route(
+        7,
+        'Ganhei 40 reais, adicione na conta do Next, só tem ela cadastrada.',
+        [
+            'today'=>'2026-07-18',
+            'finance'=>['accounts'=>[
+                ['id'=>'next-cc','label'=>'Next - CC','type'=>'corrente','principal'=>true],
+            ]],
+        ],
+        'financeiro',
+    );
+    test_assert_same('add_income', $localIncome['route']['action'] ?? null, 'Natural received money must become income.');
+    test_assert_same('avulso', $localIncome['route']['arguments']['type'] ?? null, 'A one-off received amount must be categorized as avulso.');
+    test_assert_same('Next - CC', $localIncome['route']['arguments']['account'] ?? null, 'The sole eligible account must be selected safely.');
+    test_assert_same(0, $failing->calls, 'A deterministic income must not call an external provider.');
     $working = new class implements LlmProvider {
         public int $calls = 0;
         public array $lastPayload = [];

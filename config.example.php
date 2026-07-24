@@ -74,7 +74,9 @@ define('MERCADOPAGO_COLLECTOR_ID', '');
 // OPENAI_API_KEY_1 e OPENAI_API_KEY_2 permitem dois fallbacks independentes.
 // OPENAI_MODEL é opcional; gpt-5-nano é o padrão de menor custo.
 // LEVELOS_ASSISTANT_DATA_KEY (legado ORBY_ASSISTANT_DATA_KEY aceito) deve ser
-// uma chave de 32 bytes em base64:
+// uma chave de 32 bytes em base64. Ela é recomendada e tem prioridade. Quando
+// ausente, uma chave exclusiva do assistente é derivada com HKDF a partir de
+// LEVELOS_GOOGLE_TOKEN_KEY, permitindo instalações que usam uma única chave:
 //   php -r "echo base64_encode(random_bytes(32)), PHP_EOL;"
 // LEVELOS_ASSISTANT_DAILY_TOKEN_LIMIT limita tokens de IA por usuário/dia
 // (padrão: 100000; use 0 para desativar). Consultas locais não contam.

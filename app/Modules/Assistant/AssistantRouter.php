@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/LlmProvider.php';
 require_once __DIR__ . '/AssistantActionCatalog.php';
 require_once __DIR__ . '/AssistantPromptOptimizer.php';
+require_once __DIR__ . '/AssistantFinanceInterpreter.php';
 require_once __DIR__ . '/AssistantRepository.php';
 
 final class AssistantRouter {
@@ -50,6 +51,16 @@ final class AssistantRouter {
             return [
                 'provider' => 'level-os',
                 'route' => $localRoute,
+                'cached' => false,
+                'local' => true,
+                'usage' => self::emptyUsage(),
+            ];
+        }
+        $localFinanceRoute = AssistantFinanceInterpreter::route($text, $module, $context);
+        if ($localFinanceRoute !== null) {
+            return [
+                'provider' => 'level-os',
+                'route' => $localFinanceRoute,
                 'cached' => false,
                 'local' => true,
                 'usage' => self::emptyUsage(),

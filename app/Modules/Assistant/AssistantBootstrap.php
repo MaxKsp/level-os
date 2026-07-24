@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once dirname(__DIR__, 3) . '/config.php';
 require_once dirname(__DIR__, 2) . '/Core/TokenCrypto.php';
+require_once __DIR__ . '/AssistantCrypto.php';
 require_once __DIR__ . '/GeminiNativeProvider.php';
 require_once __DIR__ . '/OpenAiCompatibleProvider.php';
 require_once __DIR__ . '/AssistantService.php';
@@ -50,5 +51,5 @@ function assistant_service(PDO $db): AssistantService {
 }
 
 function assistant_repository(PDO $db): AssistantRepository {
-    return new AssistantRepository($db, TokenCrypto::fromEnvironment('LEVELOS_ASSISTANT_DATA_KEY'));
+    return new AssistantRepository($db, assistant_data_crypto_from_environment());
 }

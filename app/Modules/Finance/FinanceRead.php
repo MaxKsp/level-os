@@ -98,10 +98,16 @@ function finance_transaction_from_row(array $row, string $set): array {
         if ($salaryDetails !== null) $income['salaryDetails'] = $salaryDetails;
         return $income;
     }
-    return [
+    $variable = [
         'date' => $row['tx_date'], 'valor' => $value,
         'km' => $row['km'] !== null ? (int)$row['km'] : null,
     ];
+    if (($row['label'] ?? null) !== null || ($row['account_id'] ?? null) !== null) {
+        $variable['id'] = $row['client_id'];
+        $variable['label'] = $row['label'];
+        $variable['accountId'] = $row['account_id'];
+    }
+    return $variable;
 }
 
 /** Carrega um set isolado mantendo o contrato histórico do frontend. */
