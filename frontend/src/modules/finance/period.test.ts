@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { financeBootstrapMock } from "./mock"
-import { financeTotalsForPeriod, financeTrendForPeriod, resolveFinancePeriod } from "./period"
+import { financeTotalsForPeriod, financeTrendForPeriod, incomeTimeline, resolveFinancePeriod } from "./period"
 
 const reference = new Date(2026, 6, 17)
 
@@ -63,5 +63,8 @@ describe("finance period", () => {
       recurringIncome: 7_000,
       recurringIncomeOccurrences: 2,
     })
+
+    const timeline = incomeTimeline(data, { start: "2026-07-01", end: "2026-10-31", label: "teste" })
+    expect(timeline.map((p) => p.total)).toEqual([3_000, 3_000, 4_000, 4_000]) // jul, ago, set, out
   })
 })

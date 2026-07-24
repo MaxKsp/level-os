@@ -19,7 +19,8 @@ import {
 } from "lucide-react";
 import { useAssistant } from "../assistant/store";
 import { AssistantAvatar } from "../assistant/AssistantAvatar";
-import { EmptyState, Icon } from "../../design-system";
+import { EmptyState, Icon, SectionCard, Sparkline } from "../../design-system";
+import { incomeTimeline, resolveFinancePeriod } from "./period";
 import { formatCurrency } from "../../lib/format";
 import { sumMoney } from "../../lib/money";
 import { cn } from "../../lib/cn";
@@ -59,6 +60,7 @@ export function FinanceScreen() {
   const fin = useFinance();
   const assistant = useAssistant();
   const summary = useMemo(() => financeSummary(fin.bootstrap), [fin.bootstrap]);
+  const incomeTrend = useMemo(() => incomeTimeline(fin.bootstrap, resolveFinancePeriod("6m", "", "", new Date())), [fin.bootstrap]);
   const accounts = useMemo(() => fin.accounts.filter((a) => !isCard(a)), [fin.accounts]);
   const cards = useMemo(() => fin.accounts.filter(isCard), [fin.accounts]);
   const cardsLimit = useMemo(() => totalLimit(fin.accounts), [fin.accounts]);
@@ -289,6 +291,24 @@ export function FinanceScreen() {
               </ul>
             )}
           </PersistentCollapsibleSection>
+
+          {incomeTrend.some((point) => point.total > 0) ? (
+            <SectionCard title="Evolução das rendas" description="Ocorrências recorrentes + variáveis nos últimos 6 meses">
+              <div className="pt-2">
+                <Sparkline
+                  values={incomeTrend.map((point) => point.total)}
+                  labels={incomeTrend.map((point) => point.label)}
+                  tone="tertiary"
+                  height={140}
+                  ariaLabel="Rendas por mês nos últimos 6 meses"
+                  valueFormatter={(value) => formatCurrency(value)}
+                />
+                <div className="mt-2 flex justify-between text-[10px] text-muted">
+                  {incomeTrend.map((point) => <span key={point.key}>{point.label}</span>)}
+                </div>
+              </div>
+            </SectionCard>
+          ) : null}
 
           <div className="grid gap-5 lg:grid-cols-2">
             <PersistentCollapsibleSection

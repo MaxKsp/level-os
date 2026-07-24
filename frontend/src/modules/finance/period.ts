@@ -200,3 +200,37 @@ export function financeTrendForPeriod(
     }
   })
 }
+
+export interface IncomeTimelinePoint {
+  key: string
+  label: string
+  total: number
+}
+
+/**
+ * Soma mensal das rendas no intervalo — ocorrências de renda recorrente
+ * (respeitando a vigência de cada faixa) + lançamentos variáveis. Espelha a
+ * "Evolução dos gastos" para dar à renda a mesma visibilidade temporal.
+ */
+export function incomeTimeline(data: FinanceBootstrap, range: FinanceDateRange): IncomeTimelinePoint[] {
+  const start = fromIso(range.start)
+  const end = fromIso(range.end)
+  const formatter = new Intl.DateTimeFormat("pt-BR", { month: "short", year: start.getFullYear() !== end.getFullYear() ? "2-digit" : undefined })
+  const cents = new Map<string, number>()
+  const add = (dateIso: string, valueCents: number) => {
+    const key = dateIso.slice(0, 7)
+    cents.set(key, (cents.get(key) ?? 0) + valueCents)
+  }
+  for (const income of data.income_lines) {
+    for (const date of incomeOccurrenceDates(income, range)) add(date, toMoneyCents(income.value))
+  }
+  for (const entry of data["ifood-entries"]) {
+    if (entry.date && isDateInRange(entry.date, range)) add(entry.date, toMoneyCents(entry.valor))
+  }
+  const points: IncomeTimelinePoint[] = []
+  for (let cursor = new Date(start.getFullYear(), start.getMonth(), 1); cursor <= end; cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)) {
+    const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`
+    points.push({ key, label: formatter.format(cursor).replace(".", ""), total: fromMoneyCents(cents.get(key) ?? 0) })
+  }
+  return points
+}
