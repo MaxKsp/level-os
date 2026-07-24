@@ -11,6 +11,7 @@ function auth_view_head(string $title, bool $noReferrer = true): void
     ?>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="<?= htmlspecialchars(security_meta_content_security_policy(), ENT_QUOTES, 'UTF-8') ?>">
 <?php if ($noReferrer): ?><meta name="referrer" content="no-referrer"><?php endif; ?>
 <meta name="theme-color" content="#080b10">
 <title><?= $safeTitle ?></title>
