@@ -8,6 +8,7 @@ if (current_user_id() !== null) {
 }
 
 $error = '';
+$verificationDelivered = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_form_ok()) {
         $error = 'Sessão expirada. Tente de novo.';
@@ -65,18 +66,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $baseUrl = $userId > 0 ? trusted_app_base_url() : null;
                 if ($userId > 0 && $baseUrl !== null) {
                     $verifyUrl = $baseUrl . '/verify-email.php?token=' . rawurlencode($token);
-                    send_transactional_email(
+                    $verificationDelivered = send_transactional_email(
                         $email,
                         email_template_verification($verifyUrl),
                         email_idempotency_key('email-verification', $userId . ':' . hash('sha256', $token)),
                     );
+                    if (!$verificationDelivered) {
+                        error_log('Verification e-mail delivery failed for user ' . $userId . '.');
+                    }
                 } elseif ($userId > 0) {
+                    $verificationDelivered = false;
                     error_log('Verification e-mail skipped: configure a valid HTTPS APP_URL.');
                 }
 
                 if ($userId > 0) {
                     reset_attempts();
-                    header('Location: login.php?auth=verification_sent');
+                    $authStatus = $verificationDelivered
+                        ? 'verification_sent'
+                        : 'verification_delivery_failed';
+                    header('Location: login.php?auth=' . $authStatus);
                     exit;
                 }
             }

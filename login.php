@@ -29,6 +29,7 @@ $authNotice = match ($authStatus) {
     'authentication_unavailable' => 'O backend não conseguiu concluir a vinculação da conta. Tente novamente em alguns instantes.',
     'too_many_requests' => 'Muitas tentativas seguidas. Aguarde um minuto e tente novamente.',
     'verification_sent' => 'Conta criada. Confirme seu e-mail antes de entrar.',
+    'verification_delivery_failed' => 'Conta criada, mas o e-mail não pôde ser enviado agora. Use “Reenviar confirmação” abaixo.',
     'verification_resent' => 'Se a conta estiver pendente, um novo link foi enviado.',
     'invalid csrf token' => 'A sessão local expirou durante o acesso. Atualize esta página e tente novamente.',
     default => '',
