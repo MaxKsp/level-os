@@ -34,31 +34,29 @@ function dashboard_render_react_shell(string $appRoot, string $csrfToken, int $u
     }
 
     $jsonFlags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
-    $csrfJson = json_encode($csrfToken, $jsonFlags);
-    $userScopeJson = json_encode((string)$userId, $jsonFlags);
+    $csrfHtml = htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8');
+    $userScopeHtml = htmlspecialchars((string)$userId, ENT_QUOTES, 'UTF-8');
     $authConfig = function_exists('supabase_public_config') ? supabase_public_config() : null;
     $authConfigJson = json_encode($authConfig, $jsonFlags);
+    $authConfigHtml = is_string($authConfigJson)
+        ? htmlspecialchars($authConfigJson, ENT_QUOTES, 'UTF-8')
+        : null;
 
-    if (!is_string($csrfJson) || !is_string($userScopeJson) || !is_string($authConfigJson)) {
+    if (!is_string($authConfigHtml)) {
         return false;
     }
 
     $sentryDsn = function_exists('sentry_public_dsn') ? sentry_public_dsn() : null;
-    $sentryJson = json_encode($sentryDsn, $jsonFlags);
-    if (!is_string($sentryJson)) {
-        return false;
-    }
+    $sentryHtml = htmlspecialchars(is_string($sentryDsn) ? $sentryDsn : '', ENT_QUOTES, 'UTF-8');
 
-    $csrfPattern   = '/<\?=\s*json_encode\(csrf_token\(\),.*?\)\s*\?>/s';
-    $scopePattern  = '/<\?=\s*json_encode\(\(string\)\$userId,.*?\)\s*\?>/s';
-    $authPattern   = '/<\?=\s*json_encode\(supabase_public_config\(\),.*?\)\s*\?>/s';
-    $sentryPattern = '/<\?=\s*json_encode\(sentry_public_dsn\(\),.*?\)\s*\?>/s';
-    $noncePattern  = '/<\?=\s*\$cspNonce\s*\?>/s';
-    $html = preg_replace($csrfPattern, $csrfJson, $html, 1);
-    $html = is_string($html) ? preg_replace($scopePattern, $userScopeJson, $html, 1) : null;
-    $html = is_string($html) ? preg_replace($authPattern, $authConfigJson, $html, 1) : null;
-    $html = is_string($html) ? preg_replace($sentryPattern, $sentryJson, $html, 1) : null;
-    $html = is_string($html) ? preg_replace($noncePattern, security_csp_nonce_attribute(), $html) : null;
+    $csrfPattern   = '/<\?=\s*htmlspecialchars\(csrf_token\(\),.*?\)\s*\?>/s';
+    $scopePattern  = '/<\?=\s*htmlspecialchars\(\(string\)\$userId,.*?\)\s*\?>/s';
+    $authPattern   = '/<\?=\s*htmlspecialchars\(\(string\)json_encode\(supabase_public_config\(\),.*?\),\s*ENT_QUOTES,\s*[\'"]UTF-8[\'"]\)\s*\?>/s';
+    $sentryPattern = '/<\?=\s*htmlspecialchars\(\(string\)\(sentry_public_dsn\(\)\s*\?\?\s*[\'"][\'"]\),.*?\)\s*\?>/s';
+    $html = preg_replace($csrfPattern, $csrfHtml, $html, 1);
+    $html = is_string($html) ? preg_replace($scopePattern, $userScopeHtml, $html, 1) : null;
+    $html = is_string($html) ? preg_replace($authPattern, $authConfigHtml, $html, 1) : null;
+    $html = is_string($html) ? preg_replace($sentryPattern, $sentryHtml, $html, 1) : null;
     if (!is_string($html) || str_contains($html, '<?=')) {
         return false;
     }

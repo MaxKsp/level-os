@@ -1,32 +1,15 @@
 <?php
 declare(strict_types=1);
 
-function security_csp_nonce(): string
-{
-    static $nonce = null;
-    if (!is_string($nonce)) {
-        $nonce = base64_encode(random_bytes(18));
-    }
-    return $nonce;
-}
-
-function security_csp_nonce_attribute(): string
-{
-    return htmlspecialchars(security_csp_nonce(), ENT_QUOTES, 'UTF-8');
-}
-
 /**
- * Política dinâmica: scripts inline só executam quando receberam o nonce
- * desta resposta. style-src ainda aceita inline porque React usa style props.
+ * A aplicação não usa JavaScript inline. Isso permite bloquear inline scripts
+ * com uma política estática, inclusive em hospedagens que reescrevem headers.
  */
-function security_apply_headers(): void
+function security_content_security_policy(): string
 {
-    if (headers_sent()) return;
-
-    $nonce = security_csp_nonce();
-    $policy = implode('; ', [
+    return implode('; ', [
         "default-src 'self'",
-        "script-src 'self' 'nonce-{$nonce}' https://cdn.jsdelivr.net",
+        "script-src 'self'",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
         "img-src 'self' data: blob: https://lh3.googleusercontent.com https://avatars.githubusercontent.com",
@@ -39,8 +22,13 @@ function security_apply_headers(): void
         "form-action 'self' https://accounts.google.com https://*.supabase.co",
         'upgrade-insecure-requests',
     ]);
+}
 
-    header('Content-Security-Policy: ' . $policy);
+function security_apply_headers(): void
+{
+    if (headers_sent()) return;
+
+    header('Content-Security-Policy: ' . security_content_security_policy());
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: DENY');
     header('Referrer-Policy: strict-origin-when-cross-origin');

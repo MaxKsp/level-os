@@ -23,27 +23,7 @@ function auth_view_head(string $title, bool $noReferrer = true): void
 <link rel="alternate icon" href="/assets/icon-192.png?v=<?= $pngIconVersion ?>" type="image/png">
 <link rel="apple-touch-icon" href="/assets/icon-192.png?v=<?= $pngIconVersion ?>">
 <link rel="manifest" href="/manifest.json">
-<script nonce="<?= security_csp_nonce_attribute() ?>">
-(() => {
-  try {
-    // Chave nova 'level-os:theme'; migra a legada 'orby_theme' uma vez.
-    let stored = localStorage.getItem('level-os:theme');
-    if (stored === null) {
-      const legacy = localStorage.getItem('orby_theme');
-      if (legacy !== null) { localStorage.setItem('level-os:theme', legacy); localStorage.removeItem('orby_theme'); stored = legacy; }
-    }
-    const theme = stored === 'light' ? 'light' : 'dark';
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.removeAttribute('data-accent');
-    document.documentElement.removeAttribute('data-metallic');
-    localStorage.removeItem('orby_accent');
-    localStorage.removeItem('orby_custom_accent');
-  } catch (_) {
-    document.documentElement.dataset.theme = 'dark';
-    document.documentElement.removeAttribute('data-accent');
-  }
-})();
-</script>
+<script src="assets/auth-page.js?v=<?= @filemtime(__DIR__ . '/../../assets/auth-page.js') ?: '1' ?>"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&amp;family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
@@ -58,7 +38,8 @@ function auth_view_head(string $title, bool $noReferrer = true): void
     $authAsset = is_file($rootAsset) ? '/auth-client.js' : (is_file($devAsset) ? '/frontend/dist/auth-client.js' : '/auth-client.js');
     $authAssetVersion = is_file($authAssetFile) ? (string)filemtime($authAssetFile) : '1';
 ?>
-<script nonce="<?= security_csp_nonce_attribute() ?>">window.CSRF_TOKEN=<?= json_encode($authCsrf, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;window.LEVEL_OS_AUTH_CONFIG=<?= json_encode($authConfig, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<meta name="level-os-csrf" content="<?= htmlspecialchars($authCsrf, ENT_QUOTES, 'UTF-8') ?>">
+<meta name="level-os-auth-config" content="<?= htmlspecialchars((string)json_encode($authConfig, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES, 'UTF-8') ?>">
 <script type="module" src="<?= htmlspecialchars($authAsset, ENT_QUOTES, 'UTF-8') ?>?v=<?= rawurlencode($authAssetVersion) ?>" defer></script>
 <?php endif; ?>
     <?php
@@ -109,18 +90,5 @@ function auth_view_chrome(): void
   <?php for ($i = 0; $i < 10; $i++): ?><i></i><?php endfor; ?>
 </div>
 <script src="assets/auth-shader.js?v=<?= @filemtime(__DIR__ . '/../../assets/auth-shader.js') ?: '1' ?>" defer></script>
-<script nonce="<?= security_csp_nonce_attribute() ?>">
-(() => {
-  const root = document.documentElement;
-  const syncToggle = () => {
-    const isDark = root.dataset.theme !== 'light';
-    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isDark ? '#080b10' : '#f4f7fb');
-  };
-  const syncVisibility = () => root.toggleAttribute('data-page-hidden', document.hidden);
-  document.addEventListener('visibilitychange', syncVisibility, { passive: true });
-  syncVisibility();
-  syncToggle();
-})();
-</script>
     <?php
 }

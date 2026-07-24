@@ -7,14 +7,10 @@ import '@fontsource-variable/geist';
 import './index.css';
 import { applyTheme, getStoredTheme } from './lib/theme';
 import { clearSensitiveBrowserCaches, clearUnscopedUserStorage } from './lib/userStorage';
-
-declare global {
-  interface Window {
-    LEVEL_OS_SENTRY_DSN?: string | null;
-  }
-}
+import { loadRuntimeConfigFromMeta } from './lib/runtimeConfig';
 
 // Aplica o tema antes do render para não piscar (FOUC de tema).
+loadRuntimeConfigFromMeta();
 clearUnscopedUserStorage();
 clearSensitiveBrowserCaches();
 applyTheme(getStoredTheme());

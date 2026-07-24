@@ -272,7 +272,7 @@ O Level OS trata dados financeiros e pessoais como informações sensíveis. A i
 - validação de assinatura e idempotência no webhook do Mercado Pago;
 - checkout hospedado: o Level OS não recebe número de cartão nem CVV;
 - headers de segurança no Apache e diretório de uploads sem execução de PHP;
-- CSP com nonce único por resposta, sem `unsafe-inline` para scripts;
+- CSP estrita sem JavaScript inline e sem `unsafe-inline` para scripts;
 - tokens Supabase restritos à sessão da aba; apenas o verificador PKCE temporário é compartilhado para concluir callbacks;
 - dados financeiros, treinos, rotina e perfil mantidos no backend em produção, sem cópia persistente no navegador;
 - `config.php`, builds, logs e artefatos locais ignorados pelo Git.

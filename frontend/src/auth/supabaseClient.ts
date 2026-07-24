@@ -1,4 +1,5 @@
 import { GoTrueClient, type Session, type SupportedStorage } from "@supabase/auth-js"
+import { loadRuntimeConfigFromMeta } from "../lib/runtimeConfig"
 
 declare global {
   interface Window {
@@ -57,6 +58,7 @@ export class AuthSessionExchangeError extends Error {
 }
 
 export function getSupabaseClient(): GoTrueClient | null {
+  loadRuntimeConfigFromMeta()
   const config = window.LEVEL_OS_AUTH_CONFIG
   if (!config?.url || !config.publishableKey) return null
   if (!client) {
