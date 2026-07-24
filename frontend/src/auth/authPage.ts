@@ -218,7 +218,16 @@ function bindPasswordUpdate(): void {
     const values = new FormData(form)
     const password = String(values.get("password") ?? "")
     const confirm = String(values.get("confirm") ?? "")
-    if (password.length < 8) { message(form, "A senha precisa ter pelo menos 8 caracteres."); return }
+    if (
+      password.length < 10
+      || !/[a-z]/.test(password)
+      || !/[A-Z]/.test(password)
+      || !/\d/.test(password)
+      || !/[^A-Za-z0-9]/.test(password)
+    ) {
+      message(form, "Use 10 ou mais caracteres, com maiúscula, minúscula, número e símbolo.")
+      return
+    }
     if (password !== confirm) { message(form, "As senhas não coincidem."); return }
     setBusy(form, true)
     const { error } = await supabase.updateUser({ password })

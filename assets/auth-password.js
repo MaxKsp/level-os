@@ -18,7 +18,7 @@
       </div>
       <div class="password-strength__bars" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
       <ul class="password-rules" aria-label="Critérios recomendados para uma senha forte">
-        <li data-password-rule="length">8+ caracteres</li>
+        <li data-password-rule="length">10+ caracteres</li>
         <li data-password-rule="case">Maiúscula e minúscula</li>
         <li data-password-rule="number">Número</li>
         <li data-password-rule="symbol">Símbolo</li>
@@ -32,7 +32,7 @@
     const update = () => {
       const value = input.value
       const rules = {
-        length: value.length >= 8,
+        length: value.length >= 10,
         case: /[a-z]/.test(value) && /[A-Z]/.test(value),
         number: /\d/.test(value),
         symbol: /[^A-Za-z0-9]/.test(value),

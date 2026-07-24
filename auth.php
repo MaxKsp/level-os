@@ -276,14 +276,14 @@ function reset_attempts(): void {
     $stmt->execute([client_ip()]);
 }
 
-/** Retorna 'ok' | '2fa_required' | 'locked' | 'invalid'. */
+/** Retorna 'ok' | '2fa_required' | 'email_unverified' | 'locked' | 'invalid'. */
 function attempt_login(string $username, string $password): string {
     $db = get_db();
     if (is_locked_out()) {
         try { audit_record($db, null, 'auth.login', 'denied', ['reason' => 'lockout']); } catch (Throwable) {}
         return 'locked';
     }
-    $stmt = $db->prepare('SELECT id, password_hash, totp_enabled, session_version
+    $stmt = $db->prepare('SELECT id, password_hash, totp_enabled, session_version, email, email_verified_at
         FROM users WHERE username = ? OR email = ? LIMIT 1');
     $stmt->execute([$username, $username]);
     $user = $stmt->fetch();
@@ -293,6 +293,10 @@ function attempt_login(string $username, string $password): string {
         return 'invalid';
     }
     reset_attempts();
+    if ($user['email'] !== null && $user['email_verified_at'] === null) {
+        try { audit_record($db, (int)$user['id'], 'auth.login', 'denied', ['reason' => 'email_unverified']); } catch (Throwable) {}
+        return 'email_unverified';
+    }
     if ((int)$user['totp_enabled'] === 1) {
         session_regenerate_id(true);
         $_SESSION['pending_2fa_user_id'] = (int)$user['id'];
@@ -410,7 +414,6 @@ function attempt_2fa(string $code): string {
         error_log('TOTP secret decryption failed.');
         return 'invalid';
     }
-
     if (totp_verify_code($totpSecret, $code)) {
         try {
             totp_secret_migrate_after_verification($db, $uid, (string)$user['totp_secret'], $totpSecret);

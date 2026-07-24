@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS users (
   session_version INT UNSIGNED NOT NULL DEFAULT 1,
   email VARCHAR(255) NULL UNIQUE,
   email_verified_at TIMESTAMP NULL,
-  email_verify_token VARCHAR(64) NULL,
+  email_verify_token VARCHAR(64) NULL COMMENT 'SHA-256 hexadecimal do token; nunca armazena o token bruto',
   google_id VARCHAR(64) NULL UNIQUE,
   auth_provider VARCHAR(32) NULL,
   auth_subject VARCHAR(128) NULL,

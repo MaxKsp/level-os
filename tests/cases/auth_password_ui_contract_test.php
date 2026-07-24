@@ -14,6 +14,10 @@ return static function (): void {
     foreach (['length', 'case', 'number', 'symbol'] as $rule) {
         test_assert_true(str_contains($script, 'data-password-rule="' . $rule . '"'), 'The strength meter must expose the ' . $rule . ' rule.');
     }
+    test_assert_true(str_contains($script, '10+ caracteres') && str_contains($script, 'value.length >= 10'), 'The strength meter must enforce the shared 10-character baseline.');
+    $reset = (string)file_get_contents($root . '/reset-password.php');
+    test_assert_true(substr_count($reset, 'minlength="10"') >= 4, 'Both reset flows and their confirmations must use the shared password baseline.');
+    test_assert_true(str_contains($reset, 'preg_match(\'/[A-Z]/\', $password)'), 'The PHP reset flow must enforce the same password complexity server-side.');
     test_assert_true(str_contains($css, '.password-toggle'), 'The password toggle must have a shared visual style.');
     test_assert_true(str_contains($css, 'width: 44px') && str_contains($css, 'height: 44px'), 'The password toggle must preserve a 44px touch target.');
 };

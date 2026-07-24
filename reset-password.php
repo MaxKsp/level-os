@@ -23,8 +23,14 @@ if (!$supabaseReset && $_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $password = (string)($_POST['password'] ?? '');
         $confirm = (string)($_POST['confirm'] ?? '');
-        if (mb_strlen($password) < 8) {
-            $error = 'A nova senha precisa ter pelo menos 8 caracteres.';
+        if (
+            mb_strlen($password) < 10
+            || !preg_match('/[a-z]/', $password)
+            || !preg_match('/[A-Z]/', $password)
+            || !preg_match('/\d/', $password)
+            || !preg_match('/[^a-zA-Z0-9]/', $password)
+        ) {
+            $error = 'Use 10 ou mais caracteres, com maiúscula, minúscula, número e símbolo.';
         } elseif ($password !== $confirm) {
             $error = 'As senhas não coincidem.';
         } else {
@@ -85,11 +91,11 @@ if (!$supabaseReset && !$success && !$tokenValid && $error === '') {
     <?php if ($supabaseReset): ?>
       <form method="POST" autocomplete="on" data-supabase-reset>
         <h1>Crie uma nova senha</h1>
-        <p class="sub">Use pelo menos 8 caracteres. Sua sessão de recuperação será encerrada após a alteração.</p>
+        <p class="sub">Use 10 ou mais caracteres, com maiúscula, minúscula, número e símbolo. Sua sessão de recuperação será encerrada após a alteração.</p>
         <label for="password">Nova senha</label>
-        <input type="password" id="password" name="password" autocomplete="new-password" placeholder="mínimo 8 caracteres" required minlength="8" autofocus>
+        <input type="password" id="password" name="password" autocomplete="new-password" placeholder="10+ caracteres, número e símbolo" required minlength="10" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{10,}" autofocus>
         <label for="confirm">Confirmar nova senha</label>
-        <input type="password" id="confirm" name="confirm" autocomplete="new-password" placeholder="repita a nova senha" required minlength="8">
+        <input type="password" id="confirm" name="confirm" autocomplete="new-password" placeholder="repita a nova senha" required minlength="10">
         <button type="submit">Redefinir senha</button>
       </form>
     <?php elseif ($success): ?>
@@ -105,12 +111,12 @@ if (!$supabaseReset && !$success && !$tokenValid && $error === '') {
         <?= csrf_field() ?>
         <input type="hidden" name="token" value="<?= htmlspecialchars($token, ENT_QUOTES, 'UTF-8') ?>">
         <h1>Crie uma nova senha</h1>
-        <p class="sub">Use pelo menos 8 caracteres. O link será invalidado assim que a senha for alterada.</p>
+        <p class="sub">Use 10 ou mais caracteres, com maiúscula, minúscula, número e símbolo. O link será invalidado assim que a senha for alterada.</p>
         <?php if ($error): ?><div class="error" role="alert"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></div><?php endif; ?>
         <label for="password">Nova senha</label>
-        <input type="password" id="password" name="password" autocomplete="new-password" placeholder="mínimo 8 caracteres" required minlength="8" autofocus>
+        <input type="password" id="password" name="password" autocomplete="new-password" placeholder="10+ caracteres, número e símbolo" required minlength="10" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{10,}" autofocus>
         <label for="confirm">Confirmar nova senha</label>
-        <input type="password" id="confirm" name="confirm" autocomplete="new-password" placeholder="repita a nova senha" required minlength="8">
+        <input type="password" id="confirm" name="confirm" autocomplete="new-password" placeholder="repita a nova senha" required minlength="10">
         <button type="submit">Redefinir senha</button>
       </form>
     <?php endif; ?>

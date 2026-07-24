@@ -23,8 +23,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Usuário precisa ter de 3 a 64 caracteres: letras, números, ponto, hífen ou underline.';
         } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $error = 'E-mail inválido.';
-        } elseif (mb_strlen($password) < 8) {
-            $error = 'Senha precisa ter pelo menos 8 caracteres.';
+        } elseif (
+            mb_strlen($password) < 10
+            || !preg_match('/[a-z]/', $password)
+            || !preg_match('/[A-Z]/', $password)
+            || !preg_match('/\d/', $password)
+            || !preg_match('/[^a-zA-Z0-9]/', $password)
+        ) {
+            $error = 'Use pelo menos 10 caracteres, com maiúscula, minúscula, número e símbolo.';
         } elseif ($password !== $confirm) {
             $error = 'As senhas não coincidem.';
         } else {
@@ -37,11 +43,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $hash = password_hash($password, PASSWORD_DEFAULT);
                 $token = bin2hex(random_bytes(32));
+                $tokenHash = hash('sha256', $token);
                 try {
                     $db->beginTransaction();
                     $stmt = $db->prepare('INSERT INTO users (username, password_hash, email, email_verify_token) VALUES (?, ?, ?, ?)');
-                    $stmt->execute([$username, $hash, $email, $token]);
+                    $stmt->execute([$username, $hash, $email, $tokenHash]);
                     $userId = (int)$db->lastInsertId();
+                    $verifyExpiry = $db->prepare('INSERT INTO kv_store (user_id, data_key, data_value) VALUES (?, ?, ?)
+                        ON DUPLICATE KEY UPDATE data_value = VALUES(data_value)');
+                    $verifyExpiry->execute([$userId, '_email_verify_expires_at', json_encode(time() + 172800)]);
                     $subscription = $db->prepare("INSERT INTO subscriptions (user_id, plan, status, current_period_end, trial_ends_at) VALUES (?, 'free', 'active', NULL, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 30 DAY))");
                     $subscription->execute([$userId]);
                     $db->commit();
@@ -66,8 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if ($userId > 0) {
                     reset_attempts();
-                    complete_login($userId);
-                    header('Location: index.php');
+                    header('Location: login.php?auth=verification_sent');
                     exit;
                 }
             }
@@ -100,9 +109,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <label for="email">E-mail</label>
     <input type="email" id="email" name="email" placeholder="voce@exemplo.com" autocomplete="email" autocapitalize="none" spellcheck="false" required value="<?= htmlspecialchars($_POST['email'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
     <label for="password">Senha</label>
-    <input type="password" id="password" name="password" placeholder="mínimo 8 caracteres" autocomplete="new-password" required minlength="8">
+    <input type="password" id="password" name="password" placeholder="10+ caracteres, número e símbolo" autocomplete="new-password" required minlength="10" pattern="(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9]).{10,}">
     <label for="confirm">Confirmar senha</label>
-    <input type="password" id="confirm" name="confirm" placeholder="repita a senha" autocomplete="new-password" required minlength="8">
+    <input type="password" id="confirm" name="confirm" placeholder="repita a senha" autocomplete="new-password" required minlength="10">
     <button type="submit">Criar conta</button>
     <div class="footer">Já tem conta? <a href="login.php">Entrar</a></div>
   </form>
