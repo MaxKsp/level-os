@@ -15,49 +15,66 @@ $sent = false;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_form_ok()) {
         $error = 'Sessão expirada. Atualize a página e tente novamente.';
-    } elseif (is_register_locked_out()) {
-        $error = 'Muitas solicitações. Aguarde alguns minutos antes de tentar novamente.';
     } else {
-        $email = trim((string)($_POST['email'] ?? ''));
+        $email = strtolower(trim((string)($_POST['email'] ?? '')));
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $error = 'Informe um e-mail válido.';
         } else {
-            record_register_attempt();
-            $db = get_db();
-            $stmt = $db->prepare('SELECT id FROM users WHERE email = ? AND email_verified_at IS NULL LIMIT 1');
-            $stmt->execute([$email]);
-            $userId = $stmt->fetchColumn();
+            $ipAllowed = rate_ok_for_subject(
+                'verify_resend_ip',
+                email_verification_ip_rate_subject(),
+                8,
+                3600,
+            );
+            $accountAllowed = $ipAllowed && rate_ok_for_subject(
+                'verify_resend_email',
+                email_verification_rate_subject($email),
+                3,
+                3600,
+            );
 
-            if ($userId !== false) {
-                $token = bin2hex(random_bytes(32));
-                $tokenHash = hash('sha256', $token);
-                try {
-                    $db->beginTransaction();
-                    $update = $db->prepare('UPDATE users SET email_verify_token = ?
-                        WHERE id = ? AND email_verified_at IS NULL');
-                    $update->execute([$tokenHash, $userId]);
-                    $expiry = $db->prepare('INSERT INTO kv_store (user_id, data_key, data_value) VALUES (?, ?, ?)
-                        ON DUPLICATE KEY UPDATE data_value = VALUES(data_value)');
-                    $expiry->execute([$userId, '_email_verify_expires_at', json_encode(time() + 172800)]);
-                    $db->commit();
+            if (!$ipAllowed || !$accountAllowed) {
+                $error = 'Muitas solicitações. Aguarde alguns minutos antes de tentar novamente.';
+            } else {
+                $db = get_db();
+                $stmt = $db->prepare('SELECT id FROM users WHERE email = ? AND email_verified_at IS NULL LIMIT 1');
+                $stmt->execute([$email]);
+                $userId = $stmt->fetchColumn();
 
-                    $baseUrl = trusted_app_base_url();
-                    if ($baseUrl !== null) {
-                        $verifyUrl = $baseUrl . '/verify-email.php?token=' . rawurlencode($token);
-                        send_transactional_email(
-                            $email,
-                            email_template_verification($verifyUrl),
-                            email_idempotency_key('email-verification-resend', $userId . ':' . hash('sha256', $token)),
-                        );
+                if ($userId !== false) {
+                    $token = bin2hex(random_bytes(32));
+                    $tokenHash = hash('sha256', $token);
+                    try {
+                        $db->beginTransaction();
+                        $update = $db->prepare('UPDATE users SET email_verify_token = ?
+                            WHERE id = ? AND email_verified_at IS NULL');
+                        $update->execute([$tokenHash, $userId]);
+                        $expiry = $db->prepare('INSERT INTO kv_store (user_id, data_key, data_value) VALUES (?, ?, ?)
+                            ON DUPLICATE KEY UPDATE data_value = VALUES(data_value)');
+                        $expiry->execute([$userId, '_email_verify_expires_at', json_encode(time() + 172800)]);
+                        $db->commit();
+
+                        $baseUrl = trusted_app_base_url();
+                        if ($baseUrl !== null) {
+                            $verifyUrl = $baseUrl . '/verify-email.php?token=' . rawurlencode($token);
+                            $delivered = send_transactional_email(
+                                $email,
+                                email_template_verification($verifyUrl),
+                                email_idempotency_key('email-verification-resend', $userId . ':' . hash('sha256', $token)),
+                            );
+                            if (!$delivered) {
+                                error_log('Verification e-mail resend failed for user ' . $userId . '.');
+                            }
+                        }
+                    } catch (Throwable $e) {
+                        if ($db->inTransaction()) {
+                            $db->rollBack();
+                        }
+                        error_log('resend-verification: ' . get_class($e) . '.');
                     }
-                } catch (Throwable $e) {
-                    if ($db->inTransaction()) {
-                        $db->rollBack();
-                    }
-                    error_log('resend-verification: ' . get_class($e) . '.');
                 }
+                $sent = true;
             }
-            $sent = true;
         }
     }
 }

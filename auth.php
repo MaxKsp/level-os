@@ -475,6 +475,15 @@ function password_reset_ip_rate_subject(): string {
     return 'i:' . substr(hash('sha256', client_ip()), 0, 62);
 }
 
+function email_verification_rate_subject(string $email): string {
+    $normalized = strtolower(trim($email));
+    return 'e:' . substr(hash('sha256', $normalized), 0, 62);
+}
+
+function email_verification_ip_rate_subject(): string {
+    return 'i:' . substr(hash('sha256', client_ip()), 0, 62);
+}
+
 function password_reset_token_is_well_formed(string $token): bool {
     return preg_match('/\A[a-f0-9]{64}\z/D', $token) === 1;
 }
