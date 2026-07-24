@@ -1,5 +1,4 @@
 import { useSyncExternalStore } from "react"
-import { userStorageKey } from "../../lib/userStorage"
 
 export interface ProfileData {
   name: string
@@ -21,51 +20,25 @@ export const DEFAULT_PROFILE: ProfileData = {
 }
 
 let cachedProfile: ProfileData | null = null
-let cachedProfileKey: string | null = null
-
-function profileStorageKey(): string {
-  return userStorageKey(PROFILE_KEY)
-}
 
 export function loadProfileData(): ProfileData {
-  try {
-    return {
-      ...DEFAULT_PROFILE,
-      ...JSON.parse(localStorage.getItem(profileStorageKey()) ?? "{}"),
-    }
-  } catch {
-    return DEFAULT_PROFILE
-  }
+  return cachedProfile ?? DEFAULT_PROFILE
 }
 
 export function saveProfileData(profile: ProfileData): void {
   cachedProfile = { ...DEFAULT_PROFILE, ...profile }
-  cachedProfileKey = profileStorageKey()
-  localStorage.setItem(cachedProfileKey, JSON.stringify(cachedProfile))
   window.dispatchEvent(new Event(PROFILE_EVENT))
 }
 
 function getSnapshot(): ProfileData {
-  const key = profileStorageKey()
-  if (!cachedProfile || cachedProfileKey !== key) {
-    cachedProfile = loadProfileData()
-    cachedProfileKey = key
-  }
-  return cachedProfile
+  return cachedProfile ?? DEFAULT_PROFILE
 }
 
 function subscribe(listener: () => void): () => void {
-  const sync = (event: Event) => {
-    if (event instanceof StorageEvent && event.key !== profileStorageKey()) return
-    cachedProfile = loadProfileData()
-    cachedProfileKey = profileStorageKey()
-    listener()
-  }
+  const sync = () => listener()
   window.addEventListener(PROFILE_EVENT, sync)
-  window.addEventListener("storage", sync)
   return () => {
     window.removeEventListener(PROFILE_EVENT, sync)
-    window.removeEventListener("storage", sync)
   }
 }
 

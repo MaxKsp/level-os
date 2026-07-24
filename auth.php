@@ -3,11 +3,14 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/totp.php';
+require_once __DIR__ . '/app/Modules/Auth/TotpSecretCrypto.php';
 require_once __DIR__ . '/app/Core/Audit.php';
+require_once __DIR__ . '/app/Core/SecurityHeaders.php';
 require_once __DIR__ . '/app/Core/SentryClient.php';
 require_once __DIR__ . '/app/Modules/Email/EmailBootstrap.php';
 require_once __DIR__ . '/app/Modules/Auth/SupabaseAuthBootstrap.php';
 
+security_apply_headers();
 sentry_bootstrap();
 
 ini_set('display_errors', '0');
@@ -401,7 +404,19 @@ function attempt_2fa(string $code): string {
         return 'invalid';
     }
 
-    if (totp_verify_code($user['totp_secret'], $code)) {
+    try {
+        $totpSecret = totp_secret_decrypt((string)$user['totp_secret'], $uid);
+    } catch (TokenCryptoException) {
+        error_log('TOTP secret decryption failed.');
+        return 'invalid';
+    }
+
+    if (totp_verify_code($totpSecret, $code)) {
+        try {
+            totp_secret_migrate_after_verification($db, $uid, (string)$user['totp_secret'], $totpSecret);
+        } catch (TokenCryptoException) {
+            error_log('TOTP secret migration failed.');
+        }
         reset_attempts();
         try { audit_record($db, $uid, 'auth.2fa', 'success', ['method' => 'totp']); } catch (Throwable) {}
         complete_login((int)$uid, $pendingVersion);

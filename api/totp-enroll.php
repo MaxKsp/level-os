@@ -25,8 +25,10 @@ if (!$user) {
 }
 
 $secret = totp_generate_secret();
+totp_secret_ensure_storage($db);
+$encryptedSecret = totp_secret_encrypt($secret, $uid);
 $stmt = $db->prepare('UPDATE users SET totp_secret = ?, totp_enabled = 0 WHERE id = ?');
-$stmt->execute([$secret, $uid]);
+$stmt->execute([$encryptedSecret, $uid]);
 
 echo json_encode([
     'secret' => $secret,

@@ -1,6 +1,8 @@
 <?php
-// Copie este arquivo para config.php e preencha com as credenciais reais
-// do banco MySQL criado no hPanel da Hostinger.
+// Em produção, copie este arquivo para ../level-os-config.php (um nível acima
+// de public_html) e preencha com as credenciais reais. Alternativamente,
+// LEVELOS_CONFIG_PATH pode apontar para outro arquivo PHP absoluto e privado.
+// config.php na raiz pública continua aceito somente para migração.
 //
 // config.php NUNCA deve ser commitado no git (já está no .gitignore).
 
@@ -35,6 +37,8 @@ define('GOOGLE_CLIENT_SECRET', '');
 //   LEVELOS_GOOGLE_TOKEN_KEY  (nome legado ORBY_GOOGLE_TOKEN_KEY ainda é aceito)
 // Gere com:
 //   php -r "echo base64_encode(random_bytes(32)), PHP_EOL;"
+// TOTP usa LEVELOS_TOTP_KEY (32 bytes em base64). Se ausente, uma chave
+// exclusiva é derivada por HKDF de LEVELOS_GOOGLE_TOKEN_KEY.
 
 // Sentry — monitoramento de erros (opcional, gratuito em sentry.io).
 // Crie um projeto PHP em sentry.io, copie o DSN e cole aqui.

@@ -141,8 +141,13 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const revision = useRef(0)
 
   useEffect(() => {
-    localStorage.setItem(userStorageKey(STORAGE_KEY), JSON.stringify({ version: 3, ...state }))
-  }, [state])
+    const key = userStorageKey(STORAGE_KEY)
+    if (remote) {
+      localStorage.removeItem(key)
+      return
+    }
+    localStorage.setItem(key, JSON.stringify({ version: 3, ...state }))
+  }, [remote, state])
 
   const refresh = useCallback(async () => {
     if (!remote) return

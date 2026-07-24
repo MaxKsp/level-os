@@ -23,7 +23,7 @@ function auth_view_head(string $title, bool $noReferrer = true): void
 <link rel="alternate icon" href="/assets/icon-192.png?v=<?= $pngIconVersion ?>" type="image/png">
 <link rel="apple-touch-icon" href="/assets/icon-192.png?v=<?= $pngIconVersion ?>">
 <link rel="manifest" href="/manifest.json">
-<script>
+<script nonce="<?= security_csp_nonce_attribute() ?>">
 (() => {
   try {
     // Chave nova 'level-os:theme'; migra a legada 'orby_theme' uma vez.
@@ -58,7 +58,7 @@ function auth_view_head(string $title, bool $noReferrer = true): void
     $authAsset = is_file($rootAsset) ? '/auth-client.js' : (is_file($devAsset) ? '/frontend/dist/auth-client.js' : '/auth-client.js');
     $authAssetVersion = is_file($authAssetFile) ? (string)filemtime($authAssetFile) : '1';
 ?>
-<script>window.CSRF_TOKEN=<?= json_encode($authCsrf, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;window.LEVEL_OS_AUTH_CONFIG=<?= json_encode($authConfig, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+<script nonce="<?= security_csp_nonce_attribute() ?>">window.CSRF_TOKEN=<?= json_encode($authCsrf, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;window.LEVEL_OS_AUTH_CONFIG=<?= json_encode($authConfig, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
 <script type="module" src="<?= htmlspecialchars($authAsset, ENT_QUOTES, 'UTF-8') ?>?v=<?= rawurlencode($authAssetVersion) ?>" defer></script>
 <?php endif; ?>
     <?php
@@ -109,7 +109,7 @@ function auth_view_chrome(): void
   <?php for ($i = 0; $i < 10; $i++): ?><i></i><?php endfor; ?>
 </div>
 <script src="assets/auth-shader.js?v=<?= @filemtime(__DIR__ . '/../../assets/auth-shader.js') ?: '1' ?>" defer></script>
-<script>
+<script nonce="<?= security_csp_nonce_attribute() ?>">
 (() => {
   const root = document.documentElement;
   const syncToggle = () => {

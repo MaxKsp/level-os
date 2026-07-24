@@ -11,7 +11,8 @@ declare(strict_types=1);
  *   https://SEU-DOMINIO/cron-notify.php?token=SEU_CRON_SECRET
  */
 
-require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/app/Core/ConfigLoader.php';
+level_os_load_config(__DIR__);
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/finance.php';
 require_once __DIR__ . '/app/Core/BackupCrypto.php';

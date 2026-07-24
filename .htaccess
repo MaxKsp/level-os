@@ -6,7 +6,7 @@ RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
 # Defesa em profundidade: estes diretorios pertencem ao desenvolvimento e
 # nunca devem ser executados ou baixados pelo servidor web.
-RewriteRule ^(?:automation|config|docs|migrations|scripts|tests|tmp)(?:/|$) - [F,L,NC]
+RewriteRule ^(?:app|automation|config|docs|migrations|scripts|tests|tmp)(?:/|$) - [F,L,NC]
 
 # Rotas client-side do React. Arquivos e endpoints PHP reais continuam sendo
 # atendidos normalmente; somente caminhos inexistentes caem no shell React.
@@ -30,10 +30,8 @@ Options -Indexes
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
   Header always set Strict-Transport-Security "max-age=31536000"
   Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
-  # 'unsafe-inline' é necessário porque o app usa <script>/style inline no
-  # index.php; a CSP ainda impede carregar script de qualquer host que não
-  # seja o próprio site ou o CDN do Chart.js.
-  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://lh3.googleusercontent.com; connect-src 'self' https://*.supabase.co https://*.ingest.us.sentry.io; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://accounts.google.com https://*.supabase.co"
+  # A CSP é emitida dinamicamente pelo PHP com nonce único por resposta.
+  # Não a sobrescreva aqui: políticas estáticas não conhecem o nonce.
 </IfModule>
 
 <IfModule mod_deflate.c>

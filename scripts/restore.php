@@ -84,7 +84,8 @@ function restore_cli_main(array $argv): int {
 
     // Isolamento de nome: checado ANTES de qualquer PDO ser criado pro alvo.
     try {
-        require_once $repoRoot . '/config.php';
+        require_once $repoRoot . '/app/Core/ConfigLoader.php';
+        level_os_load_config($repoRoot);
         $appDbName = defined('DB_NAME') ? (string)DB_NAME : '';
 
         // Nomes novos LEVELOS_*; os legados ORBY_* seguem aceitos até o rename no servidor.

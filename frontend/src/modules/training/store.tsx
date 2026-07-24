@@ -36,7 +36,14 @@ export function TrainingProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<TrainingSnapshot>(remote ? SEED : localSnapshot)
   const [status, setStatus] = useState<SyncStatus>(remote ? "loading" : "local")
   const [error, setError] = useState<string | null>(null)
-  useEffect(() => { if (!remote) localStorage.setItem(userStorageKey(KEY), JSON.stringify(data)) }, [data, remote])
+  useEffect(() => {
+    const key = userStorageKey(KEY)
+    if (remote) {
+      localStorage.removeItem(key)
+      return
+    }
+    localStorage.setItem(key, JSON.stringify(data))
+  }, [data, remote])
 
   const refresh = useCallback(async () => {
     if (!remote) return

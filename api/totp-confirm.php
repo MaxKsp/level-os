@@ -28,12 +28,24 @@ $stmt = $db->prepare('SELECT totp_secret FROM users WHERE id = ?');
 $stmt->execute([$uid]);
 $user = $stmt->fetch();
 
-if (!$user || !$user['totp_secret'] || !totp_verify_code($user['totp_secret'], $code)) {
+try {
+    $secret = $user && $user['totp_secret']
+        ? totp_secret_decrypt((string)$user['totp_secret'], $uid)
+        : '';
+} catch (TokenCryptoException) {
+    $secret = '';
+}
+
+if ($secret === '' || !totp_verify_code($secret, $code)) {
     http_response_code(400);
     echo json_encode(['error' => 'código inválido']);
     exit;
 }
 
+$storedSecret = (string)$user['totp_secret'];
+if (!str_starts_with($storedSecret, 'v1:')) {
+    totp_secret_migrate_after_verification($db, $uid, $storedSecret, $secret);
+}
 $db->beginTransaction();
 $stmt = $db->prepare('UPDATE users SET totp_enabled = 1 WHERE id = ?');
 $stmt->execute([$uid]);

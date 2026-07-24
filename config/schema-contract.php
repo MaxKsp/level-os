@@ -38,7 +38,7 @@ return [
             'auth_provider' => ['type' => 'varchar', 'length' => 32, 'nullable' => true],
             'auth_subject' => ['type' => 'varchar', 'length' => 128, 'nullable' => true],
             'auth_linked_at' => ['type' => 'timestamp', 'nullable' => true],
-            'totp_secret' => ['type' => 'varchar', 'length' => 64, 'nullable' => true],
+            'totp_secret' => ['type' => 'varchar', 'length' => 255, 'nullable' => true],
             'totp_enabled' => ['type' => 'tinyint', 'nullable' => false],
             'notify_email' => ['type' => 'tinyint', 'nullable' => false],
             'avatar' => ['type' => 'varchar', 'length' => 255, 'nullable' => true],

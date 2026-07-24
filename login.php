@@ -79,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       'Finanças, rotina e evolução pessoal conectadas em uma experiência clara, privada e feita para o dia a dia.',
       ['Visão financeira unificada', 'Rotina sem ruído', 'Treinos e evolução', 'Dados sob seu controle']
   ); ?>
-  <script>
+  <script nonce="<?= security_csp_nonce_attribute() ?>">
   (() => {
     const el = document.getElementById('auth-intro-title');
     if (!el) return;

@@ -98,6 +98,7 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   });
 
   const [exercises, setExercises] = useState<Exercise[]>(() => {
+    if (remoteTasks) return DEFAULT_EXERCISES;
     const saved = localStorage.getItem(userStorageKey('level-os:exercises'));
     return saved ? JSON.parse(saved) : DEFAULT_EXERCISES;
   });
@@ -142,8 +143,12 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [remoteTasks, tasks]);
 
   useEffect(() => {
+    if (remoteTasks) {
+      localStorage.removeItem(userStorageKey('level-os:exercises'));
+      return;
+    }
     localStorage.setItem(userStorageKey('level-os:exercises'), JSON.stringify(exercises));
-  }, [exercises]);
+  }, [exercises, remoteTasks]);
 
   // Active workout timer tick
   useEffect(() => {

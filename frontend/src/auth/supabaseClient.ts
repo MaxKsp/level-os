@@ -1,4 +1,4 @@
-import { GoTrueClient, type Session } from "@supabase/auth-js"
+import { GoTrueClient, type Session, type SupportedStorage } from "@supabase/auth-js"
 
 declare global {
   interface Window {
@@ -8,6 +8,46 @@ declare global {
 }
 
 let client: GoTrueClient | null = null
+export const AUTH_STORAGE_KEY = "level-os:supabase-auth"
+
+function isPkceVerifierKey(key: string): boolean {
+  return key === `${AUTH_STORAGE_KEY}-code-verifier`
+}
+
+/**
+ * A sessão (access/refresh token) dura somente enquanto a aba estiver aberta.
+ * O verificador PKCE fica no localStorage porque links de e-mail e OAuth podem
+ * voltar em uma nova aba; ele é temporário, aleatório e não autentica sozinho.
+ */
+export const authStorage: SupportedStorage = {
+  getItem(key) {
+    return (isPkceVerifierKey(key) ? window.localStorage : window.sessionStorage).getItem(key)
+  },
+  setItem(key, value) {
+    ;(isPkceVerifierKey(key) ? window.localStorage : window.sessionStorage).setItem(key, value)
+  },
+  removeItem(key) {
+    ;(isPkceVerifierKey(key) ? window.localStorage : window.sessionStorage).removeItem(key)
+  },
+}
+
+export function clearLegacySupabaseTokens(): void {
+  try {
+    for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+      const key = window.localStorage.key(index)
+      if (!key || key.endsWith("-code-verifier")) continue
+      if (
+        key === AUTH_STORAGE_KEY
+        || key === "supabase.auth.token"
+        || /^sb-[a-z0-9-]+-auth-token(?:-code-verifier)?$/i.test(key)
+      ) {
+        window.localStorage.removeItem(key)
+      }
+    }
+  } catch {
+    // Storage bloqueado: o SDK continua com sessão apenas em memória.
+  }
+}
 
 export class AuthSessionExchangeError extends Error {
   constructor(public readonly code: string, public readonly status: number) {
@@ -20,6 +60,7 @@ export function getSupabaseClient(): GoTrueClient | null {
   const config = window.LEVEL_OS_AUTH_CONFIG
   if (!config?.url || !config.publishableKey) return null
   if (!client) {
+    clearLegacySupabaseTokens()
     client = new GoTrueClient({
       url: `${config.url.replace(/\/$/, "")}/auth/v1`,
       headers: {
@@ -28,6 +69,8 @@ export function getSupabaseClient(): GoTrueClient | null {
       },
       flowType: "pkce",
       persistSession: true,
+      storage: authStorage,
+      storageKey: AUTH_STORAGE_KEY,
       autoRefreshToken: true,
       // A pagina de callback faz a troca PKCE explicitamente. Deixar o SDK
       // detectar a URL aqui criaria uma segunda troca e perderia redirectType.

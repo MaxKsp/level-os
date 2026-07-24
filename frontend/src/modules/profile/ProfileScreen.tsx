@@ -19,6 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import { Icon, SectionCard } from "../../design-system";
 import { cn } from "../../lib/cn";
 import { loadProfileData, saveProfileData, type ProfileData } from "./storage";
+import { loadRemoteProfile, saveRemoteProfile } from "./api";
 import { useProgress } from "../progress/store";
 import { AchievementsModal } from "../progress/components/AchievementsModal";
 import { XpBar } from "../progress/components/XpBar";
@@ -71,10 +72,33 @@ export function ProfileScreen() {
 
   useEffect(() => setProfile((current) => ({ ...current, name: identity.username, email: identity.email })), [identity.username, identity.email]);
 
-  const saveProfile = () => {
-    saveProfileData(profile);
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 2200);
+  useEffect(() => {
+    let active = true;
+    void loadRemoteProfile()
+      .then((remote) => {
+        if (!active) return;
+        setProfile((current) => {
+          const next = { ...current, ...remote };
+          saveProfileData(next);
+          return next;
+        });
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+
+  const saveProfile = async () => {
+    setDataStatus(null);
+    try {
+      const remote = await saveRemoteProfile(profile);
+      const next = { ...profile, ...remote };
+      setProfile(next);
+      saveProfileData(next);
+      setSaved(true);
+      window.setTimeout(() => setSaved(false), 2200);
+    } catch (cause) {
+      setDataStatus(cause instanceof Error ? cause.message : "Não foi possível salvar os dados pessoais.");
+    }
   };
 
   const updateAvatar = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -280,6 +304,7 @@ export function ProfileScreen() {
                 </span>
                 <Button onClick={saveProfile}>Salvar alterações</Button>
               </div>
+              {dataStatus ? <p role="status" className="text-xs text-muted sm:col-span-2">{dataStatus}</p> : null}
             </div>
           </SectionCard> : null}
 

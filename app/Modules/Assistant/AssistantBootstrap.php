@@ -1,7 +1,9 @@
 <?php
 declare(strict_types=1);
 
-require_once dirname(__DIR__, 3) . '/config.php';
+$assistantRoot = dirname(__DIR__, 3);
+require_once $assistantRoot . '/app/Core/ConfigLoader.php';
+level_os_load_config($assistantRoot);
 require_once dirname(__DIR__, 2) . '/Core/TokenCrypto.php';
 require_once __DIR__ . '/AssistantCrypto.php';
 require_once __DIR__ . '/GeminiNativeProvider.php';

@@ -6,7 +6,7 @@ import App from './App.tsx';
 import '@fontsource-variable/geist';
 import './index.css';
 import { applyTheme, getStoredTheme } from './lib/theme';
-import { clearUnscopedUserStorage } from './lib/userStorage';
+import { clearSensitiveBrowserCaches, clearUnscopedUserStorage } from './lib/userStorage';
 
 declare global {
   interface Window {
@@ -16,6 +16,7 @@ declare global {
 
 // Aplica o tema antes do render para não piscar (FOUC de tema).
 clearUnscopedUserStorage();
+clearSensitiveBrowserCaches();
 applyTheme(getStoredTheme());
 
 if (window.LEVEL_OS_SENTRY_DSN) {

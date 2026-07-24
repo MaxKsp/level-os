@@ -264,6 +264,7 @@ O Level OS trata dados financeiros e pessoais como informações sensíveis. A i
 - prepared statements com emulação desabilitada;
 - isolamento de registros por `user_id`;
 - TOTP e códigos de recuperação;
+- segredo TOTP cifrado por usuário, com migração transparente do formato legado;
 - tokens de uso único para recuperação de senha;
 - criptografia XChaCha20-Poly1305/secretstream via libsodium;
 - tokens de calendário, histórico de IA e backups cifrados;
@@ -271,6 +272,9 @@ O Level OS trata dados financeiros e pessoais como informações sensíveis. A i
 - validação de assinatura e idempotência no webhook do Mercado Pago;
 - checkout hospedado: o Level OS não recebe número de cartão nem CVV;
 - headers de segurança no Apache e diretório de uploads sem execução de PHP;
+- CSP com nonce único por resposta, sem `unsafe-inline` para scripts;
+- tokens Supabase restritos à sessão da aba; apenas o verificador PKCE temporário é compartilhado para concluir callbacks;
+- dados financeiros, treinos, rotina e perfil mantidos no backend em produção, sem cópia persistente no navegador;
 - `config.php`, builds, logs e artefatos locais ignorados pelo Git.
 
 > Segurança é um processo contínuo. Antes de produção, revise as configurações do servidor, proteja a branch principal, limite as credenciais por ambiente e conclua todos os itens do checklist operacional.
@@ -374,7 +378,10 @@ No Linux/macOS:
 cp config.example.php config.php
 ```
 
-Preencha em `config.php` somente os valores do seu ambiente. O arquivo é ignorado pelo Git.
+Em desenvolvimento, preencha `config.php` somente com os valores do seu ambiente.
+Em produção, prefira `level-os-config.php` um nível acima de `public_html`, ou
+defina `LEVELOS_CONFIG_PATH` com um caminho absoluto privado. O loader mantém
+`public_html/config.php` apenas como fallback de migração.
 
 ### 3. Prepare o banco
 
@@ -573,7 +580,9 @@ Secrets esperados no environment GitHub `Production`:
 | `FTP_PASSWORD` | Senha de deploy |
 | `FTP_SERVER_DIR` | Diretório remoto, normalmente `/public_html/` |
 
-O `config.php` deve ser criado e mantido diretamente no servidor; ele não faz parte do deploy.
+O arquivo de configuração deve ser criado diretamente no servidor e não faz
+parte do deploy. A posição recomendada é `/home/SEU_USUARIO/level-os-config.php`,
+fora de `public_html`.
 
 Antes do primeiro release, siga integralmente o [checklist de produção](docs/deployment/PRODUCTION_CHECKLIST.md).
 

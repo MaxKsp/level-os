@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/Core/SecurityHeaders.php';
+
 /**
  * Adaptador do dashboard para o front controller PHP.
  *
@@ -51,10 +53,12 @@ function dashboard_render_react_shell(string $appRoot, string $csrfToken, int $u
     $scopePattern  = '/<\?=\s*json_encode\(\(string\)\$userId,.*?\)\s*\?>/s';
     $authPattern   = '/<\?=\s*json_encode\(supabase_public_config\(\),.*?\)\s*\?>/s';
     $sentryPattern = '/<\?=\s*json_encode\(sentry_public_dsn\(\),.*?\)\s*\?>/s';
+    $noncePattern  = '/<\?=\s*\$cspNonce\s*\?>/s';
     $html = preg_replace($csrfPattern, $csrfJson, $html, 1);
     $html = is_string($html) ? preg_replace($scopePattern, $userScopeJson, $html, 1) : null;
     $html = is_string($html) ? preg_replace($authPattern, $authConfigJson, $html, 1) : null;
     $html = is_string($html) ? preg_replace($sentryPattern, $sentryJson, $html, 1) : null;
+    $html = is_string($html) ? preg_replace($noncePattern, security_csp_nonce_attribute(), $html) : null;
     if (!is_string($html) || str_contains($html, '<?=')) {
         return false;
     }

@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS users (
   auth_provider VARCHAR(32) NULL,
   auth_subject VARCHAR(128) NULL,
   auth_linked_at TIMESTAMP NULL,
-  totp_secret VARCHAR(64) NULL,
+  totp_secret VARCHAR(255) NULL,
   totp_enabled TINYINT(1) NOT NULL DEFAULT 0,
   notify_email TINYINT(1) NOT NULL DEFAULT 0,
   avatar VARCHAR(255) NULL,
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- ALTER TABLE users ADD COLUMN email_verify_token VARCHAR(64) NULL;
 -- ALTER TABLE users ADD COLUMN google_id VARCHAR(64) NULL UNIQUE;
 -- Aplique migrations/2026-07-20-supabase-auth.sql para as colunas de identidade gerenciada.
--- ALTER TABLE users ADD COLUMN totp_secret VARCHAR(64) NULL;
+-- ALTER TABLE users ADD COLUMN totp_secret VARCHAR(255) NULL;
 -- ALTER TABLE users ADD COLUMN totp_enabled TINYINT(1) NOT NULL DEFAULT 0;
 -- ALTER TABLE users ADD COLUMN notify_email TINYINT(1) NOT NULL DEFAULT 0;
 -- ALTER TABLE users ADD COLUMN avatar VARCHAR(255) NULL;

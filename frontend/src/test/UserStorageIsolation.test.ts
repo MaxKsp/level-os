@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest"
-import { clearUnscopedUserStorage, userStorageKey } from "../lib/userStorage"
+import { clearSensitiveBrowserCaches, clearUnscopedUserStorage, userStorageKey } from "../lib/userStorage"
 
 describe("armazenamento isolado por usuário", () => {
   afterEach(() => {
@@ -32,5 +32,18 @@ describe("armazenamento isolado por usuário", () => {
     expect(localStorage.getItem("level-os:tasks")).toBeNull()
     expect(localStorage.getItem(ownedKey)).toBe("dados-da-conta")
   })
-})
+  it("remove caches sensíveis sem apagar preferências visuais", () => {
+    window.LEVEL_OS_USER_SCOPE = "current"
+    localStorage.setItem("level-os:finance:v1:user:old", "finance")
+    localStorage.setItem("level-os:profile:v1:user:current", "profile")
+    localStorage.setItem("level-os:theme", "light")
+    localStorage.setItem("level-os:notifications:v1:user:current", "{}")
 
+    clearSensitiveBrowserCaches()
+
+    expect(localStorage.getItem("level-os:finance:v1:user:old")).toBeNull()
+    expect(localStorage.getItem("level-os:profile:v1:user:current")).toBeNull()
+    expect(localStorage.getItem("level-os:theme")).toBe("light")
+    expect(localStorage.getItem("level-os:notifications:v1:user:current")).toBe("{}")
+  })
+})
