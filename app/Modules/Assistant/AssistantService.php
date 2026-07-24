@@ -165,7 +165,7 @@ final class AssistantService {
                 return $stored + ['idempotent' => true];
             }
             try {
-                $result = $this->executor->execute($userId, $route);
+                $result = $this->executor->execute($userId, $route, [], $module);
             } catch (DietPlanBudgetOutsideTolerance $budgetError) {
                 $this->db->rollBack();
                 $correction = self::dietBudgetCorrection($routingText, $budgetError);
@@ -188,7 +188,7 @@ final class AssistantService {
                 if (!is_array($locked) || (string)$locked['status'] !== 'routing') {
                     throw new RuntimeException('assistant_request_in_progress');
                 }
-                $result = $this->executor->execute($userId, $route);
+                $result = $this->executor->execute($userId, $route, [], $module);
                 $autoCorrectedBudget = true;
             }
             $response = $result['response'];
@@ -274,7 +274,12 @@ final class AssistantService {
                 $approvedRoute['arguments'] = $approval['draft'];
                 $this->executor->preview($userId, $approvedRoute);
             }
-            $result = $this->executor->execute($userId, $approvedRoute, $approval);
+            $result = $this->executor->execute(
+                $userId,
+                $approvedRoute,
+                $approval,
+                self::responseModule($pending['module'] ?? null),
+            );
             $response = $result['response'];
             $undo = $result['undo'];
             $undoExpiry = $undo !== null ? level_clock_utc_sql(level_clock_epoch() + self::UNDO_WINDOW_SECONDS) : null;

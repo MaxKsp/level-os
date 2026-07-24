@@ -117,6 +117,7 @@ final class AssistantRouter {
                 $route = $this->enforceModuleScope(
                     $this->parseResponse($body, $preferredAction),
                     $module,
+                    $text,
                 );
                 $this->repository->cacheRoute($userId, $cacheKey, $provider->name(), $route);
                 return [
@@ -160,11 +161,21 @@ final class AssistantRouter {
     }
 
     /** @param array<string,mixed> $route @return array<string,mixed> */
-    private function enforceModuleScope(array $route, ?string $module): array {
+    private function enforceModuleScope(array $route, ?string $module, string $originalText): array {
         if ($module === null || isset($route['refusal']) || isset($route['clarification'])) return $route;
         $action = is_string($route['action'] ?? null) ? (string)$route['action'] : '';
         if (!in_array($action, assistant_action_names_for_module($module), true)) {
             return ['refusal' => 'out_of_scope'];
+        }
+        if ($action === 'query') {
+            if (AssistantPromptOptimizer::isOutOfScope($originalText, $module)) {
+                return ['refusal' => 'out_of_scope'];
+            }
+            // O provedor classifica a intenção, mas nunca pode trocar a pergunta
+            // do usuário por uma consulta de outro domínio.
+            $question = trim(mb_substr($originalText, 0, 500, 'UTF-8'));
+            if ($question === '') return ['refusal' => 'out_of_scope'];
+            $route['arguments'] = ['question' => $question];
         }
         return $route;
     }

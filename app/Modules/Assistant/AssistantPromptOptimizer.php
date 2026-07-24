@@ -20,18 +20,27 @@ final class AssistantPromptOptimizer {
             return true;
         }
 
-        // Uma intenção inequívoca do módulo tem precedência sobre palavras que
-        // também podem ser categorias ou descrições. Ex.: em Finanças,
-        // "alimentação" é a categoria de "Lançar R$ 42,90...", não um pedido
-        // para o agente de alimentação.
+        // Uma ação inequívoca do módulo tem precedência sobre palavras usadas
+        // apenas como categoria ou descrição. Ex.: "lançar gasto de alimentação"
+        // continua financeiro, e "criar tarefa de treinar" continua agenda.
         if (self::preferredAction($text, $module) !== null) return false;
 
         $signals = self::domainSignals();
         if ($module !== null && isset($signals[$module])) {
-            if (self::containsAny($normalized, $signals[$module])) return false;
+            $explicitDomain = self::explicitDomainIntent($normalized);
+            if ($explicitDomain !== null) return $explicitDomain !== $module;
+
+            $foreignSignal = false;
             foreach ($signals as $domain => $needles) {
-                if ($domain !== $module && self::containsAny($normalized, $needles)) return true;
+                if ($domain !== $module && self::containsAny($normalized, $needles)) {
+                    $foreignSignal = true;
+                    break;
+                }
             }
+            // Falha fechada: sinais simultâneos do agente atual e de outro
+            // agente nunca autorizam uma resposta cruzada.
+            if ($foreignSignal) return true;
+            if (self::containsAny($normalized, $signals[$module])) return false;
         } elseif ($module === null) {
             foreach ($signals as $needles) {
                 if (self::containsAny($normalized, $needles)) return false;
@@ -142,6 +151,40 @@ final class AssistantPromptOptimizer {
                 'jantar', 'lanche', 'frango', 'arroz', 'feijao', 'legume', 'fruta',
             ],
         ];
+    }
+
+    /**
+     * Detecta intenções explícitas antes dos sinais genéricos. Isso evita que
+     * termos como "alimentação" (categoria financeira) ou "treino" (texto de
+     * uma tarefa) façam um agente responder pelo domínio errado.
+     */
+    private static function explicitDomainIntent(string $normalized): ?string {
+        $patterns = [
+            'financeiro' => [
+                '/\b(?:quanto|onde|como).{0,32}\b(?:gastei|gasto|despesa|saldo|fatura|patrimonio)\b/',
+                '/\b(?:saldo|patrimonio|fatura|conta bancaria|cartao de credito)\b/',
+                '/\b(?:lancar|registrar|adicionar)\b.{0,24}\b(?:despesa|gasto|renda|receita)\b/',
+                '/\b(?:transferir|transferencia)\b.{0,32}\b(?:conta|banco|reais|r\$)\b/',
+            ],
+            'agenda' => [
+                '/\b(?:criar|adicionar|registrar|concluir)\b.{0,24}\b(?:tarefa|compromisso|lembrete)\b/',
+                '/\b(?:agenda|tarefas pendentes|produtividade|compromissos|calendario)\b/',
+            ],
+            'alimentacao' => [
+                '/\b(?:montar|criar|sugerir|preparar)\b.{0,32}\b(?:dieta|cardapio|refeicao|receita|plano alimentar)\b/',
+                '/\b(?:dieta|cardapio|plano alimentar|refeicao|receita culinaria|nutricao|calorias|macronutrientes)\b/',
+            ],
+            'treinos' => [
+                '/\b(?:montar|criar|registrar|fazer)\b.{0,24}\b(?:treino|exercicio|cardio|corrida)\b/',
+                '/\b(?:treino|exercicio|academia|cardio|musculacao|series|repeticoes|medida corporal|peso corporal)\b/',
+            ],
+        ];
+        foreach ($patterns as $domain => $domainPatterns) {
+            foreach ($domainPatterns as $pattern) {
+                if (preg_match($pattern, $normalized) === 1) return $domain;
+            }
+        }
+        return null;
     }
 
     private static function ascii(string $value): string {

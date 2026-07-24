@@ -53,7 +53,7 @@ final class AssistantActionExecutor {
     }
 
     /** @param array{action:string,arguments:array<string,mixed>} $route @return array{response:array<string,mixed>,undo:?array<string,mixed>,summary:string,module:string} */
-    public function execute(int $userId, array $route, array $approval = []): array {
+    public function execute(int $userId, array $route, array $approval = [], ?string $module = null): array {
         $action = $route['action'];
         $args = $route['arguments'];
         return match ($action) {
@@ -67,7 +67,7 @@ final class AssistantActionExecutor {
             'log_measurement' => $this->logMeasurement($userId, $args),
             'log_cardio' => $this->logCardio($userId, $args),
             'create_diet_plan' => $this->createDietPlan($userId, $args, $approval),
-            'query' => $this->query($userId, $args),
+            'query' => $this->query($userId, $args, $module),
             default => throw new AssistantRouteException('Ação fora do catálogo.'),
         };
     }
@@ -378,23 +378,23 @@ final class AssistantActionExecutor {
         return $plan;
     }
 
-    private function query(int $uid, array $args): array {
+    private function query(int $uid, array $args, ?string $module = null): array {
         $question = mb_strtolower($this->text($args['question'] ?? null, 500), 'UTF-8');
-        if (str_contains($question, 'gastando')
+        if (($module === null || $module === 'financeiro') && (str_contains($question, 'gastando')
             || str_contains($question, 'gastei')
             || str_contains($question, 'despesa')
             || str_contains($question, 'dren')
             || (str_contains($question, 'gasto') && (str_contains($question, 'maior') || str_contains($question, 'categoria') || str_contains($question, 'mais')))
-        ) {
+        )) {
             $message = $this->spendingAnalysis($uid);
-        } elseif (str_contains($question, 'saldo') || str_contains($question, 'patrim')) {
+        } elseif (($module === null || $module === 'financeiro') && (str_contains($question, 'saldo') || str_contains($question, 'patrim'))) {
             $accounts = finance_load_set($this->db, $uid, 'accounts');
             $balanceCents = 0;
             foreach ($accounts as $account) {
                 $balanceCents += fin_money_to_cents($account['saldo'] ?? 0) - fin_money_to_cents($account['fatura'] ?? 0);
             }
             $message = 'Saldo líquido resumido: ' . number_format(fin_cents_to_number($balanceCents), 2, ',', '.') . ' BRL em ' . count($accounts) . ' conta(s).';
-        } elseif (str_contains($question, 'produtividade')) {
+        } elseif (($module === null || $module === 'agenda') && str_contains($question, 'produtividade')) {
             $stmt = $this->db->prepare("SELECT COUNT(*) FROM xp_events WHERE user_id = ? AND type = 'rotina' AND created_at >= ?");
             $stmt->execute([$uid, level_clock_now()->modify('-7 days')->format('Y-m-d H:i:s')]);
             $completedWeek = (int)$stmt->fetchColumn();
@@ -402,14 +402,14 @@ final class AssistantActionExecutor {
             $pending = count(array_filter($tasks, static fn(array $task): bool => !($task['completed'] ?? false)));
             $message = 'Produtividade dos últimos 7 dias: ' . $completedWeek . ' tarefa(s) concluída(s). Hoje: '
                 . $pending . ' pendente(s) de ' . count($tasks) . ' no total.';
-        } elseif (str_contains($question, 'tarefa') || str_contains($question, 'rotina')) {
+        } elseif (($module === null || $module === 'agenda') && (str_contains($question, 'tarefa') || str_contains($question, 'rotina'))) {
             $tasks = routine_load_tasks($this->db, $uid);
             $pending = count(array_filter($tasks, static fn(array $task): bool => !($task['completed'] ?? false)));
             $message = $pending . ' tarefa(s) pendente(s) de ' . count($tasks) . ' no total.';
-        } elseif (str_contains($question, 'treino') || str_contains($question, 'cardio')) {
+        } elseif (($module === null || $module === 'treinos') && (str_contains($question, 'treino') || str_contains($question, 'cardio'))) {
             $training = training_snapshot($this->db, $uid);
             $message = count($training['workouts']) . ' treino(s) e ' . count($training['sessions']) . ' sessão(ões) registradas.';
-        } elseif (str_contains($question, 'imc') || str_contains($question, 'peso') || str_contains($question, 'medida')) {
+        } elseif (($module === null || $module === 'treinos') && (str_contains($question, 'imc') || str_contains($question, 'peso') || str_contains($question, 'medida'))) {
             $latest = [];
             foreach (training_snapshot($this->db, $uid)['measurements'] as $measurement) {
                 $type = (string)$measurement['type'];
@@ -428,8 +428,8 @@ final class AssistantActionExecutor {
                     $message .= ' IMC: ' . number_format($bmi, 1, ',', '.') . ' (' . $this->bmiLabel($bmi) . ').';
                 }
             }
-        } elseif (str_contains($question, 'aliment') || str_contains($question, 'dieta')
-            || str_contains($question, 'cardápio') || str_contains($question, 'cardapio') || str_contains($question, 'refeição')) {
+        } elseif (($module === null || $module === 'alimentacao') && (str_contains($question, 'aliment') || str_contains($question, 'dieta')
+            || str_contains($question, 'cardápio') || str_contains($question, 'cardapio') || str_contains($question, 'refeição'))) {
             $plan = $this->loadKvJson($uid, 'nutrition_plan_v1');
             if ($plan === null) {
                 $message = 'Você ainda não possui um plano alimentar ativo. Posso montar um informando objetivo, período e orçamento.';
@@ -441,10 +441,16 @@ final class AssistantActionExecutor {
                     . ' dentro do orçamento de R$ ' . number_format((float)($plan['budgetBRL'] ?? 0), 2, ',', '.') . '.';
             }
         } else {
-            $message = 'Posso consultar saldos, análise de gastos, tarefas, produtividade, treinos, medidas, IMC e seu plano alimentar.';
+            $message = match ($module) {
+                'financeiro' => 'O Assessor Fin consulta apenas saldos, patrimônio, despesas e análises financeiras.',
+                'agenda' => 'A Secretária Nina consulta apenas rotina, agenda, tarefas e produtividade.',
+                'treinos' => 'O Personal Léo consulta apenas treinos, cardio, medidas corporais e IMC.',
+                'alimentacao' => 'A Chef Rita consulta apenas alimentação, receitas, cardápios e planos alimentares.',
+                default => 'Posso consultar saldos, análise de gastos, tarefas, produtividade, treinos, medidas, IMC e seu plano alimentar.',
+            };
         }
-        return ['response'=>['ok'=>true,'status'=>'query','action'=>'query','message'=>$message,'module'=>null,'undoAvailable'=>false],
-            'undo'=>null,'summary'=>'Consulta respondida.','module'=>'query'];
+        return ['response'=>['ok'=>true,'status'=>'query','action'=>'query','message'=>$message,'module'=>$module,'undoAvailable'=>false],
+            'undo'=>null,'summary'=>'Consulta respondida.','module'=>$module ?? 'query'];
     }
 
     private function spendingAnalysis(int $uid): string {
