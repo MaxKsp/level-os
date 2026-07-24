@@ -13,7 +13,7 @@ $db = get_db();
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 
 /** @param array<string,mixed> $row */
-function subscription_checkout_public(array $row): array {
+function subscription_checkout_public(array $row, string $environment): array {
     return [
         'provider' => 'mercadopago',
         'method' => in_array((string)$row['method'], ['pix', 'card'], true) ? (string)$row['method'] : 'card',
@@ -27,11 +27,22 @@ function subscription_checkout_public(array $row): array {
         'amount_cents' => (int)$row['amount_cents'],
         'plan' => 'individual',
         'recurring' => (string)$row['method'] === 'card',
+        'test_mode' => $environment === 'sandbox',
     ];
 }
 
 $publicColumns = 'id, method, external_id, status, provider_status, checkout_url, payment_code, qr_code_data, expires_at, amount_cents, plan';
 $internalColumns = $publicColumns . ', resource_type, external_reference, updated_at';
+$environment = defined('MERCADOPAGO_ENVIRONMENT')
+    ? strtolower(trim((string)MERCADOPAGO_ENVIRONMENT))
+    : 'production';
+if (!in_array($environment, ['sandbox', 'production'], true)) {
+    http_response_code(503);
+    echo json_encode(['error' => 'payment_configuration_invalid']);
+    exit;
+}
+$referencePrefix = $environment === 'sandbox' ? 'levelos-test-' : 'levelos-live-';
+$referencePattern = $referencePrefix . '%';
 
 if ($method === 'GET') {
     require_rate_limit('subscription-checkout-read', 60, 60);
@@ -40,6 +51,7 @@ if ($method === 'GET') {
         "SELECT $publicColumns
          FROM subscription_payments
          WHERE user_id = ? AND provider = 'mercadopago'
+           AND external_reference LIKE ?
            AND (
              (status = 'pending' AND checkout_url IS NOT NULL AND checkout_url <> ''
               AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP()))
@@ -48,9 +60,9 @@ if ($method === 'GET') {
            )
          ORDER BY id DESC LIMIT 1"
     );
-    $stmt->execute([$uid]);
+    $stmt->execute([$uid, $referencePattern]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    echo json_encode(['payment' => $row === false ? null : subscription_checkout_public($row)]);
+    echo json_encode(['payment' => $row === false ? null : subscription_checkout_public($row, $environment)]);
     exit;
 }
 
@@ -92,6 +104,16 @@ if ($subscriptionState['access'] === true && $subscriptionState['in_trial'] === 
 }
 
 $accessToken = defined('MERCADOPAGO_ACCESS_TOKEN') ? trim((string)MERCADOPAGO_ACCESS_TOKEN) : '';
+$tokenIsTest = str_starts_with(strtoupper($accessToken), 'TEST-');
+$tokenIsProduction = str_starts_with(strtoupper($accessToken), 'APP_USR-');
+if (
+    ($environment === 'sandbox' && !$tokenIsTest)
+    || ($environment === 'production' && !$tokenIsProduction)
+) {
+    http_response_code(503);
+    echo json_encode(['error' => 'payment_configuration_invalid']);
+    exit;
+}
 $amountCents = defined('MERCADOPAGO_INDIVIDUAL_PRICE_CENTS')
     ? (int)MERCADOPAGO_INDIVIDUAL_PRICE_CENTS
     : 1990;
@@ -119,19 +141,20 @@ try {
         "SELECT $internalColumns
          FROM subscription_payments
          WHERE user_id = ? AND provider = 'mercadopago' AND method = ? AND status = 'pending'
+           AND external_reference LIKE ?
            AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP())
          ORDER BY id DESC LIMIT 1 FOR UPDATE"
     );
-    $pending->execute([$uid, $requestedMethod]);
+    $pending->execute([$uid, $requestedMethod, $referencePattern]);
     $intent = $pending->fetch(PDO::FETCH_ASSOC);
     if ($intent !== false && (string)($intent['checkout_url'] ?? '') !== '') {
         $db->commit();
-        echo json_encode(['payment' => subscription_checkout_public($intent)]);
+        echo json_encode(['payment' => subscription_checkout_public($intent, $environment)]);
         exit;
     }
 
     if ($intent === false) {
-        $externalReference = 'levelos-' . bin2hex(random_bytes(16));
+        $externalReference = $referencePrefix . bin2hex(random_bytes(16));
         $intentExternalId = 'intent-' . $externalReference;
         $insertIntent = $db->prepare(
             "INSERT INTO subscription_payments
@@ -257,7 +280,7 @@ try {
         throw new RuntimeException('Idempotent provider response mismatch.');
     }
     $db->commit();
-    echo json_encode(['payment' => subscription_checkout_public($current)]);
+    echo json_encode(['payment' => subscription_checkout_public($current, $environment)]);
 } catch (Throwable $e) {
     if ($db->inTransaction()) $db->rollBack();
     if (isset($intentId)) {

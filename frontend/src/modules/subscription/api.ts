@@ -65,6 +65,7 @@ function parsePayment(value: unknown): SubscriptionPayment | null {
     amount_cents: Math.max(0, Math.round(Number(payment.amount_cents) || 0)),
     plan: "individual",
     recurring: payment.recurring === true,
+    test_mode: payment.test_mode === true,
   }
 }
 

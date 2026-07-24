@@ -21,6 +21,10 @@ return function (): void {
     test_assert_true(str_contains($checkout, "['pix', 'card']"), 'Checkout must accept an explicit Pix or card choice.');
     test_assert_true(str_contains($checkout, 'payment_code'), 'Checkout must expose the Pix copy-and-paste code.');
     test_assert_true(str_contains($checkout, 'qr_code_data'), 'Checkout must expose the validated Pix QR image.');
+    test_assert_true(str_contains($checkout, "'test_mode' => \$environment === 'sandbox'"), 'Checkout must identify sandbox Pix responses.');
+    test_assert_true(str_contains($checkout, "'levelos-test-'"), 'Sandbox intents must be isolated from production intents.');
+    test_assert_true(str_contains($checkout, "'levelos-live-'"), 'Production intents must be isolated from sandbox intents.');
+    test_assert_true(str_contains($checkout, "'APP_USR-'"), 'Production must reject non-production access tokens.');
 
     test_assert_true(!str_contains($client, "'preapproval_plan_id'"), 'Hosted pending checkout must not mix in an associated plan.');
     test_assert_true(str_contains($client, "'auto_recurring'"), 'Hosted subscription must define its recurrence.');

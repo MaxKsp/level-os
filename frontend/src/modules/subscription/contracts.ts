@@ -25,4 +25,5 @@ export interface SubscriptionPayment {
   amount_cents: number
   plan: "individual"
   recurring: boolean
+  test_mode: boolean
 }

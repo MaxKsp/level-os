@@ -68,6 +68,9 @@ define('MERCADOPAGO_INDIVIDUAL_PRICE_CENTS', 1990);
 // O meio disponível é selecionado no ambiente do Mercado Pago. Este fluxo
 // hospedado cria a recorrência sem associar um preapproval_plan_id.
 // production exige live_mode=true; sandbox exige live_mode=false no webhook.
+// QR Code e Pix copia-e-cola criados com token TEST- são apenas simulações:
+// aplicativos bancários reais os rejeitam. Para receber um Pix real, use
+// MERCADOPAGO_ENVIRONMENT=production e um Access Token produtivo APP_USR-.
 define('MERCADOPAGO_ENVIRONMENT', 'production');
 define('MERCADOPAGO_APPLICATION_ID', '');
 define('MERCADOPAGO_COLLECTOR_ID', '');

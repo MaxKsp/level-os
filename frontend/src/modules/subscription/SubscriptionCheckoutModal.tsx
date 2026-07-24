@@ -101,14 +101,28 @@ export function SubscriptionCheckoutModal({
 
           {payment.method === "pix" ? (
             <div className="space-y-4">
-              {payment.qr_code_data ? (
+              {payment.test_mode ? (
+                <div role="status" className="rounded-lg border border-warning/35 bg-warning/10 p-4">
+                  <div className="flex items-start gap-3">
+                    <Icon name="science" className="mt-0.5 shrink-0 text-[20px] text-warning" />
+                    <div>
+                      <p className="text-sm font-semibold text-on-surface">Ambiente de teste</p>
+                      <p className="mt-1 text-xs leading-5 text-muted">
+                        Este Pix é apenas uma simulação do Mercado Pago e não existe na rede Pix real.
+                        Ele não pode ser pago pelo aplicativo de um banco.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+              {!payment.test_mode && payment.qr_code_data ? (
                 <img
                   src={`data:image/png;base64,${payment.qr_code_data}`}
                   alt="QR Code Pix para pagamento do plano Individual"
                   className="mx-auto size-48 rounded-lg bg-white p-2"
                 />
               ) : null}
-              {payment.payment_code ? (
+              {!payment.test_mode && payment.payment_code ? (
                 <div className="space-y-2">
                   <label htmlFor="subscription-pix-code" className="text-xs font-medium text-muted">Pix copia e cola</label>
                   <textarea
@@ -135,7 +149,7 @@ export function SubscriptionCheckoutModal({
                   rel="noreferrer"
                   className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-outline-variant px-4 text-sm font-medium text-on-surface hover:bg-surface-container-high focus-visible:outline-2 focus-visible:outline-primary"
                 >
-                  Abrir Pix no Mercado Pago
+                  {payment.test_mode ? "Abrir simulação no Mercado Pago" : "Abrir Pix no Mercado Pago"}
                   <Icon name="open_in_new" className="text-[18px]" />
                 </a>
               ) : null}
