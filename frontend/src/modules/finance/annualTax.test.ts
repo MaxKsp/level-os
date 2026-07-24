@@ -36,4 +36,24 @@ describe("buildAnnualTaxData", () => {
     expect(report.annualIncome).toBe(37_650)
     expect(report.months[1].income).toBe(3_650)
   })
+
+  it("preserva o histórico ao versionar o salário (vigência por faixa)", () => {
+    const data: FinanceBootstrap = {
+      ...empty,
+      income_lines: [
+        // Faixa antiga: R$ 3.000 de jan a ago (encerrada em 31/08).
+        { id: "salary-v1", label: "Salário", value: 3000, type: "fixa", date: "2026-01-01", endDate: "2026-08-31", payday: 5, accountId: null, createdAt: 1_735_689_600 },
+        // Faixa nova: R$ 4.000 a partir de setembro.
+        { id: "salary-v2", label: "Salário", value: 4000, type: "fixa", date: "2026-09-01", endDate: null, payday: 5, accountId: null, createdAt: 1_757_000_000 },
+      ],
+    }
+
+    const report = buildAnnualTaxData(2026, data)
+    expect(report.months[0].income).toBe(3_000) // jan
+    expect(report.months[7].income).toBe(3_000) // ago
+    expect(report.months[8].income).toBe(4_000) // set
+    expect(report.months[11].income).toBe(4_000) // dez
+    // 8×3000 + 4×4000 = 40.000 — sem reescrever jan–ago.
+    expect(report.annualIncome).toBe(40_000)
+  })
 })

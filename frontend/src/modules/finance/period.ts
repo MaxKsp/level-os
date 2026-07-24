@@ -1,6 +1,7 @@
 import type { FinanceBootstrap, IncomeLine } from "./contracts"
 import { fromMoneyCents, sumMoney, toMoneyCents } from "../../lib/money"
 import { expenseOccurrencesInRange } from "./installments"
+import { incomeStartIso } from "./incomeValidity"
 
 export type FinancePeriodPreset = "7d" | "30d" | "90d" | "month" | "previous-month" | "3m" | "6m" | "12m" | "custom"
 
@@ -90,8 +91,12 @@ export function isDateInRange(date: string | null, range: FinanceDateRange): boo
 
 function incomeOccurrenceDates(income: IncomeLine, range: FinanceDateRange): string[] {
   if (income.endDate && income.endDate < range.start) return []
+  // Início da vigência: uma versão de salário só ocorre a partir da sua data.
+  const incomeStart = incomeStartIso(income)
+  const startBound = incomeStart && incomeStart > range.start ? incomeStart : range.start
+  if (incomeStart && incomeStart > range.end) return []
 
-  const first = fromIso(range.start)
+  const first = fromIso(startBound)
   const last = fromIso(income.endDate && income.endDate < range.end ? income.endDate : range.end)
   const occurrences: string[] = []
 
@@ -103,7 +108,7 @@ function incomeOccurrenceDates(income: IncomeLine, range: FinanceDateRange): str
     const lastDay = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate()
     const day = income.payday ? Math.min(income.payday, lastDay) : 1
     const occurrence = toLocalIso(new Date(cursor.getFullYear(), cursor.getMonth(), day))
-    if (occurrence >= range.start && occurrence <= range.end && (!income.endDate || occurrence <= income.endDate)) {
+    if (occurrence >= startBound && occurrence <= range.end && (!income.endDate || occurrence <= income.endDate)) {
       occurrences.push(occurrence)
     }
   }

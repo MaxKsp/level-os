@@ -1,5 +1,6 @@
 import type { ExpenseLineV4, FinanceBootstrap, IncomeLine } from "./contracts"
 import { fromMoneyCents, toMoneyCents } from "../../lib/money"
+import { incomeEndIso, incomeStartIso } from "./incomeValidity"
 
 export interface AnnualTaxMonth {
   label: string
@@ -31,13 +32,6 @@ function parseDate(value: string | null): Date | null {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-function timestampDate(value: number | null): Date | null {
-  if (!value || value <= 0) return null
-  // O backend já usou segundos e milissegundos em versões diferentes.
-  const date = new Date(value < 10_000_000_000 ? value * 1000 : value)
-  return Number.isNaN(date.getTime()) ? null : date
-}
-
 function monthIndex(date: Date): number {
   return date.getFullYear() * 12 + date.getMonth()
 }
@@ -55,13 +49,16 @@ function expenseOccurrencesInMonth(expense: ExpenseLineV4, year: number, month: 
 }
 
 function incomeIsActiveInMonth(income: IncomeLine, year: number, month: number): boolean {
-  const start = new Date(year, month, 1)
-  const end = new Date(year, month + 1, 0, 23, 59, 59, 999)
-  const created = timestampDate(income.createdAt)
-  if (created && created > end) return false
-  if (income.type !== "temporaria") return true
-  const endDate = parseDate(income.endDate)
-  return !endDate || endDate >= start
+  const monthStart = new Date(year, month, 1)
+  const monthEnd = new Date(year, month + 1, 0, 23, 59, 59, 999)
+  // Início da vigência: data explícita (usada por versões de salário) ou, na
+  // ausência, a data de criação. Respeitar o fim vale para todos os tipos —
+  // é o que permite versionar a renda fixa sem reescrever o histórico: cada
+  // faixa é uma linha com seu próprio valor, início e fim.
+  const start = parseDate(incomeStartIso(income))
+  if (start && start > monthEnd) return false
+  const endDate = parseDate(incomeEndIso(income))
+  return !endDate || endDate >= monthStart
 }
 
 /** Porta para TypeScript do relatório anual que já existia no frontend legado. */

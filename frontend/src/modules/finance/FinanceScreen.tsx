@@ -408,6 +408,7 @@ export function FinanceScreen() {
         accounts={fin.accounts}
         onClose={() => setIncModal({ open: false, edit: null })}
         onSave={(i) => (incModal.edit ? fin.updateIncome(i) : fin.addIncome(i))}
+        onVersion={(id, value, month, salaryDetails) => fin.versionIncome(id, value, month, salaryDetails)}
       />
       <FinanceActionCenter
         open={actionCenter}

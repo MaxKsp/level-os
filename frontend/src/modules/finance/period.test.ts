@@ -47,4 +47,21 @@ describe("finance period", () => {
     expect(trend.at(-1)).toMatchObject({ date: "2026-07-17", value: 12_650 })
     expect(trend.at(-1)!.value - trend[0].value).toBeCloseTo(-922.85, 2)
   })
+
+  it("respeita as faixas de vigência sem duplicar o salário", () => {
+    const data = {
+      ...financeBootstrapMock,
+      expense_lines_v4: [],
+      "ifood-entries": [],
+      income_lines: [
+        { id: "salary-v1", label: "Salário", value: 3_000, type: "fixa" as const, date: "2026-01-01", endDate: "2026-08-31", payday: 5, accountId: null, createdAt: null },
+        { id: "salary-v2", label: "Salário", value: 4_000, type: "fixa" as const, date: "2026-09-01", endDate: null, payday: 5, accountId: null, createdAt: null },
+      ],
+    }
+
+    expect(financeTotalsForPeriod(data, { start: "2026-08-01", end: "2026-09-30", label: "teste" })).toMatchObject({
+      recurringIncome: 7_000,
+      recurringIncomeOccurrences: 2,
+    })
+  })
 })

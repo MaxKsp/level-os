@@ -48,6 +48,35 @@ describe("renda momentânea", () => {
   })
 })
 
+describe("vigência de rendas versionadas", () => {
+  const reference = new Date(2026, 8, 15)
+  const oldSalary: IncomeLine = {
+    ...temporary("2026-08-31"),
+    id: "salary-v1",
+    type: "fixa",
+    date: "2026-01-01",
+    value: 3_000,
+  }
+  const newSalary: IncomeLine = {
+    ...temporary(""),
+    id: "salary-v2",
+    type: "fixa",
+    date: "2026-09-01",
+    endDate: null,
+    value: 4_000,
+  }
+
+  it("não soma a faixa encerrada junto com a faixa atual", () => {
+    expect(isIncomeActive(oldSalary, reference)).toBe(false)
+    expect(isIncomeActive(newSalary, reference)).toBe(true)
+    expect(monthlyIncome(bootstrap([oldSalary, newSalary]), reference)).toBe(4_000)
+  })
+
+  it("não antecipa uma faixa cuja vigência ainda não começou", () => {
+    expect(isIncomeActive(newSalary, new Date(2026, 7, 15))).toBe(false)
+  })
+})
+
 describe("fórmulas financeiras canônicas", () => {
   const reference = new Date(2026, 6, 17)
   const data: FinanceBootstrap = {

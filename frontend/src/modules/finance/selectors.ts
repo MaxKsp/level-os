@@ -6,6 +6,7 @@
 import type { AccountV2, FinanceBootstrap, IncomeLine } from "./contracts"
 import { fromMoneyCents, sumMoney, toMoneyCents } from "../../lib/money"
 import { isDateInRange, resolveFinancePeriod } from "./period"
+import { incomeIsActiveOn } from "./incomeValidity"
 
 export function isCard(account: AccountV2): boolean {
   return account.tipo === "cartao"
@@ -44,11 +45,7 @@ export function netWorth(data: FinanceBootstrap): number {
 }
 
 export function isIncomeActive(income: IncomeLine, referenceDate = new Date()): boolean {
-  if (income.type !== "temporaria" || !income.endDate) return true
-  const year = referenceDate.getFullYear()
-  const month = String(referenceDate.getMonth() + 1).padStart(2, "0")
-  const day = String(referenceDate.getDate()).padStart(2, "0")
-  return income.endDate >= `${year}-${month}-${day}`
+  return incomeIsActiveOn(income, referenceDate)
 }
 
 export function monthlyIncome(data: FinanceBootstrap, referenceDate = new Date()): number {

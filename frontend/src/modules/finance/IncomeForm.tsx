@@ -100,6 +100,7 @@ export function IncomeForm({ accounts, initial, resetKey, onCancel, onSaveIncome
       label: cleanLabel,
       value,
       type: mode === "clt" ? "fixa" : mode,
+      date: initial ? (initial.date ?? null) : date,
       endDate: mode === "temporaria" ? endDate : null,
       payday: paydayValue,
       accountId: accountId || null,

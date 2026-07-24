@@ -1,10 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react"
 import { hasFinanceBackend, loadFinanceBootstrap, saveFinanceAuxiliary, saveFinanceSet, type FinanceAuxKey, type FinanceSetKey } from "./api"
 import type { AccountV2, ExpenseLineV4, FinanceBootstrap, IfoodEntry, IncomeLine, Transfer } from "./contracts"
+import type { SalaryInput } from "./salary"
 import { financeBootstrapMock } from "./mock"
 import { useProgress } from "../progress/store"
 import { addMoney, subtractMoney } from "../../lib/money"
 import { userStorageKey } from "../../lib/userStorage"
+import { incomeStartIso } from "./incomeValidity"
 
 const STORAGE_KEY = "level-os:finance:v1"
 
@@ -60,6 +62,8 @@ interface FinanceContextValue extends FinanceState {
   setPrincipal: (id: string) => void
   addIncome: (income: IncomeLine) => void
   updateIncome: (income: IncomeLine) => void
+  /** Encerra a faixa atual e abre uma nova a partir de `effectiveMonth` (YYYY-MM), preservando o histórico. */
+  versionIncome: (id: string, value: number, effectiveMonth: string, salaryDetails?: SalaryInput | null) => void
   removeIncome: (id: string) => void
   addExpense: (expense: ExpenseLineV4) => void
   addExpenses: (expenses: ExpenseLineV4[]) => void
@@ -251,6 +255,34 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     setPrincipal: (id) => setState((current) => ({ ...current, accounts: current.accounts.map((account) => ({ ...account, principal: account.id === id })) })),
     addIncome: (income) => setState((current) => ({ ...current, income: [...current.income, income] })),
     updateIncome: (income) => setState((current) => ({ ...current, income: current.income.map((item) => item.id === income.id ? income : item) })),
+    versionIncome: (id, value, effectiveMonth, salaryDetails) => setState((current) => {
+      const old = current.income.find((item) => item.id === id)
+      if (
+        !old
+        || old.type !== "fixa"
+        || old.endDate
+        || !Number.isFinite(value)
+        || value <= 0
+        || !/^\d{4}-(0[1-9]|1[0-2])$/.test(effectiveMonth)
+      ) return current
+      const oldStartMonth = incomeStartIso(old)?.slice(0, 7)
+      if (oldStartMonth && effectiveMonth <= oldStartMonth) return current
+      const [year, month] = effectiveMonth.split("-").map(Number)
+      const priorEnd = new Date(year, month - 1, 0) // último dia do mês anterior à vigência
+      const pad = (n: number) => String(n).padStart(2, "0")
+      const priorEndIso = `${priorEnd.getFullYear()}-${pad(priorEnd.getMonth() + 1)}-${pad(priorEnd.getDate())}`
+      const closed: IncomeLine = { ...old, endDate: priorEndIso }
+      const next: IncomeLine = {
+        ...old,
+        id: genId("inc"),
+        value,
+        date: `${effectiveMonth}-01`,
+        endDate: null,
+        salaryDetails: salaryDetails ?? old.salaryDetails ?? null,
+        createdAt: Math.floor(Date.now() / 1000),
+      }
+      return { ...current, income: current.income.map((item) => item.id === id ? closed : item).concat(next) }
+    }),
     removeIncome: (id) => setState((current) => ({ ...current, income: current.income.filter((item) => item.id !== id) })),
     addExpense: (expense) => setState((current) => ({ ...current, expenses: [...current.expenses, expense], accounts: applyExpenseToAccount(current.accounts, expense) })),
     addExpenses: (expenses) => setState((current) => ({ ...current, expenses: [...current.expenses, ...expenses], accounts: expenses.reduce(applyExpenseToAccount, current.accounts) })),
