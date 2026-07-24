@@ -72,7 +72,7 @@ final class AssistantService {
                     'status' => 'refused',
                     'message' => self::scopeMessage($module),
                     'undoAvailable' => false,
-                    'provider' => $provider,
+                    'usage' => self::publicUsage($usage),
                 ];
                 $this->repository->complete($userId, $requestId, 'refusal', $provider, 'refused', $response, null, null, 'Pedido fora do escopo.');
                 $this->repository->saveHistory($userId, $agentKey, $requestId, $displayText, $response, $usage, $routingText);
@@ -96,7 +96,7 @@ final class AssistantService {
                         : 'Para continuar, informe: ' . implode(', ', $fields) . '.',
                     'module' => $module,
                     'undoAvailable' => false,
-                    'provider' => $provider,
+                    'usage' => self::publicUsage($usage),
                     'data' => ['missingFields' => $fields] + $clarificationData,
                 ];
                 $this->repository->complete($userId, $requestId, 'clarification', $provider, 'clarification', $response, null, null, 'Informações adicionais solicitadas.');
@@ -128,7 +128,7 @@ final class AssistantService {
                 }
                 $confirmationExpiry = level_clock_utc_sql(level_clock_epoch() + self::CONFIRMATION_WINDOW_SECONDS);
                 $response = $this->confirmationResponse($route, $module, (string)$reservation['action_token'], $confirmationExpiry, $previewData);
-                $response['provider'] = $provider;
+                $response['usage'] = self::publicUsage($usage);
                 $pending = [
                     'kind' => 'confirmation',
                     'route' => $route,
@@ -195,7 +195,7 @@ final class AssistantService {
             $response = $result['response'];
             $undo = $result['undo'];
             $undoExpiry = $undo !== null ? level_clock_utc_sql(level_clock_epoch() + self::UNDO_WINDOW_SECONDS) : null;
-            $response['provider'] = $provider;
+            $response['usage'] = self::publicUsage($usage);
             $response['actionToken'] = $undo !== null ? (string)$locked['action_token'] : null;
             $response['undoExpiresAt'] = $undoExpiry;
             $this->repository->complete(
@@ -241,6 +241,10 @@ final class AssistantService {
         try {
             $row = $this->repository->findByToken($userId, $actionToken, true);
             if (!is_array($row) || (string)$row['status'] !== 'confirmation') throw new RuntimeException('confirmation_unavailable');
+            $storedResponse = $this->repository->responseFromRow($row, $userId);
+            $publicUsage = is_array($storedResponse['usage'] ?? null)
+                ? $storedResponse['usage']
+                : self::publicUsage([]);
             $expires = strtotime((string)($row['undo_expires_at'] ?? '') . ' UTC');
             if ($expires === false || $expires < level_clock_epoch()) throw new RuntimeException('confirmation_expired');
             $pending = $this->repository->undoFromRow($row, $userId);
@@ -251,7 +255,7 @@ final class AssistantService {
                 $response = [
                     'ok'=>true, 'status'=>'cancelled', 'message'=>'Ação cancelada. Nenhum dado foi alterado.',
                     'module'=>self::responseModule($pending['module'] ?? null), 'undoAvailable'=>false,
-                    'confirmationRequired'=>false, 'actionToken'=>$actionToken,
+                    'confirmationRequired'=>false, 'actionToken'=>$actionToken, 'usage'=>$publicUsage,
                 ];
                 $this->repository->resolveConfirmation($userId, $actionToken, 'cancelled', $response, null, null, 'Ação cancelada pelo usuário.');
                 $this->repository->updateHistoryResponse($userId, (string)$row['request_id'], $response);
@@ -284,7 +288,7 @@ final class AssistantService {
             $response = $result['response'];
             $undo = $result['undo'];
             $undoExpiry = $undo !== null ? level_clock_utc_sql(level_clock_epoch() + self::UNDO_WINDOW_SECONDS) : null;
-            $response['provider'] = is_string($row['provider'] ?? null) ? $row['provider'] : null;
+            $response['usage'] = $publicUsage;
             $response['actionToken'] = $undo !== null ? $actionToken : null;
             $response['undoExpiresAt'] = $undoExpiry;
             $response['confirmationRequired'] = false;
@@ -572,5 +576,36 @@ final class AssistantService {
             'completion_tokens' => $left['completion_tokens'] + $right['completion_tokens'],
             'total_tokens' => $left['total_tokens'] + $right['total_tokens'],
         ];
+    }
+
+    /**
+     * Public, provider-neutral estimate for the current request.
+     *
+     * Defaults match GPT-5 nano pricing reviewed on 2026-07-24. Installations
+     * using another paid model can override both rates without changing code.
+     *
+     * @param array<string,mixed> $usage
+     * @return array{inputTokens:int,outputTokens:int,totalTokens:int,estimatedCostUsd:float}
+     */
+    private static function publicUsage(array $usage): array {
+        $input = max(0, (int)($usage['prompt_tokens'] ?? 0));
+        $output = max(0, (int)($usage['completion_tokens'] ?? 0));
+        $total = max($input + $output, (int)($usage['total_tokens'] ?? 0));
+        $inputRate = self::positiveEnvFloat('LEVELOS_ASSISTANT_INPUT_USD_PER_MILLION', 0.05);
+        $outputRate = self::positiveEnvFloat('LEVELOS_ASSISTANT_OUTPUT_USD_PER_MILLION', 0.40);
+        $estimated = (($input * $inputRate) + ($output * $outputRate)) / 1_000_000;
+
+        return [
+            'inputTokens' => $input,
+            'outputTokens' => $output,
+            'totalTokens' => $total,
+            'estimatedCostUsd' => round($estimated, 8),
+        ];
+    }
+
+    private static function positiveEnvFloat(string $name, float $fallback): float {
+        $configured = getenv($name);
+        if ($configured === false || trim($configured) === '' || !is_numeric($configured)) return $fallback;
+        return max(0.0, min(1000.0, (float)$configured));
     }
 }

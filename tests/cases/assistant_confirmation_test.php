@@ -65,6 +65,9 @@ return static function (): void {
     test_assert_same('applied', $expense['status'] ?? null, 'A complete everyday expense must execute locally.');
     test_assert_same('mercado', $expense['data']['category'] ?? null, 'The saved expense must use a real platform category.');
     test_assert_same(0, $provider->calls, 'A complete everyday expense must not depend on an external provider.');
+    test_assert_same(0, $expense['usage']['totalTokens'] ?? null, 'A local expense must report zero provider tokens.');
+    test_assert_same(0.0, $expense['usage']['estimatedCostUsd'] ?? null, 'A local expense must report zero estimated AI cost.');
+    test_assert_true(!isset($expense['provider']), 'Provider internals must not be exposed in live responses.');
     test_assert_equals(957.10, finance_load_set($db, 7, 'accounts')[0]['saldo'], 'The local expense must update the selected account balance.');
 
     finance_save_set($db, 9, 'accounts', [
@@ -107,6 +110,9 @@ return static function (): void {
 
     test_assert_same('confirmation', $preview['status'], 'Transfers must require explicit confirmation before execution.');
     test_assert_true(($preview['confirmationRequired'] ?? false) === true, 'The preview must identify the pending confirmation.');
+    test_assert_same(100, $preview['usage']['totalTokens'] ?? null, 'A routed request must report its provider token total.');
+    test_assert_true(($preview['usage']['estimatedCostUsd'] ?? 0) > 0, 'A routed request must report an estimated cost.');
+    test_assert_true(!isset($preview['provider']), 'Confirmation previews must not expose provider internals.');
     $row = $repository->findByToken(7, (string)$preview['actionToken']);
     test_assert_same('confirmation', $row['status'] ?? null, 'The pending route must remain unexecuted.');
     test_assert_same(100, $repository->dailyTokenUsage(7), 'Confirmation routing tokens must be persisted.');

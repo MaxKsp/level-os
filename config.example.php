@@ -92,6 +92,10 @@ define('MERCADOPAGO_COLLECTOR_ID', '');
 // LEVELOS_ASSISTANT_EXPENSE_CONFIRM_CENTS exige confirmação para despesas
 // acima do limite (padrão: 50000 = R$ 500,00; 0 desativa). Transferências
 // sempre exigem confirmação explícita.
+// Estimativa publica de custo por solicitacao:
+// LEVELOS_ASSISTANT_INPUT_USD_PER_MILLION e
+// LEVELOS_ASSISTANT_OUTPUT_USD_PER_MILLION. Os padroes 0.05/0.40
+// correspondem ao GPT-5 nano na revisao de 2026-07-24. Ajuste ao trocar modelo.
 define('ASSISTANT_PROVIDERS', [
     ['name'=>'openai-1', 'enabled'=>(getenv('OPENAI_API_KEY_1') ?: '') !== '', 'base_url'=>'https://api.openai.com/v1', 'api_key'=>(string)(getenv('OPENAI_API_KEY_1') ?: ''), 'model'=>(string)(getenv('OPENAI_MODEL') ?: 'gpt-5-nano'), 'supports_tools'=>true],
     ['name'=>'openai-2', 'enabled'=>(getenv('OPENAI_API_KEY_2') ?: '') !== '', 'base_url'=>'https://api.openai.com/v1', 'api_key'=>(string)(getenv('OPENAI_API_KEY_2') ?: ''), 'model'=>(string)(getenv('OPENAI_MODEL') ?: 'gpt-5-nano'), 'supports_tools'=>true],

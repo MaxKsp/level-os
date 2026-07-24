@@ -25,6 +25,7 @@ try {
     $module = is_string($body['module'] ?? null) ? $body['module'] : '';
     if (!in_array($module, ['financeiro', 'agenda', 'treinos', 'alimentacao'], true)) $module = null;
     $result = assistant_service(get_db())->handle($uid, (string)($body['requestId'] ?? ''), (string)($body['text'] ?? ''), $module);
+    unset($result['provider']);
     echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 } catch (AssistantProvidersExhausted $e) {
     $kinds = $e->failureKinds();

@@ -1,4 +1,11 @@
 export type AssistantStatus = "applied" | "answered" | "query" | "clarification" | "refused" | "undone" | "confirmation" | "cancelled"
+export interface AssistantUsage {
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+  estimatedCostUsd: number
+}
+
 export interface AssistantResponse {
   ok: boolean
   status: AssistantStatus
@@ -10,7 +17,7 @@ export interface AssistantResponse {
   undoExpiresAt?: string | null
   confirmationRequired?: boolean
   confirmationExpiresAt?: string | null
-  provider?: string
+  usage?: AssistantUsage
   data?: unknown
 }
 

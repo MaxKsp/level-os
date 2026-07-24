@@ -470,6 +470,16 @@ export function AssistantCommand() {
                                       onApprovalChange={message.response.actionToken ? (approval) => setApprovalByToken((current) => ({ ...current, [message.response.actionToken as string]: approval })) : undefined}
                                     />
                                   ) : null}
+                                  {message.role === "assistant" && message.response.usage ? (
+                                    <p
+                                      className="numeric-value mt-2 border-t border-outline-variant pt-2 text-[10px] leading-4 text-muted"
+                                      aria-label={`Uso desta solicitação: ${message.response.usage.totalTokens} tokens; custo estimado de ${message.response.usage.estimatedCostUsd.toLocaleString("pt-BR", { style: "currency", currency: "USD", minimumFractionDigits: 4, maximumFractionDigits: 6 })}`}
+                                    >
+                                      {message.response.usage.totalTokens === 0
+                                        ? "Processado localmente · sem custo de IA"
+                                        : `${message.response.usage.totalTokens.toLocaleString("pt-BR")} tokens · custo estimado ${message.response.usage.estimatedCostUsd.toLocaleString("pt-BR", { style: "currency", currency: "USD", minimumFractionDigits: 4, maximumFractionDigits: 6 })}`}
+                                    </p>
+                                  ) : null}
                                   {message.role === "assistant"
                                     && message === lastAssistant
                                     && message.response.confirmationRequired

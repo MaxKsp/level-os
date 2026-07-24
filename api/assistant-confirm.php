@@ -30,6 +30,7 @@ try {
         (string)($body['decision'] ?? ''),
         is_array($body['approval'] ?? null) ? $body['approval'] : [],
     );
+    unset($result['provider']);
     echo json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 } catch (InvalidArgumentException) {
     http_response_code(422); echo json_encode(['error'=>'invalid_confirmation']);
