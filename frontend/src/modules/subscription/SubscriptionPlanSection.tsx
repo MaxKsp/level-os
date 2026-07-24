@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Button } from "../../components/ui/Button"
 import { Icon, SectionCard } from "../../design-system"
 import { cn } from "../../lib/cn"
@@ -9,10 +9,6 @@ import { useSubscription } from "./store"
 export function SubscriptionPlanSection() {
   const { subscription, payment, status, error, paymentBusy, startPayment, clearPayment } = useSubscription()
   const [checkoutOpen, setCheckoutOpen] = useState(false)
-
-  useEffect(() => {
-    if (payment?.status === "pending") setCheckoutOpen(true)
-  }, [payment?.status])
 
   const currentLabel = subscription.in_trial
     ? `Período grátis · ${subscription.trial_days_left} ${subscription.trial_days_left === 1 ? "dia restante" : "dias restantes"}`
