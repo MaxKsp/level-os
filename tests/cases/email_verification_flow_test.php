@@ -1,7 +1,13 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../bootstrap.php';
+if (!function_exists('test_assert_true')) {
+    function test_assert_true(bool $condition, string $message): void {
+        if (!$condition) {
+            throw new RuntimeException($message);
+        }
+    }
+}
 
 return static function (): void {
     $root = dirname(__DIR__, 2);
