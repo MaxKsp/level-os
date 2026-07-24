@@ -1,5 +1,83 @@
 import type { Priority, Task } from "./contracts"
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+
+function parseIsoDate(value: string): Date | null {
+  if (!ISO_DATE.test(value)) return null
+  const [year, month, day] = value.split("-").map(Number)
+  const parsed = new Date(year, month - 1, day)
+  return parsed.getFullYear() === year && parsed.getMonth() === month - 1 && parsed.getDate() === day
+    ? parsed
+    : null
+}
+
+function localIsoDate(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-")
+}
+
+export function taskOccursOn(task: Task, isoDate: string, fallbackIso?: string): boolean {
+  const repeat = task.repeat ?? "none"
+  const startIso = task.date ?? fallbackIso
+  if (repeat === "none") return startIso === isoDate
+  if (!startIso || isoDate < startIso || (task.repeatUntil && isoDate > task.repeatUntil)) return false
+  const date = parseIsoDate(isoDate)
+  const start = parseIsoDate(startIso)
+  if (!date || !start) return false
+  if (repeat === "daily") return true
+  if (repeat === "weekdays") return date.getDay() >= 1 && date.getDay() <= 5
+  if (repeat === "weekly") return date.getDay() === start.getDay()
+  return (task.repeatDays ?? []).includes(date.getDay())
+}
+
+export function taskOnDate(task: Task, isoDate: string, fallbackIso?: string): Task | null {
+  if (!taskOccursOn(task, isoDate, fallbackIso)) return null
+  const recurring = Boolean(task.repeat && task.repeat !== "none")
+  return {
+    ...task,
+    date: isoDate,
+    completed: recurring ? (task.completedDates ?? []).includes(isoDate) : task.completed,
+  }
+}
+
+export function taskRepeatLabel(task: Task): string | null {
+  if (!task.repeat || task.repeat === "none") return null
+  if (task.repeat === "daily") return "Todos os dias"
+  if (task.repeat === "weekdays") return "Dias úteis"
+  if (task.repeat === "weekly") return "Toda semana"
+  const labels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
+  const days = [...new Set(task.repeatDays ?? [])].sort((a, b) => a - b)
+  return days.length ? days.map((day) => labels[day]).join(", ") : "Personalizado"
+}
+
+export function taskOccurrenceDates(
+  task: Task,
+  startIso: string,
+  endIsoExclusive: string,
+  fallbackIso?: string,
+): string[] {
+  const start = parseIsoDate(startIso)
+  const end = parseIsoDate(endIsoExclusive)
+  if (!start || !end || end <= start) return []
+  if (!task.repeat || task.repeat === "none") {
+    const date = task.date ?? fallbackIso
+    return date && date >= startIso && date < endIsoExclusive ? [date] : []
+  }
+  const dates: string[] = []
+  const cursor = new Date(start)
+  let guard = 0
+  while (cursor < end && guard < 800) {
+    const iso = localIsoDate(cursor)
+    if (taskOccursOn(task, iso, fallbackIso)) dates.push(iso)
+    cursor.setDate(cursor.getDate() + 1)
+    guard += 1
+  }
+  return dates
+}
+
 export function progressPercent(completed: number, total: number): number {
   return total > 0 ? Math.round((completed / total) * 100) : 0
 }
@@ -28,7 +106,8 @@ export function routineSummary(tasks: Task[]): RoutineSummary {
 /** Tarefas de uma data ISO (trata data ausente como `fallbackIso`). */
 export function tasksOn(tasks: Task[], isoDate: string, fallbackIso?: string): Task[] {
   return tasks
-    .filter((t) => (t.date ?? fallbackIso) === isoDate)
+    .map((task) => taskOnDate(task, isoDate, fallbackIso))
+    .filter((task): task is Task => task !== null)
     .sort((a, b) => a.time.localeCompare(b.time))
 }
 

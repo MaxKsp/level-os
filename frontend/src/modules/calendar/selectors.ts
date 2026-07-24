@@ -1,4 +1,5 @@
 import type { Task } from "../routine/contracts"
+import { taskOccurrenceDates, tasksOn } from "../routine/selectors"
 import type { CalendarRange, CalendarView, GoogleCalendarEvent } from "./contracts"
 
 export type TimelineItem =
@@ -84,8 +85,7 @@ export function timelineOnDate(
   isoDate: string,
   fallbackIso?: string,
 ): TimelineItem[] {
-  const level: TimelineItem[] = tasks
-    .filter((task) => (task.date ?? fallbackIso) === isoDate)
+  const level: TimelineItem[] = tasksOn(tasks, isoDate, fallbackIso)
     .map((task) => ({
       key: `level:${task.id}:${isoDate}`,
       source: "level",
@@ -113,11 +113,15 @@ export function countTimelineByDate(
   tasks: Task[],
   events: GoogleCalendarEvent[],
   fallbackIso?: string,
+  startIso?: string,
+  endIsoExclusive?: string,
 ): Map<string, number> {
   const counts = new Map<string, number>()
   for (const task of tasks) {
-    const date = task.date ?? fallbackIso
-    if (date) counts.set(date, (counts.get(date) ?? 0) + 1)
+    const dates = startIso && endIsoExclusive
+      ? taskOccurrenceDates(task, startIso, endIsoExclusive, fallbackIso)
+      : [task.date ?? fallbackIso].filter((date): date is string => Boolean(date))
+    for (const date of dates) counts.set(date, (counts.get(date) ?? 0) + 1)
   }
   for (const event of events) {
     const start = eventDate(event.start)

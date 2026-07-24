@@ -89,10 +89,34 @@ foreach ($users as $user) {
     $dueLogKeys = [];
     foreach ($tasks as $t) {
         if (empty($t['time']) || empty($t['title'])) continue;
-        // mesma semantica de dow do front: 'all', inteiro ou lista de inteiros
-        $d = $t['dow'] ?? 'all';
-        $matches = $d === 'all' || $d === $dow || (is_array($d) && in_array($dow, $d, true));
-        if (isset($t['date']) && $t['date']) $matches = ($t['date'] === $todayKey);
+        $repeat = is_string($t['repeat'] ?? null) ? $t['repeat'] : 'none';
+        if ($repeat !== 'none') {
+            $startDate = is_string($t['date'] ?? null) ? $t['date'] : '';
+            $repeatUntil = is_string($t['repeatUntil'] ?? null) ? $t['repeatUntil'] : '';
+            $parsedStart = DateTimeImmutable::createFromFormat('!Y-m-d', $startDate);
+            if ($parsedStart === false || $parsedStart->format('Y-m-d') !== $startDate) continue;
+            if ($repeatUntil !== '') {
+                $parsedEnd = DateTimeImmutable::createFromFormat('!Y-m-d', $repeatUntil);
+                if ($parsedEnd === false || $parsedEnd->format('Y-m-d') !== $repeatUntil) continue;
+            }
+            if ($startDate === '' || $todayKey < $startDate || ($repeatUntil !== '' && $todayKey > $repeatUntil)) continue;
+            $startDow = (int)$parsedStart->format('w');
+            $repeatDays = is_array($t['repeatDays'] ?? null) ? array_map('intval', $t['repeatDays']) : [];
+            $matches = match ($repeat) {
+                'daily' => true,
+                'weekdays' => $dow >= 1 && $dow <= 5,
+                'weekly' => $dow === $startDow,
+                'custom' => in_array($dow, $repeatDays, true),
+                default => false,
+            };
+            if (in_array($todayKey, is_array($t['completedDates'] ?? null) ? $t['completedDates'] : [], true)) continue;
+        } else {
+            // Compatibilidade com tarefas antigas baseadas em `dow`.
+            $d = $t['dow'] ?? 'all';
+            $matches = $d === 'all' || $d === $dow || (is_array($d) && in_array($dow, $d, true));
+            if (isset($t['date']) && $t['date']) $matches = ($t['date'] === $todayKey);
+            if (!empty($t['completed'])) continue;
+        }
         if (!$matches) continue;
         [$h, $m] = array_map('intval', explode(':', $t['time']));
         $taskMin = $h * 60 + $m;

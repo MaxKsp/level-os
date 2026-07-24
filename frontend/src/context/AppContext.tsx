@@ -2,22 +2,13 @@ import React, { createContext, useCallback, useContext, useState, useEffect, use
 import { useProgress } from '../modules/progress/store';
 import { hasRoutineBackend, loadTasks, saveTasks } from '../modules/routine/api';
 import { userStorageKey } from '../lib/userStorage';
+import type { Task as RoutineTask } from '../modules/routine/contracts';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-export interface Task {
-  id: string;
-  time: string;
-  title: string;
-  subtitle: string;
-  completed: boolean;
-  date?: string;
-  priority?: 'alta' | 'media' | 'baixa';
-  category?: string;
-  durationMin?: number;
-}
+export type Task = RoutineTask;
 
 export interface Exercise {
   id: string;
@@ -75,7 +66,7 @@ interface AppContextType {
   setWorkoutTimer: React.Dispatch<React.SetStateAction<number>>;
 
   // Handlers
-  handleToggleTask: (id: string) => void;
+  handleToggleTask: (id: string, occurrenceDate?: string) => void;
   handleAddTaskSubmit: (e: React.FormEvent) => void;
   handleAddWeightSubmit: (e: React.FormEvent) => void;
   handleToggleExercise: (id: string) => void;
@@ -164,18 +155,27 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [isWorkoutActive, isWorkoutModalOpen]);
 
   // Handlers
-  const handleToggleTask = (id: string) => {
+  const handleToggleTask = (id: string, occurrenceDate?: string) => {
     const target = tasks.find((task) => task.id === id);
+    const targetCompleted = target?.repeat && target.repeat !== 'none' && occurrenceDate
+      ? (target.completedDates ?? []).includes(occurrenceDate)
+      : Boolean(target?.completed);
     setTasks(
       tasks.map((task) => {
         if (task.id === id) {
+          if (task.repeat && task.repeat !== 'none' && occurrenceDate) {
+            const completedDates = new Set(task.completedDates ?? []);
+            if (completedDates.has(occurrenceDate)) completedDates.delete(occurrenceDate);
+            else completedDates.add(occurrenceDate);
+            return { ...task, completedDates: [...completedDates].sort() };
+          }
           return { ...task, completed: !task.completed };
         }
         return task;
       })
     );
-    if (target && !target.completed) {
-      const date = target.date ?? new Date().toLocaleDateString('sv-SE');
+    if (target && !targetCompleted) {
+      const date = occurrenceDate ?? target.date ?? new Date().toLocaleDateString('sv-SE');
       const safeId = target.id.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
       void awardEvent('rotina', `rotina:${date}:${safeId}`);
     }

@@ -8,6 +8,7 @@
  */
 
 export type Priority = "alta" | "media" | "baixa"
+export type TaskRepeat = "none" | "daily" | "weekdays" | "weekly" | "custom"
 
 export interface Task {
   id: string
@@ -20,4 +21,12 @@ export interface Task {
   priority?: Priority
   category?: string
   durationMin?: number
+  /** Repetição do agendamento. Ausente equivale a `none` para compatibilidade. */
+  repeat?: TaskRepeat
+  /** Dias da semana no padrão JavaScript: 0=domingo ... 6=sábado. */
+  repeatDays?: number[]
+  /** Data final inclusiva. Ausente = sem data final. */
+  repeatUntil?: string
+  /** Ocorrências concluídas de uma tarefa recorrente. */
+  completedDates?: string[]
 }

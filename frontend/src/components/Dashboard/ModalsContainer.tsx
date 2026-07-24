@@ -9,6 +9,7 @@ import { Button } from "../ui/Button"
 import { GlobalSearch } from "./GlobalSearch"
 import { Icon } from "../../design-system"
 import { useProgress } from "../../modules/progress/store"
+import { TaskSchedulerForm } from "../../modules/routine/TaskSchedulerForm"
 
 export function ModalsContainer() {
   const app = useApp()
@@ -39,8 +40,8 @@ export function ModalsContainer() {
 
   return <>
     <GlobalSearch />
-    <Modal isOpen={app.isTaskModalOpen} onClose={() => app.setIsTaskModalOpen(false)} title="Nova tarefa da rotina" icon="add_circle">
-      <form onSubmit={app.handleAddTaskSubmit} className="space-y-4"><Input label="Título da tarefa" required placeholder="Ex.: Reunião de alinhamento" value={app.newTaskTitle} onChange={(e) => app.setNewTaskTitle(e.target.value)} /><div className="grid grid-cols-2 gap-4"><Input label="Horário" type="time" required value={app.newTaskTime} onChange={(e) => app.setNewTaskTime(e.target.value)} /><Input label="Categoria" placeholder="Ex.: Trabalho" value={app.newTaskSubtitle} onChange={(e) => app.setNewTaskSubtitle(e.target.value)} /></div><div className="flex justify-end gap-2 border-t border-outline-variant pt-4"><Button type="button" variant="ghost" onClick={() => app.setIsTaskModalOpen(false)}>Cancelar</Button><Button type="submit">Salvar tarefa</Button></div></form>
+    <Modal isOpen={app.isTaskModalOpen} onClose={() => app.setIsTaskModalOpen(false)} title="Agendar tarefa" description="Crie uma vez e escolha quando repetir, como em um despertador." icon="alarm_add" maxWidth="max-w-xl">
+      <TaskSchedulerForm onClose={() => app.setIsTaskModalOpen(false)} />
     </Modal>
     <Modal isOpen={app.isExpenseModalOpen} onClose={() => app.setIsExpenseModalOpen(false)} title="Lançar despesa" icon="payments" maxWidth="max-w-lg">
       <form onSubmit={addExpense} className="space-y-4"><Input label="Descrição" required placeholder="Ex.: Supermercado" value={app.expenseDesc} onChange={(e) => app.setExpenseDesc(e.target.value)} /><div className="grid gap-4 sm:grid-cols-2"><Input label="Valor (R$)" type="number" min="0" step="0.01" required value={app.expenseAmount} onChange={(e) => app.setExpenseAmount(e.target.value)} fontFamily="mono" /><Input label="Data" type="date" required value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} /></div><div className="grid gap-4 sm:grid-cols-2"><Select label="Conta ou cartão" value={expenseAccountId} onChange={setExpenseAccountId}>{fin.accounts.map((account) => <option key={account.id} value={account.id}>{account.label} · {account.bank ?? "Sem banco"}</option>)}</Select><Select label="Categoria" value={expenseCategory} onChange={setExpenseCategory}>{Object.entries(CATEGORY_LABEL).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</Select></div><p className="rounded-xl bg-primary/8 px-3 py-2 text-xs text-on-surface-variant">O valor será descontado do saldo ou somado à fatura, conforme a conta selecionada.</p><div className="flex justify-end gap-2 border-t border-outline-variant pt-4"><Button type="button" variant="ghost" onClick={() => app.setIsExpenseModalOpen(false)}>Cancelar</Button><Button type="submit">Lançar despesa</Button></div></form>

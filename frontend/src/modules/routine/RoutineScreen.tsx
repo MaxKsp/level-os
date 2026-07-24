@@ -9,7 +9,7 @@ import { cn } from "../../lib/cn"
 import { useApp } from "../../context/AppContext"
 import type { Task } from "../../context/AppContext"
 import { TODAY_ISO } from "./mock"
-import { PRIORITY_LABEL, PRIORITY_TONE, progressPercent, tasksOn } from "./selectors"
+import { PRIORITY_LABEL, PRIORITY_TONE, progressPercent, taskRepeatLabel, tasksOn } from "./selectors"
 import type { CalendarView, GoogleCalendarConnection, GoogleCalendarEvent } from "../calendar/contracts"
 import { useCalendarRange } from "../calendar/store"
 import {
@@ -22,6 +22,7 @@ import {
 } from "../calendar/selectors"
 
 type View = CalendarView
+type ToggleTask = (id: string, occurrenceDate?: string) => void
 const VIEWS: { key: View; label: string }[] = [
   { key: "dia", label: "Dia" },
   { key: "semana", label: "Semana" },
@@ -49,9 +50,13 @@ export function RoutineScreen() {
 
   const range = useMemo(() => calendarRangeForView(view, cursor), [cursor, view])
   const calendar = useCalendarRange(range)
+  const countWindow = useMemo(() => ({
+    start: isoOf(new Date(cursor.getFullYear() - 1, 11, 1)),
+    end: isoOf(new Date(cursor.getFullYear() + 1, 1, 1)),
+  }), [cursor])
   const counts = useMemo(
-    () => countTimelineByDate(tasks, calendar.events, TODAY_ISO),
-    [calendar.events, tasks],
+    () => countTimelineByDate(tasks, calendar.events, TODAY_ISO, countWindow.start, countWindow.end),
+    [calendar.events, countWindow, tasks],
   )
   const isToday = (d: Date) => isoOf(d) === TODAY_ISO
 
@@ -95,7 +100,7 @@ export function RoutineScreen() {
 }
 
 /* ------------------------------------------------------------------ Dia */
-function DiaView({ date, setDate, tasks, events, toggle, isToday }: { date: Date; setDate: (d: Date) => void; tasks: Task[]; events: GoogleCalendarEvent[]; toggle: (id: string) => void; isToday: (d: Date) => boolean }) {
+function DiaView({ date, setDate, tasks, events, toggle, isToday }: { date: Date; setDate: (d: Date) => void; tasks: Task[]; events: GoogleCalendarEvent[]; toggle: ToggleTask; isToday: (d: Date) => boolean }) {
   const dayTasks = tasksOn(tasks, isoOf(date), TODAY_ISO)
   const items = timelineOnDate(tasks, events, isoOf(date), TODAY_ISO)
   const done = dayTasks.filter((t) => t.completed).length
@@ -127,7 +132,7 @@ function DiaView({ date, setDate, tasks, events, toggle, isToday }: { date: Date
 }
 
 /* --------------------------------------------------------------- Semana */
-function SemanaView({ cursor, setCursor, tasks, events, toggle, isToday }: { cursor: Date; setCursor: (d: Date) => void; tasks: Task[]; events: GoogleCalendarEvent[]; toggle: (id: string) => void; isToday: (d: Date) => boolean }) {
+function SemanaView({ cursor, setCursor, tasks, events, toggle, isToday }: { cursor: Date; setCursor: (d: Date) => void; tasks: Task[]; events: GoogleCalendarEvent[]; toggle: ToggleTask; isToday: (d: Date) => boolean }) {
   const start = weekStart(cursor)
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i))
   const end = addDays(start, 6)
@@ -162,7 +167,7 @@ function SemanaView({ cursor, setCursor, tasks, events, toggle, isToday }: { cur
 }
 
 /* ------------------------------------------------------------------ Mês */
-function MesView({ cursor, setCursor, counts, tasks, events, toggle, isToday, onOpenDay }: { cursor: Date; setCursor: (d: Date) => void; counts: Map<string, number>; tasks: Task[]; events: GoogleCalendarEvent[]; toggle: (id: string) => void; isToday: (d: Date) => boolean; onOpenDay: (d: Date) => void }) {
+function MesView({ cursor, setCursor, counts, tasks, events, toggle, isToday, onOpenDay }: { cursor: Date; setCursor: (d: Date) => void; counts: Map<string, number>; tasks: Task[]; events: GoogleCalendarEvent[]; toggle: ToggleTask; isToday: (d: Date) => boolean; onOpenDay: (d: Date) => void }) {
   const [sel, setSel] = useState<Date>(cursor)
   const y = cursor.getFullYear(), m = cursor.getMonth()
   const first = new Date(y, m, 1)
@@ -284,7 +289,7 @@ function CalendarNotice({ connection, connectionStatus, status, error, retry }: 
   return null
 }
 
-function TimelineRow({ item, toggle }: { item: TimelineItem; toggle: (id: string) => void }) {
+function TimelineRow({ item, toggle }: { item: TimelineItem; toggle: ToggleTask }) {
   return item.source === "level"
     ? <TaskRow task={item.task} toggle={toggle} showTime />
     : <GoogleEventRow event={item.event} />
@@ -313,11 +318,11 @@ function GoogleEventRow({ event }: { event: GoogleCalendarEvent }) {
   )
 }
 
-function WeekTimelineItem({ item, toggle }: { item: TimelineItem; toggle: (id: string) => void }) {
+function WeekTimelineItem({ item, toggle }: { item: TimelineItem; toggle: ToggleTask }) {
   if (item.source === "level") {
     const task = item.task
     return (
-      <button onClick={() => toggle(task.id)} className="level-control flex w-full items-start gap-1.5 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-surface-container">
+      <button onClick={() => toggle(task.id, task.date)} className="level-control flex w-full items-start gap-1.5 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-surface-container">
         <Icon name={task.completed ? "check_circle" : "radio_button_unchecked"} filled={task.completed} className={cn("mt-0.5 text-[15px]", task.completed ? "text-tertiary" : "text-muted")} />
         <span className={cn("text-xs leading-tight", task.completed ? "text-muted line-through" : "text-on-surface")}>{task.title}</span>
       </button>
@@ -348,14 +353,18 @@ function PeriodNav({ title, onPrev, onNext, onToday, badge }: { title: string; o
   )
 }
 
-function TaskRow({ task, toggle, showTime }: { task: Task; toggle: (id: string) => void; showTime?: boolean }) {
+function TaskRow({ task, toggle, showTime }: { task: Task; toggle: ToggleTask; showTime?: boolean }) {
+  const repeatLabel = taskRepeatLabel(task)
   return (
-    <button onClick={() => toggle(task.id)} className="level-row-action flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-surface-container">
+    <button onClick={() => toggle(task.id, task.date)} className="level-row-action flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-surface-container">
       <Icon name={task.completed ? "check_circle" : "radio_button_unchecked"} filled={task.completed} className={cn("text-[20px]", task.completed ? "text-tertiary" : "text-muted")} />
       {showTime ? <span className="w-12 shrink-0 font-mono text-xs text-muted">{task.time}</span> : null}
       <div className="min-w-0 flex-1">
         <p className={cn("truncate text-sm", task.completed ? "text-muted line-through" : "text-on-surface")}>{task.title}</p>
-        <p className="truncate text-xs text-muted">{task.subtitle}{task.durationMin ? ` · ${task.durationMin} min` : ""}</p>
+        <p className="flex items-center gap-1 truncate text-xs text-muted">
+          {repeatLabel ? <Icon name="repeat" className="shrink-0 text-[13px] text-primary" /> : null}
+          <span className="truncate">{task.subtitle}{repeatLabel ? ` · ${repeatLabel}` : ""}{task.durationMin ? ` · ${task.durationMin} min` : ""}</span>
+        </p>
       </div>
       {task.priority ? <span className={cn("shrink-0 rounded-md px-2 py-0.5 text-[11px] font-medium", PRIORITY_TONE[task.priority])}>{PRIORITY_LABEL[task.priority]}</span> : null}
     </button>
