@@ -13,6 +13,8 @@ const USER_DATA_KEYS = [
   "level-os:onboarding-completed",
   "level-os:profile:v1",
   "level-os:training:v2",
+  "level-os:native-biometric-lock:v1",
+  "level-os:native-push-enabled:v1",
 ] as const
 
 const SENSITIVE_CACHE_KEYS = [
