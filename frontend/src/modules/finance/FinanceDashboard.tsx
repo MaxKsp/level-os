@@ -10,6 +10,8 @@ import { FinancePeriodFilter } from "./FinancePeriodFilter"
 import { financeTotalsForPeriod, financeTrendForPeriod, resolveFinancePeriod, toLocalIso, type FinancePeriodPreset } from "./period"
 import { expensesByCategory, financeSummary, isCard } from "./selectors"
 import { buildInstallmentSummary } from "./installments"
+import { financeInsights } from "./financeInsights"
+import { AssistantAvatar } from "../assistant/AssistantAvatar"
 
 /** Dashboard analítico. Todos os indicadores, exceto o histórico sinalizado, derivam do store. */
 export function FinanceDashboard({ data }: { data: FinanceBootstrap }) {
@@ -48,6 +50,7 @@ export function FinanceDashboard({ data }: { data: FinanceBootstrap }) {
     + periodTotals.recurringIncomeOccurrences
     + periodTotals.variableIncomeOccurrences
   const installmentProjection = useMemo(() => buildInstallmentSummary(data, now), [data, now])
+  const insights = useMemo(() => financeInsights(data, now), [data, now])
 
   return (
     <div className="grid gap-x-8 gap-y-6 lg:grid-cols-6">
@@ -62,6 +65,34 @@ export function FinanceDashboard({ data }: { data: FinanceBootstrap }) {
           onCustomEndChange={setCustomEnd}
         />
       </div>
+
+      {insights.length > 0 ? (
+        <div className="lg:col-span-6">
+          <SectionCard
+            title="Assessor Fin destaca"
+            description="Análise automática dos seus lançamentos"
+            icon={<AssistantAvatar module="financeiro" className="size-5 text-primary" />}
+            bodyClassName="p-0"
+          >
+            <ul className="divide-y divide-outline-variant">
+              {insights.map((insight) => (
+                <li key={insight.id} className="flex items-start gap-3 px-5 py-3.5">
+                  <span className={cn(
+                    "mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg",
+                    insight.tone === "warning" ? "bg-warning/15 text-warning" : insight.tone === "positive" ? "bg-tertiary/15 text-tertiary" : "bg-primary/10 text-primary",
+                  )}>
+                    <Icon name={insight.icon} className="text-[18px]" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-on-surface">{insight.title}</p>
+                    <p className="mt-0.5 text-xs leading-5 text-on-surface-variant">{insight.detail}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </SectionCard>
+        </div>
+      ) : null}
 
       <div className="lg:col-span-6">
         <SectionCard
