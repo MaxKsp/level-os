@@ -89,6 +89,22 @@ CREATE TABLE IF NOT EXISTS rate_hits (
   INDEX idx_rate_hits_window_start (window_start)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Dispositivos registrados para push nativo (ver migrations/2026-07-25-native-push.sql).
+CREATE TABLE IF NOT EXISTS push_devices (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id INT UNSIGNED NOT NULL,
+  platform ENUM('android','ios') NOT NULL,
+  token TEXT NOT NULL,
+  token_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  enabled TINYINT(1) NOT NULL DEFAULT 1,
+  last_seen_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE INDEX uq_push_device_token (token_hash),
+  INDEX idx_push_device_user_enabled (user_id, enabled),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Auditoria de ações sensíveis (plano, restore e operações administrativas).
 CREATE TABLE IF NOT EXISTS audit_events (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

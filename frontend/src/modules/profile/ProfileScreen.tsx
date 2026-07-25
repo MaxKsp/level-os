@@ -28,6 +28,7 @@ import { useIdentity } from "../identity/store";
 import { usePreferences } from "../preferences/store";
 import { TwoFactorSection } from "./TwoFactorSection";
 import { GoogleCalendarSection } from "../calendar/GoogleCalendarSection";
+import { NativeAppSettings } from "../native/NativeAppSettings";
 
 const field =
   "w-full rounded-xl border border-outline-variant bg-surface-container px-3 py-2.5 text-sm text-on-surface outline-none transition-colors focus:border-primary";
@@ -396,6 +397,8 @@ export function ProfileScreen() {
           {profileView === "preferences" ? <div id="integrations" className="scroll-mt-24">
             <GoogleCalendarSection />
           </div> : null}
+
+          {profileView === "preferences" ? <NativeAppSettings /> : null}
 
           {profileView === "security" ? <TwoFactorSection /> : null}
 

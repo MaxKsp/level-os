@@ -23,6 +23,7 @@ import {
   timelineOnDate,
   type TimelineItem,
 } from "../calendar/selectors"
+import { hapticSelection } from "../native/device"
 
 type View = CalendarView
 type ToggleTask = (id: string, occurrenceDate?: string) => void
@@ -371,7 +372,7 @@ function WeekTimelineItem({ item, toggle, manage }: { item: TimelineItem; toggle
     const task = item.task
     return (
       <div className="group flex items-start rounded-lg transition-colors hover:bg-surface-container">
-        <button onClick={() => toggle(task.id, task.date)} className="level-control flex min-w-0 flex-1 items-start gap-1.5 px-1.5 py-1 text-left">
+        <button onClick={() => { void hapticSelection(); toggle(task.id, task.date) }} className="level-control flex min-w-0 flex-1 items-start gap-1.5 px-1.5 py-1 text-left">
           <Icon name={task.completed ? "check_circle" : "radio_button_unchecked"} filled={task.completed} className={cn("mt-0.5 text-[15px]", task.completed ? "text-tertiary" : "text-muted")} />
           <span className={cn("text-xs leading-tight", task.completed ? "text-muted line-through" : "text-on-surface")}>{task.title}</span>
         </button>
@@ -411,7 +412,7 @@ function TaskRow({ task, toggle, manage, showTime }: { task: Task; toggle: Toggl
   const repeatLabel = taskRepeatLabel(task)
   return (
     <div className="level-row-action flex w-full items-center transition-colors hover:bg-surface-container">
-      <button onClick={() => toggle(task.id, task.date)} className="level-control flex min-w-0 flex-1 items-center gap-3 px-5 py-3 text-left">
+      <button onClick={() => { void hapticSelection(); toggle(task.id, task.date) }} className="level-control flex min-w-0 flex-1 items-center gap-3 px-5 py-3 text-left">
       <Icon name={task.completed ? "check_circle" : "radio_button_unchecked"} filled={task.completed} className={cn("text-[20px]", task.completed ? "text-tertiary" : "text-muted")} />
       {showTime ? <span className="w-12 shrink-0 font-mono text-xs text-muted">{task.time}</span> : null}
       <div className="min-w-0 flex-1">

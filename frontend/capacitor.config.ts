@@ -1,3 +1,4 @@
+/// <reference types="@capacitor/push-notifications" />
 import type { CapacitorConfig } from "@capacitor/cli"
 
 const appUrl = process.env.LEVELOS_MOBILE_APP_URL?.trim() || "https://lvlos.com"
@@ -15,6 +16,9 @@ const config: CapacitorConfig = {
   plugins: {
     CapacitorCookies: {
       enabled: true,
+    },
+    PushNotifications: {
+      presentationOptions: ["badge", "sound", "banner", "list"],
     },
   },
   android: {

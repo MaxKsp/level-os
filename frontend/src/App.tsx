@@ -21,6 +21,8 @@ import { NutritionProvider } from './modules/nutrition/store';
 import { useAssistant } from './modules/assistant/store';
 import { usePreferences } from './modules/preferences/store';
 import { SearchProvider, useSearch } from './modules/search/store';
+import { NativeSecurityGate } from './modules/native/NativeSecurityGate';
+import { NativePushBridge } from './modules/native/NativePushBridge';
 
 const ModalsContainer = lazy(() => import('./components/Dashboard/ModalsContainer').then((module) => ({ default: module.ModalsContainer })));
 const OverviewScreen = lazy(() => import('./modules/overview/OverviewScreen').then((module) => ({ default: module.OverviewScreen })));
@@ -129,7 +131,12 @@ export default function App() {
                   <FinanceProvider>
                     <TrainingProvider>
                       <NutritionProvider>
-                        <AssistantProvider><AppRoutes /></AssistantProvider>
+                        <AssistantProvider>
+                          <NativeSecurityGate>
+                            <NativePushBridge />
+                            <AppRoutes />
+                          </NativeSecurityGate>
+                        </AssistantProvider>
                       </NutritionProvider>
                     </TrainingProvider>
                   </FinanceProvider>
