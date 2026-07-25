@@ -59,6 +59,18 @@ function eventDate(value: string): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 
+/**
+ * Um evento do Google é tratado como encerrado quando seu fim já passou.
+ * Eventos de calendário não têm estado "concluído" na API (só confirmed/
+ * tentative/cancelled); o fim no passado é o sinal disponível para não deixar
+ * um compromisso que já aconteceu parecendo pendente. Para eventos de dia
+ * inteiro, o `end` do Google é exclusivo (00:00 do dia seguinte).
+ */
+export function googleEventEnded(event: GoogleCalendarEvent, now: Date = new Date()): boolean {
+  const end = eventDate(event.end)
+  return end !== null && end.getTime() <= now.getTime()
+}
+
 export function googleEventOnDate(event: GoogleCalendarEvent, isoDate: string): boolean {
   const eventStart = eventDate(event.start)
   const eventEnd = eventDate(event.end)
