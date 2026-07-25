@@ -6,6 +6,10 @@ export interface ProfileData {
   phone: string
   city: string
   bio: string
+  /** "m" | "f" | "" — usado no cálculo de composição corporal. */
+  sex: string
+  /** YYYY-MM-DD ou "" — deriva a idade para TMB e % de gordura estimado. */
+  birthDate: string
 }
 
 export const PROFILE_KEY = "level-os:profile:v1"
@@ -17,6 +21,8 @@ export const DEFAULT_PROFILE: ProfileData = {
   phone: "",
   city: "",
   bio: "Evoluindo finanças, rotina e saúde em um só sistema.",
+  sex: "",
+  birthDate: "",
 }
 
 let cachedProfile: ProfileData | null = null

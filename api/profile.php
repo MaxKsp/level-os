@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../auth.php';
+require_once __DIR__ . '/../app/Core/Clock.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store, private');
@@ -10,16 +11,29 @@ $uid = require_login();
 $db = get_db();
 $storageKey = 'profile_v1';
 
+function profile_birth_date(string $value): string {
+    if ($value === '') return '';
+    $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', $value, level_clock_timezone());
+    if (!$parsed || $parsed->format('Y-m-d') !== $value) return '';
+    $today = level_clock_today();
+    if ($parsed > $today || $parsed < $today->modify('-120 years')) return '';
+    return $value;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $stmt = $db->prepare('SELECT data_value FROM kv_store WHERE user_id = ? AND data_key = ? LIMIT 1');
     $stmt->execute([$uid, $storageKey]);
     $raw = $stmt->fetchColumn();
     $stored = is_string($raw) ? json_decode($raw, true) : [];
     $stored = is_array($stored) ? $stored : [];
+    $sex = is_string($stored['sex'] ?? null) && in_array($stored['sex'], ['m', 'f'], true) ? $stored['sex'] : '';
+    $birthDate = is_string($stored['birthDate'] ?? null) ? profile_birth_date($stored['birthDate']) : '';
     echo json_encode([
         'phone' => is_string($stored['phone'] ?? null) ? $stored['phone'] : '',
         'city' => is_string($stored['city'] ?? null) ? $stored['city'] : '',
         'bio' => is_string($stored['bio'] ?? null) ? $stored['bio'] : '',
+        'sex' => $sex,
+        'birthDate' => $birthDate,
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -55,6 +69,17 @@ foreach ($limits as $field => $limit) {
         exit;
     }
     $profile[$field] = $value;
+}
+
+// Sexo biológico e data de nascimento alimentam somente estimativas corporais.
+$sex = trim((string)($body['sex'] ?? ''));
+$profile['sex'] = in_array($sex, ['m', 'f'], true) ? $sex : '';
+$birthDate = trim((string)($body['birthDate'] ?? ''));
+$profile['birthDate'] = profile_birth_date($birthDate);
+if ($birthDate !== '' && $profile['birthDate'] === '') {
+    http_response_code(422);
+    echo json_encode(['error' => 'Informe uma data de nascimento válida.'], JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 $encoded = json_encode($profile, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);

@@ -29,11 +29,16 @@ return static function (): void {
     $diet = [
         'goal'=>'emagrecimento', 'periodDays'=>1, 'budgetBRL'=>100.0, 'estimatedCostBRL'=>95.0,
         'days'=>[['day'=>1, 'meals'=>[['name'=>'Almoço','description'=>'Arroz, feijão e frango','estimatedCostBRL'=>95.0]]]],
+        'shoppingList'=>[
+            ['item'=>'Arroz','quantity'=>'1 kg','category'=>'mercearia'],
+            ['item'=>'Frango','quantity'=>'1 kg','category'=>'proteina'],
+        ],
         'createdAt'=>'2026-07-22T12:00:00-03:00', 'source'=>'assistant',
     ];
     $preview = (new AssistantActionExecutor($db))->preview(7, ['action'=>'create_diet_plan','arguments'=>$diet]);
     test_assert_same(0, (int)$db->query('SELECT COUNT(*) FROM nutrition_plans')->fetchColumn(), 'Previewing a diet must not persist it.');
     test_assert_same(1, $preview['plan']['periodDays'] ?? null, 'The preview must return the validated draft.');
+    test_assert_same('Arroz', $preview['plan']['shoppingList'][0]['item'] ?? null, 'The preview must preserve the shopping list.');
 
     $first = nutrition_activate_plan($db, 7, $diet, 'assistant');
     $secondDiet = $diet;
@@ -41,6 +46,7 @@ return static function (): void {
     $second = nutrition_activate_plan($db, 7, $secondDiet, 'assistant');
     $snapshot = nutrition_plan_snapshot($db, 7);
     test_assert_same('manutencao', $snapshot['plan']['goal'] ?? null, 'The approved replacement must become active.');
+    test_assert_same(2, count($snapshot['plan']['shoppingList'] ?? []), 'The active diet must preserve its shopping list.');
     test_assert_same(1, count($snapshot['history']), 'The previous diet must remain archived.');
     nutrition_undo_activation($db, 7, [
         'activatedId'=>$second['activatedId'], 'previousId'=>$second['previousId'], 'previousLegacy'=>$second['previousLegacy'],

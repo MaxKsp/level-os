@@ -118,7 +118,17 @@ export function AssistantResultCard({ response, onView, approval, onApprovalChan
       const dailyCosts = days.map((day) => day.meals.reduce((sum, meal) => sum + meal.estimatedCostBRL, 0))
       const estimatedCostBRL = Array.from({ length: plan.periodDays }, (_, index) => dailyCosts[index % dailyCosts.length] ?? 0)
         .reduce((sum, cost) => sum + cost, 0)
-      onApprovalChange({ ...approval, draft: { goal: plan.goal, periodDays: plan.periodDays, budgetBRL: plan.budgetBRL, estimatedCostBRL, days } })
+      onApprovalChange({
+        ...approval,
+        draft: {
+          goal: plan.goal,
+          periodDays: plan.periodDays,
+          budgetBRL: plan.budgetBRL,
+          estimatedCostBRL,
+          days,
+          shoppingList: plan.shoppingList ?? [],
+        },
+      })
     }
     return (
       <div className="mt-3 border-t border-outline-variant pt-3">
@@ -152,6 +162,20 @@ export function AssistantResultCard({ response, onView, approval, onApprovalChan
                 </section>
               ))}
             </div>
+            {plan.shoppingList?.length ? (
+              <section className="mt-3 border-t border-outline-variant pt-3">
+                <h4 className="text-xs font-semibold text-on-surface">Lista de compras consolidada</h4>
+                <ul className="mt-2 grid gap-1 sm:grid-cols-2">
+                  {plan.shoppingList.map((item, index) => (
+                    <li key={`${item.category}-${item.item}-${index}`} className="flex justify-between gap-3 text-[11px] text-on-surface-variant">
+                      <span className="truncate">{item.item}</span>
+                      <span className="shrink-0 text-muted">{item.quantity}</span>
+                    </li>
+                  ))}
+                </ul>
+                {editing ? <p className="mt-2 text-[10px] text-muted">A lista sugerida é preservada ao editar refeições; confira as quantidades antes de aprovar.</p> : null}
+              </section>
+            ) : null}
             {outsideBudgetTolerance ? <p className="mt-3 rounded-lg bg-error/10 px-3 py-2 text-[11px] text-error">O custo deve ficar entre {brl(minimumBudget)} e {brl(maximumBudget)}. Ajuste as refeições antes de aprovar.</p> : null}
             {Boolean(data?.hasActivePlan) ? <p className="mt-3 rounded-lg bg-warning/10 px-3 py-2 text-[11px] text-on-surface">Ao aprovar, o plano atual será arquivado e poderá ser restaurado.</p> : null}
           </details>

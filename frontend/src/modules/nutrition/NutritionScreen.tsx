@@ -1,11 +1,23 @@
 import { useEffect, useState } from "react"
-import { History, RotateCcw, Trash2, UtensilsCrossed } from "lucide-react"
+import { Check, History, RotateCcw, ShoppingCart, Trash2, UtensilsCrossed } from "lucide-react"
 import { Button } from "../../components/ui/Button"
 import { ConfirmIconAction } from "../../components/ui/IconAction"
 import { EmptyState, SectionCard } from "../../design-system"
+import { cn } from "../../lib/cn"
 import { useAssistant } from "../assistant/store"
 import { AssistantAvatar } from "../assistant/AssistantAvatar"
-import { useNutrition } from "./store"
+import { useNutrition, type ShoppingCategory, type ShoppingItem } from "./store"
+
+const SHOPPING_CATEGORY_LABEL: Record<ShoppingCategory, string> = {
+  hortifruti: "Hortifrúti",
+  proteina: "Proteínas",
+  mercearia: "Mercearia",
+  laticinios: "Laticínios",
+  padaria: "Padaria",
+  bebidas: "Bebidas",
+  outros: "Outros",
+}
+const SHOPPING_CATEGORY_ORDER: ShoppingCategory[] = ["hortifruti", "proteina", "laticinios", "padaria", "mercearia", "bebidas", "outros"]
 
 const GOAL_LABELS: Record<string, string> = {
   emagrecimento: "Emagrecimento",
@@ -114,6 +126,8 @@ export function NutritionScreen() {
             </ul>
           </SectionCard>
 
+          {plan.shoppingList && plan.shoppingList.length > 0 ? <ShoppingListCard items={plan.shoppingList} /> : null}
+
         </div>
       )}
       {nutrition.history.length > 0 ? (
@@ -135,5 +149,56 @@ export function NutritionScreen() {
         </SectionCard>
       ) : null}
     </main>
+  )
+}
+
+function ShoppingListCard({ items }: { items: ShoppingItem[] }) {
+  const [checked, setChecked] = useState<Set<number>>(new Set())
+  const toggle = (index: number) => setChecked((current) => {
+    const next = new Set(current)
+    if (next.has(index)) next.delete(index); else next.add(index)
+    return next
+  })
+
+  const grouped = SHOPPING_CATEGORY_ORDER
+    .map((category) => ({ category, entries: items.map((item, index) => ({ item, index })).filter(({ item }) => item.category === category) }))
+    .filter((group) => group.entries.length > 0)
+
+  return (
+    <SectionCard
+      title="Lista de compras"
+      description={`${items.length} ${items.length === 1 ? "item" : "itens"} para o período — ${checked.size} no carrinho`}
+      icon={<ShoppingCart className="size-5 text-primary" />}
+      bodyClassName="p-0"
+    >
+      <div className="divide-y divide-outline-variant">
+        {grouped.map(({ category, entries }) => (
+          <div key={category} className="px-5 py-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{SHOPPING_CATEGORY_LABEL[category]}</p>
+            <ul className="grid gap-1.5 sm:grid-cols-2">
+              {entries.map(({ item, index }) => {
+                const done = checked.has(index)
+                return (
+                  <li key={index}>
+                    <button
+                      type="button"
+                      onClick={() => toggle(index)}
+                      aria-pressed={done}
+                      className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-surface-container"
+                    >
+                      <span className={cn("grid size-5 shrink-0 place-items-center rounded-md border", done ? "border-primary bg-primary text-on-primary" : "border-outline-variant")}>
+                        {done ? <Check className="size-3.5" /> : null}
+                      </span>
+                      <span className={cn("min-w-0 flex-1 text-sm", done ? "text-muted line-through" : "text-on-surface")}>{item.item}</span>
+                      <span className="shrink-0 text-xs text-muted">{item.quantity}</span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </SectionCard>
   )
 }

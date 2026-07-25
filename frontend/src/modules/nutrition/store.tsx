@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useMemo, useState, type ReactNo
 
 export interface DietMeal { name: string; description: string; estimatedCostBRL: number }
 export interface DietDay { day: number; meals: DietMeal[] }
+export type ShoppingCategory = "hortifruti" | "proteina" | "mercearia" | "laticinios" | "padaria" | "bebidas" | "outros"
+export interface ShoppingItem { item: string; quantity: string; category: ShoppingCategory }
 export interface DietPlan {
   id?: string
   version?: number
@@ -12,17 +14,31 @@ export interface DietPlan {
   budgetBRL: number
   estimatedCostBRL: number
   days: DietDay[]
+  shoppingList?: ShoppingItem[]
   createdAt?: string
 }
 
 declare global { interface Window { CSRF_TOKEN?: string } }
 const hasBackend = () => typeof window !== "undefined" && Boolean(window.CSRF_TOKEN)
+const shoppingCategories = new Set<ShoppingCategory>(["hortifruti", "proteina", "mercearia", "laticinios", "padaria", "bebidas", "outros"])
+
+function parseShoppingItem(value: unknown): ShoppingItem | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const item = value as Partial<ShoppingItem>
+  const name = typeof item.item === "string" ? item.item.trim().slice(0, 64) : ""
+  const quantity = typeof item.quantity === "string" ? item.quantity.trim().slice(0, 32) : ""
+  const category = shoppingCategories.has(item.category as ShoppingCategory) ? item.category as ShoppingCategory : "outros"
+  return name && quantity ? { item: name, quantity, category } : null
+}
 
 export function parseDietPlan(value: unknown): DietPlan | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null
   const plan = value as Partial<DietPlan>
   if (!Array.isArray(plan.days) || typeof plan.periodDays !== "number") return null
-  return plan as DietPlan
+  const shoppingList = Array.isArray(plan.shoppingList)
+    ? plan.shoppingList.map(parseShoppingItem).filter((item): item is ShoppingItem => item !== null).slice(0, 80)
+    : []
+  return { ...plan, shoppingList } as DietPlan
 }
 
 interface Value {

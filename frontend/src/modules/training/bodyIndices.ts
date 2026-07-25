@@ -1,13 +1,39 @@
 import type { BodyMeasurement as Measurement } from "./contracts"
 
+export interface BodyProfile {
+  /** Idade em anos, ou null quando não cadastrada. */
+  age: number | null
+  /** "m" | "f" | "" — vazio quando não cadastrado. */
+  sex: string
+}
+
 export interface BodyIndices {
   bmi: { value: number; label: string } | null
   whr: { value: number; label: string } | null
   weightDelta: { value: number; sinceDate: string } | null
-  /** Massa gorda e magra em kg, só quando há peso + % de gordura registrados. */
-  composition: { fatMass: number; leanMass: number; fatPct: number } | null
+  /** Massa gorda e magra em kg. `estimated` quando o % de gordura veio da fórmula, não de medição. */
+  composition: { fatMass: number; leanMass: number; fatPct: number; estimated: boolean } | null
   /** Meta diária de água em litros (35 ml por kg de peso corporal). */
   waterTarget: { liters: number; basedOnKg: number } | null
+  /** Taxa metabólica basal (kcal/dia) por Mifflin-St Jeor. Exige idade + sexo. */
+  bmr: { value: number } | null
+}
+
+/** Idade em anos a partir de uma data YYYY-MM-DD, ou null se inválida/futura. */
+export function ageFromBirthDate(birthDate: string | null | undefined, now: Date = new Date()): number | null {
+  if (!birthDate || !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return null
+  const [year, month, day] = birthDate.split("-").map(Number)
+  const birth = new Date(year, month - 1, day)
+  if (
+    Number.isNaN(birth.getTime())
+    || birth.getFullYear() !== year
+    || birth.getMonth() !== month - 1
+    || birth.getDate() !== day
+    || birth > now
+  ) return null
+  let age = now.getFullYear() - year
+  if (now.getMonth() < month - 1 || (now.getMonth() === month - 1 && now.getDate() < day)) age -= 1
+  return age >= 0 && age <= 120 ? age : null
 }
 
 function bmiLabel(bmi: number): string {
@@ -27,8 +53,10 @@ function whrLabel(whr: number): string {
   return "Risco alto"
 }
 
-/** Calcula IMC, RCQ, variação de peso, composição corporal e meta de água. */
-export function computeBodyIndices(measurements: Measurement[]): BodyIndices {
+/** Calcula IMC, RCQ, variação de peso, composição corporal, meta de água e TMB. */
+export function computeBodyIndices(measurements: Measurement[], profile?: BodyProfile): BodyIndices {
+  const age = profile?.age ?? null
+  const sex = profile?.sex ?? ""
   const newestFirst = measurements.slice().sort((a, b) => b.date.localeCompare(a.date))
   const latestOf = (type: Measurement["type"]) => newestFirst.find((m) => m.type === type)
   const weight = latestOf("peso")
@@ -56,12 +84,19 @@ export function computeBodyIndices(measurements: Measurement[]): BodyIndices {
     weightDelta = { value: weights[0].value - weights[weights.length - 1].value, sinceDate: weights[weights.length - 1].date }
   }
 
-  // Composição a partir de dados registrados — sem estimativa por idade/sexo,
-  // que não são cadastrados. Só aparece quando o usuário loga o % de gordura.
+  // Composição: prioriza o % de gordura medido; na ausência, estima pela
+  // fórmula de Deurenberg (IMC + idade + sexo). Só a medida é marcada como
+  // exata; a fórmula é sinalizada como estimativa.
   let composition: BodyIndices["composition"] = null
   if (weight && bodyfat && bodyfat.value > 0 && bodyfat.value < 75) {
     const fatMass = weight.value * (bodyfat.value / 100)
-    composition = { fatMass, leanMass: weight.value - fatMass, fatPct: bodyfat.value }
+    composition = { fatMass, leanMass: weight.value - fatMass, fatPct: bodyfat.value, estimated: false }
+  } else if (weight && bmi && age !== null && age >= 18 && (sex === "m" || sex === "f")) {
+    const fatPct = 1.2 * bmi.value + 0.23 * age - 10.8 * (sex === "m" ? 1 : 0) - 5.4
+    if (fatPct > 0 && fatPct < 75) {
+      const fatMass = weight.value * (fatPct / 100)
+      composition = { fatMass, leanMass: weight.value - fatMass, fatPct, estimated: true }
+    }
   }
 
   let waterTarget: BodyIndices["waterTarget"] = null
@@ -69,7 +104,14 @@ export function computeBodyIndices(measurements: Measurement[]): BodyIndices {
     waterTarget = { liters: (weight.value * 35) / 1000, basedOnKg: weight.value }
   }
 
-  return { bmi, whr, weightDelta, composition, waterTarget }
+  // TMB (Mifflin-St Jeor): kcal em repouso. Exige peso, altura, idade e sexo.
+  let bmr: BodyIndices["bmr"] = null
+  if (weight && height && height.value > 0 && age !== null && age >= 18 && (sex === "m" || sex === "f")) {
+    const value = 10 * weight.value + 6.25 * height.value - 5 * age + (sex === "m" ? 5 : -161)
+    if (value > 0) bmr = { value: Math.round(value) }
+  }
+
+  return { bmi, whr, weightDelta, composition, waterTarget, bmr }
 }
 
 /**
