@@ -392,12 +392,26 @@ final class AssistantActionExecutor {
         $estimatedCents = DietPlanCostCalculator::totalForPeriod($dailyCostsCents, $periodDays);
         DietPlanCostCalculator::requireNearBudget($estimatedCents, $budgetCents);
 
+        $validCategories = ['hortifruti', 'proteina', 'mercearia', 'laticinios', 'padaria', 'bebidas', 'outros'];
+        $shoppingList = [];
+        foreach (array_values(is_array($args['shoppingList'] ?? null) ? $args['shoppingList'] : []) as $entry) {
+            if (!is_array($entry)) continue;
+            $category = is_string($entry['category'] ?? null) && in_array($entry['category'], $validCategories, true) ? $entry['category'] : 'outros';
+            $shoppingList[] = [
+                'item' => $this->text($entry['item'] ?? null, 64),
+                'quantity' => $this->text($entry['quantity'] ?? null, 32),
+                'category' => $category,
+            ];
+            if (count($shoppingList) >= 80) break;
+        }
+
         $plan = [
             'goal' => $goal,
             'periodDays' => $periodDays,
             'budgetBRL' => fin_cents_to_number($budgetCents),
             'estimatedCostBRL' => fin_cents_to_number($estimatedCents),
             'days' => $normalizedDays,
+            'shoppingList' => $shoppingList,
             'createdAt' => level_clock_now()->format(DATE_ATOM),
             'source' => 'assistant',
         ];

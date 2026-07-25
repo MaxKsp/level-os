@@ -4,6 +4,8 @@ interface ProfilePayload {
   phone: string
   city: string
   bio: string
+  sex: string
+  birthDate: string
 }
 
 function csrfHeaders(): HeadersInit {
@@ -37,6 +39,8 @@ export async function saveRemoteProfile(profile: ProfileData): Promise<ProfilePa
       phone: profile.phone,
       city: profile.city,
       bio: profile.bio,
+      sex: profile.sex,
+      birthDate: profile.birthDate,
     }),
   }))
 }

@@ -34,6 +34,15 @@ const field =
 const label = "mb-1.5 block text-xs font-medium text-on-surface-variant";
 type ProfileView = "data" | "preferences" | "security";
 
+function localTodayInputValue(): string {
+  const today = new Date();
+  return [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, "0"),
+    String(today.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
 export function ProfileScreen() {
   const { progress } = useProgress();
   const { identity, status: identityStatus, error: identityError, uploadAvatar } = useIdentity();
@@ -275,6 +284,26 @@ export function ProfileScreen() {
                   onChange={(event) =>
                     setProfile({ ...profile, city: event.target.value })
                   }
+                />
+              </Field>
+              <Field title="Sexo biológico (somente para estimativas)">
+                <select
+                  className={field}
+                  value={profile.sex}
+                  onChange={(event) => setProfile({ ...profile, sex: event.target.value })}
+                >
+                  <option value="">Prefiro não informar</option>
+                  <option value="m">Masculino</option>
+                  <option value="f">Feminino</option>
+                </select>
+              </Field>
+              <Field title="Data de nascimento">
+                <input
+                  className={field}
+                  type="date"
+                  max={localTodayInputValue()}
+                  value={profile.birthDate}
+                  onChange={(event) => setProfile({ ...profile, birthDate: event.target.value })}
                 />
               </Field>
               <div className="sm:col-span-2">

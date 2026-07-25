@@ -66,7 +66,13 @@ function assistant_action_schemas(): array {
                 'required'=>['day','meals'],
                 'additionalProperties'=>false,
             ]],
-        ],'required'=>['goal','periodDays','budgetBRL','estimatedCostBRL','days'],'additionalProperties'=>false],
+            'shoppingList'=>['type'=>'array','minItems'=>1,'maxItems'=>80,'items'=>[
+                'type'=>'object',
+                'properties'=>['item'=>$string(64),'quantity'=>$string(32),'category'=>['type'=>'string','enum'=>['hortifruti','proteina','mercearia','laticinios','padaria','bebidas','outros']]],
+                'required'=>['item','quantity','category'],
+                'additionalProperties'=>false,
+            ]],
+        ],'required'=>['goal','periodDays','budgetBRL','estimatedCostBRL','days','shoppingList'],'additionalProperties'=>false],
         'query' => ['type'=>'object','properties'=>['question'=>$string(500)],'required'=>['question'],'additionalProperties'=>false],
     ];
 }
@@ -119,7 +125,7 @@ function assistant_tools(?string $module = null, ?array $only = null): array {
         'log_workout_session' => 'Registra métricas de uma sessão de treino.',
         'log_measurement' => 'Registra uma medida corporal.',
         'log_cardio' => 'Registra uma sessão de cardio.',
-        'create_diet_plan' => 'Age como nutricionista: monta um plano alimentar completo a partir de objetivo (emagrecimento, hipertrofia ou manutencao), período em dias e orçamento total em reais informados pelo usuário. Gere um dia de cardápio por dia do período (se período > 7, gere 7 dias e o usuário repete a semana — nesse caso days tem 7 itens). Cada dia tem 4 a 6 refeições (café da manhã, lanche, almoço, lanche da tarde, jantar) com descrição prática de alimentos brasileiros acessíveis e custo estimado por refeição. A soma real dos custos vezes as repetições deve aproveitar o orçamento: obrigatoriamente entre 90% e 110% do valor informado, de preferência entre 95% e 100%. Priorize arroz, feijão, ovos, frango, frutas da estação e legumes baratos. Preencha estimatedCostBRL com a soma real do período; nunca invente um total diferente dos custos individuais.',
+        'create_diet_plan' => 'Age como nutricionista: monta um plano alimentar completo a partir de objetivo (emagrecimento, hipertrofia ou manutencao), período em dias e orçamento total em reais informados pelo usuário. Gere um dia de cardápio por dia do período (se período > 7, gere 7 dias e o usuário repete a semana — nesse caso days tem 7 itens). Cada dia tem 4 a 6 refeições (café da manhã, lanche, almoço, lanche da tarde, jantar) com descrição prática de alimentos brasileiros acessíveis e custo estimado por refeição. A soma real dos custos vezes as repetições deve aproveitar o orçamento: obrigatoriamente entre 90% e 110% do valor informado, de preferência entre 95% e 100%. Priorize arroz, feijão, ovos, frango, frutas da estação e legumes baratos. Preencha estimatedCostBRL com a soma real do período; nunca invente um total diferente dos custos individuais. Em shoppingList, agregue TODOS os ingredientes do cardápio numa lista de compras consolidada (some as quantidades do período inteiro, sem repetir o mesmo item), cada um com quantidade estimada (ex.: "2 kg", "12 unidades", "1 pacote") e categoria de supermercado (hortifruti, proteina, mercearia, laticinios, padaria, bebidas ou outros).',
         'query' => 'Consulta dados resumidos do próprio usuário sem alterar nada.',
     ];
     $tools = [];
