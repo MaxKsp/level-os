@@ -17,6 +17,7 @@ import { useCalendarRange } from "../calendar/store"
 import {
   calendarRangeForView,
   countTimelineByDate,
+  googleEventEnded,
   googleEventTimeLabel,
   safeGoogleCalendarUrl,
   timelineOnDate,
@@ -343,24 +344,25 @@ function TimelineRow({ item, toggle, manage }: { item: TimelineItem; toggle: Tog
 
 function GoogleEventRow({ event }: { event: GoogleCalendarEvent }) {
   const link = safeGoogleCalendarUrl(event.htmlLink)
+  const ended = googleEventEnded(event)
   const content = (
     <>
-      <Icon name="calendar_month" className="text-[20px] text-primary" />
+      <Icon name={ended ? "event_available" : "calendar_month"} className={cn("text-[20px]", ended ? "text-tertiary" : "text-primary")} />
       <span className="w-20 shrink-0 font-mono text-xs text-muted">{googleEventTimeLabel(event)}</span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm text-on-surface">{event.title}</span>
+        <span className={cn("block truncate text-sm", ended ? "text-muted line-through" : "text-on-surface")}>{event.title}</span>
         <span className="block truncate text-xs text-muted">Google Calendar{event.location ? ` · ${event.location}` : ""}</span>
       </span>
-      <span className="shrink-0 rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">Google</span>
+      <span className={cn("shrink-0 rounded-md px-2 py-0.5 text-[10px] font-medium", ended ? "bg-tertiary/15 text-tertiary" : "bg-primary/10 text-primary")}>{ended ? "Encerrado" : "Google"}</span>
       {link ? <Icon name="arrow_forward" className="text-[15px] text-muted" /> : null}
     </>
   )
   return link ? (
-    <a href={link} target="_blank" rel="noopener noreferrer" aria-label={`Abrir ${event.title} no Google Calendar`} className="level-row-action flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-surface-container">
+    <a href={link} target="_blank" rel="noopener noreferrer" aria-label={`Abrir ${event.title} no Google Calendar`} className={cn("level-row-action flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-surface-container", ended && "opacity-70")}>
       {content}
     </a>
   ) : (
-    <div className="flex w-full items-center gap-3 px-5 py-3 text-left">{content}</div>
+    <div className={cn("flex w-full items-center gap-3 px-5 py-3 text-left", ended && "opacity-70")}>{content}</div>
   )
 }
 
@@ -380,11 +382,12 @@ function WeekTimelineItem({ item, toggle, manage }: { item: TimelineItem; toggle
     )
   }
   const link = safeGoogleCalendarUrl(item.event.htmlLink)
-  const content = <><Icon name="calendar_month" className="mt-0.5 text-[14px] text-primary" /><span className="min-w-0"><span className="block truncate text-xs leading-tight text-on-surface">{item.event.title}</span><span className="block truncate text-[10px] text-primary">{googleEventTimeLabel(item.event)}</span></span></>
+  const ended = googleEventEnded(item.event)
+  const content = <><Icon name={ended ? "event_available" : "calendar_month"} className={cn("mt-0.5 text-[14px]", ended ? "text-tertiary" : "text-primary")} /><span className="min-w-0"><span className={cn("block truncate text-xs leading-tight", ended ? "text-muted line-through" : "text-on-surface")}>{item.event.title}</span><span className={cn("block truncate text-[10px]", ended ? "text-muted" : "text-primary")}>{googleEventTimeLabel(item.event)}</span></span></>
   return link ? (
-    <a href={link} target="_blank" rel="noopener noreferrer" aria-label={`Abrir ${item.event.title} no Google Calendar`} className="level-control flex w-full items-start gap-1.5 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-surface-container">{content}</a>
+    <a href={link} target="_blank" rel="noopener noreferrer" aria-label={`Abrir ${item.event.title} no Google Calendar`} className={cn("level-control flex w-full items-start gap-1.5 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-surface-container", ended && "opacity-70")}>{content}</a>
   ) : (
-    <div className="flex w-full items-start gap-1.5 px-1.5 py-1 text-left">{content}</div>
+    <div className={cn("flex w-full items-start gap-1.5 px-1.5 py-1 text-left", ended && "opacity-70")}>{content}</div>
   )
 }
 

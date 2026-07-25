@@ -4,6 +4,7 @@ import type { GoogleCalendarEvent } from "./contracts"
 import {
   calendarRangeForView,
   countTimelineByDate,
+  googleEventEnded,
   localIsoDate,
   safeGoogleCalendarUrl,
   timelineOnDate,
@@ -32,6 +33,27 @@ function event(overrides: Partial<GoogleCalendarEvent>): GoogleCalendarEvent {
     ...overrides,
   }
 }
+
+describe("googleEventEnded", () => {
+  const now = new Date(2026, 6, 18, 12) // 18/07 12:00
+
+  it("marca como encerrado um evento cujo fim já passou", () => {
+    expect(googleEventEnded(event({ start: new Date(2026, 6, 18, 9).toISOString(), end: new Date(2026, 6, 18, 10).toISOString() }), now)).toBe(true)
+  })
+
+  it("mantém aberto um evento em andamento ou futuro", () => {
+    expect(googleEventEnded(event({ start: new Date(2026, 6, 18, 14).toISOString(), end: new Date(2026, 6, 18, 15).toISOString() }), now)).toBe(false)
+  })
+
+  it("trata dia inteiro passado como encerrado (end exclusivo)", () => {
+    expect(googleEventEnded(event({ allDay: true, start: "2026-07-17", end: "2026-07-18" }), now)).toBe(true)
+    expect(googleEventEnded(event({ allDay: true, start: "2026-07-18", end: "2026-07-19" }), now)).toBe(false)
+    expect(googleEventEnded(
+      event({ allDay: true, start: "2026-07-18", end: "2026-07-19" }),
+      new Date(2026, 6, 18, 23, 59),
+    )).toBe(false)
+  })
+})
 
 describe("calendar selectors", () => {
   it.each([
