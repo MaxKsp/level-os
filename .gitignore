@@ -3,6 +3,7 @@ node_modules/
 frontend/dist/
 frontend/.env.local
 frontend/.env.mobile.local
+/frontend/android/.idea/
 *.log
 config.php
 .claude/
@@ -10,6 +11,7 @@ config.php
 .codex/
 .vscode/
 .serena/
+.obsidian/
 automation/runs/
 tmp/
 
