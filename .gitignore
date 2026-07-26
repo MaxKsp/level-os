@@ -4,6 +4,7 @@ frontend/dist/
 frontend/.env.local
 frontend/.env.mobile.local
 /frontend/android/.idea/
+/frontend/android/app/google-services.json
 *.log
 config.php
 .claude/
