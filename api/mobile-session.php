@@ -70,6 +70,63 @@ $requestPayload = json_decode((string)file_get_contents('php://input'), true);
 $localPassword = is_array($requestPayload)
     ? (string)($requestPayload['local_password'] ?? '')
     : '';
+$mode = is_array($requestPayload) ? (string)($requestPayload['mode'] ?? '') : '';
+
+// Contas anteriores à adoção do Supabase continuam podendo entrar com a
+// credencial existente. Usa exatamente o mesmo attempt_login() do site:
+// password_hash, lockout, verificação de e-mail, auditoria e isolamento.
+if ($mode === 'password') {
+    $email = is_array($requestPayload)
+        ? trim((string)($requestPayload['email'] ?? ''))
+        : '';
+    $password = is_array($requestPayload)
+        ? (string)($requestPayload['password'] ?? '')
+        : '';
+
+    if (
+        $email === ''
+        || strlen($email) > 254
+        || !filter_var($email, FILTER_VALIDATE_EMAIL)
+        || $password === ''
+        || strlen($password) > 1024
+    ) {
+        http_response_code(401);
+        echo json_encode(['error' => 'invalid_credentials']);
+        exit;
+    }
+
+    $result = attempt_login($email, $password);
+    if ($result === 'ok') {
+        $csrf = csrf_token();
+        header('X-CSRF-Token: ' . $csrf);
+        echo json_encode([
+            'status' => 'authenticated',
+            'provider' => 'password',
+            'csrf' => $csrf,
+        ]);
+        exit;
+    }
+    if ($result === '2fa_required') {
+        http_response_code(403);
+        echo json_encode(['error' => 'mfa_required']);
+        exit;
+    }
+    if ($result === 'email_unverified') {
+        http_response_code(403);
+        echo json_encode(['error' => 'email_unverified']);
+        exit;
+    }
+    if ($result === 'locked') {
+        http_response_code(429);
+        header('Retry-After: ' . (LOCKOUT_MINUTES * 60));
+        echo json_encode(['error' => 'too_many_requests']);
+        exit;
+    }
+
+    http_response_code(401);
+    echo json_encode(['error' => 'invalid_credentials']);
+    exit;
+}
 
 try {
     $identity = mobile_supabase_auth_client()->verifyAccessToken(supabase_bearer_token());

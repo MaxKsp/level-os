@@ -9,7 +9,7 @@ import { secureStorage } from '@/lib/secure-storage';
 export const supabase = createClient(appConfig.supabaseUrl, appConfig.supabasePublishableKey, {
   auth: {
     storage: secureStorage,
-    storageKey: 'level-os:native-auth',
+    storageKey: 'level_os_native_auth',
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

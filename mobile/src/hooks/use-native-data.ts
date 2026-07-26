@@ -16,13 +16,13 @@ type State<T> = {
 };
 
 function useEndpoint<T>(path: string): State<T> {
-  const { session } = useAuth();
+  const { authenticated } = useAuth();
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (!session) return;
+    if (!authenticated) return;
     setError(false);
     try {
       setData(await apiRequest<T>(path));
@@ -31,7 +31,7 @@ function useEndpoint<T>(path: string): State<T> {
     } finally {
       setLoading(false);
     }
-  }, [path, session]);
+  }, [authenticated, path]);
 
   useEffect(() => {
     void refresh();

@@ -39,7 +39,7 @@ const icon = (name: IconName) =>
   };
 
 export default function NativeAppLayout() {
-  const { loading, session } = useAuth();
+  const { authenticated, loading } = useAuth();
   if (loading) {
     return (
       <View style={styles.loading}>
@@ -47,7 +47,7 @@ export default function NativeAppLayout() {
       </View>
     );
   }
-  if (!session) return <Redirect href="/login" />;
+  if (!authenticated) return <Redirect href="/login" />;
 
   return (
     <Tabs

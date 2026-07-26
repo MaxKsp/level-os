@@ -5,7 +5,7 @@ import { levelTheme } from '@/constants/level-theme';
 import { useAuth } from '@/providers/auth-provider';
 
 export default function EntryScreen() {
-  const { loading, session } = useAuth();
+  const { authenticated, loading } = useAuth();
 
   if (loading) {
     return (
@@ -15,7 +15,7 @@ export default function EntryScreen() {
     );
   }
 
-  return <Redirect href={session ? '/(app)' : '/login'} />;
+  return <Redirect href={authenticated ? '/(app)' : '/login'} />;
 }
 
 const styles = StyleSheet.create({

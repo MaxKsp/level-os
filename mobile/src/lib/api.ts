@@ -45,14 +45,18 @@ function supabaseBridgeHeaders(): Record<string, string> {
   };
 }
 
-export async function establishPhpSession(session: Session, localPassword?: string): Promise<void> {
+export async function bootstrapPhpSession(): Promise<boolean> {
   const bootstrap = await fetchWithTimeout(`${appConfig.apiUrl}/api/mobile-session.php`, {
     credentials: 'include',
     headers: { Accept: 'application/json' },
   });
-  const initial = await decode<{ csrf: string }>(bootstrap);
+  const initial = await decode<{ csrf: string; authenticated: boolean }>(bootstrap);
   csrfToken = initial.csrf;
+  return initial.authenticated;
+}
 
+export async function establishPhpSession(session: Session, localPassword?: string): Promise<void> {
+  await bootstrapPhpSession();
   const exchange = await fetchWithTimeout(`${appConfig.apiUrl}/api/mobile-session.php`, {
     method: 'POST',
     credentials: 'include',
@@ -68,6 +72,27 @@ export async function establishPhpSession(session: Session, localPassword?: stri
     }),
   });
   const authenticated = await decode<{ status: string; csrf: string }>(exchange);
+  if (authenticated.status !== 'authenticated') throw new Error(authenticated.status);
+  csrfToken = authenticated.csrf;
+}
+
+export async function establishLegacyPhpSession(email: string, password: string): Promise<void> {
+  await bootstrapPhpSession();
+  const response = await fetchWithTimeout(`${appConfig.apiUrl}/api/mobile-session.php`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': csrfToken,
+    },
+    body: JSON.stringify({
+      mode: 'password',
+      email: email.trim().toLowerCase(),
+      password,
+    }),
+  });
+  const authenticated = await decode<{ status: string; csrf: string }>(response);
   if (authenticated.status !== 'authenticated') throw new Error(authenticated.status);
   csrfToken = authenticated.csrf;
 }
