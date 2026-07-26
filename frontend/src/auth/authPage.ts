@@ -166,9 +166,19 @@ function bindForgotPassword(): void {
 }
 
 async function runCallback(): Promise<void> {
+  const searchParams = new URLSearchParams(window.location.search)
+  if (searchParams.get("mobile") === "1") {
+    const nativeUrl = new URL("levelos://auth/callback")
+    for (const key of ["code", "error", "error_code", "error_description", "mode", "type"]) {
+      const value = searchParams.get(key)
+      if (value) nativeUrl.searchParams.set(key, value)
+    }
+    window.location.replace(nativeUrl.toString())
+    return
+  }
+
   const supabase = getSupabaseClient()
   if (!supabase) { window.location.replace("/login.php?auth=unavailable"); return }
-  const searchParams = new URLSearchParams(window.location.search)
   const code = searchParams.get("code")
   let redirectType: string | null = null
   let { data } = await supabase.getSession()
