@@ -1,123 +1,207 @@
+import { type ExpoWebGLRenderingContext, GLView } from 'expo-gl';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
-import Animated, {
-  Easing,
-  cancelAnimation,
-  useAnimatedStyle,
-  useReducedMotion,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from 'react-native-reanimated';
+import { useCallback, useEffect, useRef } from 'react';
+import { AppState, StyleSheet, View } from 'react-native';
+import { useReducedMotion } from 'react-native-reanimated';
 
-const GRID_LINES = Array.from({ length: 9 }, (_, index) => index);
-const PARTICLES = [
-  { left: '8%', top: '15%', size: 3 },
-  { left: '18%', top: '68%', size: 2 },
-  { left: '31%', top: '34%', size: 2 },
-  { left: '46%', top: '82%', size: 3 },
-  { left: '58%', top: '18%', size: 2 },
-  { left: '71%', top: '58%', size: 3 },
-  { left: '84%', top: '28%', size: 2 },
-  { left: '92%', top: '76%', size: 2 },
-] as const;
+const VERTEX_SHADER = `
+  attribute vec2 p;
+  void main() { gl_Position = vec4(p, 0.0, 1.0); }
+`;
+
+// Mesmo fragment shader usado na autenticação web do Level OS.
+const FRAGMENT_SHADER = `
+  precision highp float;
+  uniform vec2 iResolution;
+  uniform float iTime;
+  uniform vec3 uAccent;
+
+  const float overallSpeed = 0.18;
+  const float gridSmoothWidth = 0.015;
+  const float scale = 5.0;
+  const float minLineWidth = 0.01;
+  const float maxLineWidth = 0.2;
+  const float lineSpeed = overallSpeed;
+  const float lineAmplitude = 1.0;
+  const float lineFrequency = 0.2;
+  const float warpSpeed = 0.2 * overallSpeed;
+  const float warpFrequency = 0.5;
+  const float warpAmplitude = 1.0;
+  const float offsetFrequency = 0.5;
+  const float offsetSpeed = 1.33 * overallSpeed;
+  const float minOffsetSpread = 0.6;
+  const float maxOffsetSpread = 2.0;
+  const int linesPerGroup = 16;
+
+  #define drawCircle(pos, radius, coord) smoothstep(radius + gridSmoothWidth, radius, length(coord - (pos)))
+  #define drawSmoothLine(pos, halfWidth, t) smoothstep(halfWidth, 0.0, abs(pos - (t)))
+  #define drawCrispLine(pos, halfWidth, t) smoothstep(halfWidth + gridSmoothWidth, halfWidth, abs(pos - (t)))
+
+  float random(float t) {
+    return (cos(t) + cos(t * 1.3 + 1.3) + cos(t * 1.4 + 1.4)) / 3.0;
+  }
+
+  float getPlasmaY(float x, float horizontalFade, float offset) {
+    return random(x * lineFrequency + iTime * lineSpeed) * horizontalFade * lineAmplitude + offset;
+  }
+
+  void main() {
+    vec2 fragCoord = gl_FragCoord.xy;
+    vec2 uv = fragCoord / iResolution;
+    vec2 space = (fragCoord - iResolution / 2.0) / iResolution.x * 2.0 * scale;
+    float horizontalFade = 1.0 - (cos(uv.x * 6.28) * 0.5 + 0.5);
+    float verticalFade = 1.0 - (cos(uv.y * 6.28) * 0.5 + 0.5);
+
+    space.y += random(space.x * warpFrequency + iTime * warpSpeed)
+      * warpAmplitude * (0.5 + horizontalFade);
+    space.x += random(space.y * warpFrequency + iTime * warpSpeed + 2.0)
+      * warpAmplitude * horizontalFade;
+
+    vec4 lines = vec4(0.0);
+    vec4 lineColor = vec4(uAccent, 1.0);
+    for (int l = 0; l < linesPerGroup; l++) {
+      float normalizedLineIndex = float(l) / float(linesPerGroup);
+      float offsetTime = iTime * offsetSpeed;
+      float offsetPosition = float(l) + space.x * offsetFrequency;
+      float rand = random(offsetPosition + offsetTime) * 0.5 + 0.5;
+      float halfWidth = mix(minLineWidth, maxLineWidth, rand * horizontalFade) / 2.0;
+      float offset = random(offsetPosition + offsetTime * (1.0 + normalizedLineIndex))
+        * mix(minOffsetSpread, maxOffsetSpread, horizontalFade);
+      float linePosition = getPlasmaY(space.x, horizontalFade, offset);
+      float line = drawSmoothLine(linePosition, halfWidth, space.y) / 2.0
+        + drawCrispLine(linePosition, halfWidth * 0.15, space.y);
+      float circleX = mod(float(l) + iTime * lineSpeed, 25.0) - 12.0;
+      vec2 circlePosition = vec2(circleX, getPlasmaY(circleX, horizontalFade, offset));
+      line += drawCircle(circlePosition, 0.01, space) * 4.0;
+      lines += line * lineColor * rand;
+    }
+
+    vec4 bgColor1 = vec4(0.020, 0.030, 0.045, 1.0);
+    vec4 bgColor2 = vec4(uAccent * 0.10 + vec3(0.015, 0.035, 0.050), 1.0);
+    vec4 fragColor = mix(bgColor1, bgColor2, uv.x);
+    fragColor *= verticalFade;
+    fragColor.a = 1.0;
+    fragColor += lines * 0.85;
+    gl_FragColor = fragColor;
+  }
+`;
+
+function compileShader(
+  gl: ExpoWebGLRenderingContext,
+  type: number,
+  source: string,
+): WebGLShader | null {
+  const shader = gl.createShader(type);
+  if (!shader) return null;
+  gl.shaderSource(shader, source);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    gl.deleteShader(shader);
+    return null;
+  }
+  return shader;
+}
 
 export function LevelBackground() {
   const reducedMotion = useReducedMotion();
-  const drift = useSharedValue(0);
-  const pulse = useSharedValue(0);
+  const reducedMotionRef = useRef(reducedMotion);
+  const cleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    if (reducedMotion) {
-      drift.value = 0.35;
-      pulse.value = 0.5;
-      return;
-    }
+    reducedMotionRef.current = reducedMotion;
+  }, [reducedMotion]);
 
-    drift.value = withRepeat(
-      withTiming(1, { duration: 18_000, easing: Easing.inOut(Easing.sin) }),
-      -1,
-      true,
-    );
-    pulse.value = withRepeat(
-      withTiming(1, { duration: 8_000, easing: Easing.inOut(Easing.quad) }),
-      -1,
-      true,
-    );
+  useEffect(() => () => cleanupRef.current?.(), []);
 
-    return () => {
-      cancelAnimation(drift);
-      cancelAnimation(pulse);
+  const createContext = useCallback((gl: ExpoWebGLRenderingContext) => {
+    cleanupRef.current?.();
+
+    const vertex = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
+    const fragment = compileShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER);
+    const program = gl.createProgram();
+    const buffer = gl.createBuffer();
+    if (!vertex || !fragment || !program || !buffer) return;
+
+    gl.attachShader(program, vertex);
+    gl.attachShader(program, fragment);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return;
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
+      gl.STATIC_DRAW,
+    );
+    gl.useProgram(program);
+
+    const position = gl.getAttribLocation(program, 'p');
+    const resolution = gl.getUniformLocation(program, 'iResolution');
+    const time = gl.getUniformLocation(program, 'iTime');
+    const accent = gl.getUniformLocation(program, 'uAccent');
+    gl.enableVertexAttribArray(position);
+    gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0);
+
+    let active = AppState.currentState === 'active';
+    let disposed = false;
+    let frameId = 0;
+    let elapsed = 0;
+    let previous = Date.now();
+    let previousDraw = 0;
+
+    const draw = (now: number) => {
+      if (disposed) return;
+      const delta = Math.min((now - previous) / 1000, 0.08);
+      previous = now;
+      elapsed += delta * (reducedMotionRef.current ? 0.35 : 1);
+
+      // 30 FPS mantém o shader idêntico sem desperdiçar bateria.
+      if (active && now - previousDraw >= 1000 / 30) {
+        previousDraw = now;
+        gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+        gl.uniform2f(resolution, gl.drawingBufferWidth, gl.drawingBufferHeight);
+        gl.uniform1f(time, elapsed);
+        gl.uniform3f(accent, 49 / 255, 230 / 255, 212 / 255);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        gl.flush();
+        gl.endFrameEXP();
+      }
+      frameId = requestAnimationFrame(draw);
     };
-  }, [drift, pulse, reducedMotion]);
 
-  const upperGlow = useAnimatedStyle(() => ({
-    opacity: 0.18 + pulse.value * 0.12,
-    transform: [
-      { translateX: -34 + drift.value * 78 },
-      { translateY: -18 + drift.value * 46 },
-      { scale: 0.92 + pulse.value * 0.12 },
-    ],
-  }));
+    const appState = AppState.addEventListener('change', (state) => {
+      active = state === 'active';
+      previous = Date.now();
+    });
+    frameId = requestAnimationFrame(draw);
 
-  const lowerGlow = useAnimatedStyle(() => ({
-    opacity: 0.12 + (1 - pulse.value) * 0.1,
-    transform: [
-      { translateX: 44 - drift.value * 92 },
-      { translateY: 34 - drift.value * 42 },
-      { scale: 1.04 - pulse.value * 0.08 },
-    ],
-  }));
-
-  const orbit = useAnimatedStyle(() => ({
-    opacity: 0.16 + pulse.value * 0.08,
-    transform: [
-      { rotate: `${drift.value * 14 - 7}deg` },
-      { scale: 0.96 + pulse.value * 0.05 },
-    ],
-  }));
+    cleanupRef.current = () => {
+      if (disposed) return;
+      disposed = true;
+      cancelAnimationFrame(frameId);
+      appState.remove();
+      gl.deleteBuffer(buffer);
+      gl.deleteProgram(program);
+      gl.deleteShader(vertex);
+      gl.deleteShader(fragment);
+    };
+  }, []);
 
   return (
-    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" pointerEvents="none" style={styles.root}>
+    <View
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      pointerEvents="none"
+      style={styles.root}>
       <LinearGradient
-        colors={['#06110F', '#071310', '#06100F']}
-        locations={[0, 0.56, 1]}
+        colors={['#05080B', '#06110F', '#071713']}
+        locations={[0, 0.52, 1]}
         style={StyleSheet.absoluteFill}
       />
-
-      <View style={styles.grid}>
-        {GRID_LINES.map((index) => (
-          <View key={`horizontal-${index}`} style={[styles.horizontal, { top: `${index * 12.5}%` }]} />
-        ))}
-        {GRID_LINES.map((index) => (
-          <View key={`vertical-${index}`} style={[styles.vertical, { left: `${index * 12.5}%` }]} />
-        ))}
-      </View>
-
-      <Animated.View style={[styles.glow, styles.upperGlow, upperGlow]} />
-      <Animated.View style={[styles.glow, styles.lowerGlow, lowerGlow]} />
-      <Animated.View style={[styles.orbit, orbit]} />
-
-      {PARTICLES.map((particle, index) => (
-        <View
-          key={`${particle.left}-${particle.top}`}
-          style={[
-            styles.particle,
-            {
-              height: particle.size,
-              left: particle.left,
-              opacity: index % 2 === 0 ? 0.34 : 0.2,
-              top: particle.top,
-              width: particle.size,
-            },
-          ]}
-        />
-      ))}
-
-      <LinearGradient
-        colors={['rgba(6,17,15,0.04)', 'rgba(6,17,15,0.54)', '#06110F']}
-        locations={[0, 0.68, 1]}
+      <GLView
+        enableExperimentalWorkletSupport={false}
+        msaaSamples={0}
+        onContextCreate={createContext}
         style={StyleSheet.absoluteFill}
       />
     </View>
@@ -127,57 +211,7 @@ export function LevelBackground() {
 const styles = StyleSheet.create({
   root: {
     ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#05080B',
     overflow: 'hidden',
-  },
-  grid: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.42,
-    transform: [{ rotate: '-7deg' }, { scale: 1.16 }],
-  },
-  horizontal: {
-    backgroundColor: 'rgba(49,230,212,0.045)',
-    height: StyleSheet.hairlineWidth,
-    left: 0,
-    position: 'absolute',
-    right: 0,
-  },
-  vertical: {
-    backgroundColor: 'rgba(49,230,212,0.04)',
-    bottom: 0,
-    position: 'absolute',
-    top: 0,
-    width: StyleSheet.hairlineWidth,
-  },
-  glow: {
-    backgroundColor: 'rgba(49,230,212,0.24)',
-    borderRadius: 999,
-    position: 'absolute',
-  },
-  upperGlow: {
-    height: 280,
-    right: -122,
-    top: -84,
-    width: 280,
-  },
-  lowerGlow: {
-    bottom: -154,
-    height: 340,
-    left: -176,
-    width: 340,
-  },
-  orbit: {
-    borderColor: 'rgba(49,230,212,0.13)',
-    borderRadius: 999,
-    borderWidth: 1,
-    height: 330,
-    position: 'absolute',
-    right: -184,
-    top: '31%',
-    width: 330,
-  },
-  particle: {
-    backgroundColor: '#78FFF0',
-    borderRadius: 999,
-    position: 'absolute',
   },
 });

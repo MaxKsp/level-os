@@ -13,12 +13,18 @@ import React, {
   useState,
 } from 'react';
 
-import { ApiError, endPhpSession, establishPhpSession } from '@/lib/api';
+import {
+  ApiError,
+  bootstrapPhpSession,
+  endPhpSession,
+  establishLegacyPhpSession,
+  establishPhpSession,
+} from '@/lib/api';
 import { appConfig } from '@/lib/config';
 import { secureStorage } from '@/lib/secure-storage';
 import { supabase } from '@/lib/supabase';
 
-const BIOMETRIC_KEY = 'level-os:biometric-unlock';
+const BIOMETRIC_KEY = 'level_os_biometric_unlock';
 const AUTH_BOOTSTRAP_TIMEOUT_MS = 12_000;
 const MOBILE_WEB_CALLBACK = `${appConfig.apiUrl}/auth-supabase-callback.php?mobile=1`;
 
@@ -36,6 +42,12 @@ function withTimeout<T>(operation: PromiseLike<T>): Promise<T> {
 
 function authMessage(reason: unknown): string {
   if (reason instanceof ApiError) {
+    if (reason.code === 'invalid_credentials' || reason.code === 'invalid_authentication') {
+      return 'E-mail ou senha inválidos.';
+    }
+    if (reason.code === 'email_unverified') {
+      return 'Confirme seu e-mail antes de entrar.';
+    }
     if (reason.code === 'link_required') {
       return 'Esta conta já existia no Level OS. Entre com a mesma senha usada no site para vinculá-la com segurança.';
     }
@@ -59,6 +71,7 @@ function authMessage(reason: unknown): string {
 }
 
 type AuthContextValue = {
+  authenticated: boolean;
   loading: boolean;
   session: Session | null;
   error: string | null;
@@ -74,6 +87,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: React.PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
+  const [authenticated, setAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const pendingAuthCodes = useRef(new Map<string, Promise<Session>>());
@@ -81,10 +95,12 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
   const syncSession = useCallback(async (next: Session | null, localPassword?: string) => {
     if (!next) {
       setSession(null);
+      setAuthenticated(false);
       return;
     }
     await establishPhpSession(next, localPassword);
     setSession(next);
+    setAuthenticated(true);
     setError(null);
   }, []);
 
@@ -149,9 +165,15 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
             return;
           }
         }
-        await syncSession(data.session);
+        if (data.session) {
+          await syncSession(data.session);
+        } else {
+          const phpAuthenticated = await withTimeout(bootstrapPhpSession());
+          if (mounted) setAuthenticated(phpAuthenticated);
+        }
       } catch (reason) {
         if (mounted) setSession(null);
+        if (mounted) setAuthenticated(false);
         report(reason);
       } finally {
         if (mounted) setLoading(false);
@@ -165,6 +187,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     const { data } = supabase.auth.onAuthStateChange((event, next) => {
       if (event === 'SIGNED_OUT' && mounted) {
         setSession(null);
+        setAuthenticated(false);
         return;
       }
       if (event === 'TOKEN_REFRESHED' && next) {
@@ -238,12 +261,28 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     setError(null);
+    const normalizedEmail = email.trim().toLowerCase();
     const result = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
+      email: normalizedEmail,
       password,
     });
     if (result.error || !result.data.session) {
-      const message = authMessage(result.error ?? new Error('invalid login credentials'));
+      const raw = result.error?.message ?? 'invalid login credentials';
+      if (/invalid login credentials/i.test(raw)) {
+        try {
+          await establishLegacyPhpSession(normalizedEmail, password);
+          setSession(null);
+          setAuthenticated(true);
+          setError(null);
+          router.replace('/(app)');
+          return;
+        } catch (legacyReason) {
+          const message = authMessage(legacyReason);
+          setError(message);
+          throw new Error(message);
+        }
+      }
+      const message = authMessage(result.error ?? new Error(raw));
       setError(message);
       throw new Error(message);
     }
@@ -253,6 +292,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     } catch (reason) {
       const message = authMessage(reason);
       setSession(null);
+      setAuthenticated(false);
       setError(message);
       throw new Error(message);
     }
@@ -280,6 +320,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     }
     await supabase.auth.signOut();
     setSession(null);
+    setAuthenticated(false);
     router.replace('/login');
   }, []);
 
@@ -287,10 +328,12 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     await endPhpSession();
     await supabase.auth.signOut();
     setSession(null);
+    setAuthenticated(false);
     router.replace('/login');
   }, []);
 
   const value = useMemo(() => ({
+    authenticated,
     loading,
     session,
     error,
@@ -301,6 +344,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     updatePassword,
     signOut,
   }), [
+    authenticated,
     loading,
     session,
     error,
