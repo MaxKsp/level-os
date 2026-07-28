@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 
+import { LevelBackground } from '@/components/level-background';
 import { NativeButton } from '@/components/native-ui';
 import { levelTheme } from '@/constants/level-theme';
 import { useAuth } from '@/providers/auth-provider';
@@ -81,14 +82,16 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboard}>
-        <ScrollView
-          contentContainerStyle={styles.loginContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
+    <View style={styles.root}>
+      <LevelBackground />
+      <SafeAreaView style={styles.safe}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.keyboard}>
+          <ScrollView
+            contentContainerStyle={styles.loginContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
         <Animated.View
           entering={reducedMotion ? undefined : FadeInDown.duration(420).springify()}
           style={styles.brand}>
@@ -189,13 +192,15 @@ export default function LoginScreen() {
             <Text style={styles.switchAccent}>{creating ? 'Entrar' : 'Criar conta'}</Text>
           </Text>
         </Pressable>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { backgroundColor: levelTheme.colors.background, flex: 1 },
   safe: { backgroundColor: 'transparent', flex: 1 },
   keyboard: { flex: 1 },
   loginContent: { flexGrow: 1, justifyContent: 'center', padding: 24 },

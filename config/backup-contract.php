@@ -190,6 +190,7 @@ return [
         'login_attempts' => ['kind' => 'ephemeral'],
         'register_attempts' => ['kind' => 'ephemeral'],
         'password_reset_tokens' => ['kind' => 'ephemeral'],
+        'mobile_sessions' => ['kind' => 'ephemeral'],
         'rate_hits' => ['kind' => 'ephemeral'],
         // Credenciais e espelho derivados do Google não entram no backup
         // portátil; após restore, o usuário conecta a conta novamente.

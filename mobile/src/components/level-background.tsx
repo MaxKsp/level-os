@@ -146,12 +146,18 @@ export function LevelBackground() {
     let disposed = false;
     let frameId = 0;
     let elapsed = 0;
-    let previous = Date.now();
+    let previous: number | null = null;
     let previousDraw = 0;
 
     const draw = (now: number) => {
       if (disposed) return;
-      const delta = Math.min((now - previous) / 1000, 0.08);
+      // `requestAnimationFrame` entrega um DOMHighResTimeStamp relativo ao
+      // processo. Misturá-lo com Date.now() (epoch) produz um primeiro delta
+      // negativo gigantesco e faz o float do shader perder toda a precisão,
+      // deixando o fundo aparentemente estático.
+      const delta = previous === null
+        ? 0
+        : Math.max(0, Math.min((now - previous) / 1000, 0.08));
       previous = now;
       elapsed += delta * (reducedMotionRef.current ? 0.35 : 1);
 
@@ -171,7 +177,7 @@ export function LevelBackground() {
 
     const appState = AppState.addEventListener('change', (state) => {
       active = state === 'active';
-      previous = Date.now();
+      previous = null;
     });
     frameId = requestAnimationFrame(draw);
 

@@ -2,11 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect } from 'react';
 import {
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
+  TextInput,
+  type TextInputProps,
   type TextStyle,
   View,
   type ViewStyle,
@@ -217,6 +221,60 @@ export function NativeButton({
   );
 }
 
+export function ActionTile({
+  icon,
+  title,
+  description,
+  onPress,
+  accent = false,
+  style,
+}: {
+  icon: IconName;
+  title: string;
+  description: string;
+  onPress: () => void;
+  accent?: boolean;
+  style?: ViewStyle;
+}) {
+  return (
+    <Pressable
+      accessibilityHint={description}
+      accessibilityLabel={title}
+      accessibilityRole="button"
+      onPress={() => {
+        void Haptics.selectionAsync();
+        onPress();
+      }}
+      style={({ pressed }) => [
+        styles.actionTile,
+        accent && styles.actionTileAccent,
+        pressed && styles.actionTilePressed,
+        style,
+      ]}>
+      <View style={[styles.actionTileIcon, accent && styles.actionTileIconAccent]}>
+        <Ionicons
+          color={accent ? levelTheme.colors.background : levelTheme.colors.primary}
+          name={icon}
+          size={20}
+        />
+      </View>
+      <View style={styles.actionTileCopy}>
+        <Text style={[styles.actionTileTitle, accent && styles.actionTileTitleAccent]}>{title}</Text>
+        <Text
+          numberOfLines={2}
+          style={[styles.actionTileDescription, accent && styles.actionTileDescriptionAccent]}>
+          {description}
+        </Text>
+      </View>
+      <Ionicons
+        color={accent ? levelTheme.colors.background : levelTheme.colors.muted}
+        name="arrow-forward"
+        size={17}
+      />
+    </Pressable>
+  );
+}
+
 export function EmptyState({ icon, title, description }: { icon: IconName; title: string; description: string }) {
   return (
     <View style={styles.empty}>
@@ -234,6 +292,196 @@ export function ErrorState({ retry }: { retry: () => void }) {
       <Pressable accessibilityRole="button" onPress={retry}>
         <Text style={styles.retry}>Tentar novamente</Text>
       </Pressable>
+    </View>
+  );
+}
+
+export function SegmentedTabs<T extends string>({
+  items,
+  value,
+  onChange,
+}: {
+  items: { id: T; label: string; icon?: IconName }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      contentContainerStyle={styles.segmentedContent}
+      showsHorizontalScrollIndicator={false}
+      style={styles.segmented}>
+      {items.map((item) => {
+        const selected = item.id === value;
+        return (
+          <Pressable
+            accessibilityRole="tab"
+            accessibilityState={{ selected }}
+            key={item.id}
+            onPress={() => {
+              void Haptics.selectionAsync();
+              onChange(item.id);
+            }}
+            style={({ pressed }) => [
+              styles.segment,
+              selected && styles.segmentActive,
+              pressed && styles.pressed,
+            ]}>
+            {item.icon ? (
+              <Ionicons
+                color={selected ? levelTheme.colors.background : levelTheme.colors.muted}
+                name={item.icon}
+                size={16}
+              />
+            ) : null}
+            <Text style={[styles.segmentText, selected && styles.segmentTextActive]}>
+              {item.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+export function NativeModal({
+  visible,
+  title,
+  description,
+  children,
+  onClose,
+}: React.PropsWithChildren<{
+  visible: boolean;
+  title: string;
+  description?: string;
+  onClose: () => void;
+}>) {
+  const reducedMotion = useReducedMotion();
+  return (
+    <Modal
+      animationType={reducedMotion ? 'none' : 'slide'}
+      onRequestClose={onClose}
+      presentationStyle="pageSheet"
+      statusBarTranslucent
+      transparent
+      visible={visible}>
+      <View style={styles.modalBackdrop}>
+        <SafeAreaView edges={['top', 'bottom']} style={styles.modalSheet}>
+          <View style={styles.modalHeader}>
+            <View style={styles.modalHeaderCopy}>
+              <Text style={styles.modalTitle}>{title}</Text>
+              {description ? <Text style={styles.modalDescription}>{description}</Text> : null}
+            </View>
+            <Pressable
+              accessibilityLabel="Fechar"
+              accessibilityRole="button"
+              hitSlop={12}
+              onPress={onClose}
+              style={styles.modalClose}>
+              <Ionicons color={levelTheme.colors.text} name="close" size={22} />
+            </Pressable>
+          </View>
+          <ScrollView
+            contentContainerStyle={styles.modalBody}
+            keyboardShouldPersistTaps="handled">
+            {children}
+          </ScrollView>
+        </SafeAreaView>
+      </View>
+    </Modal>
+  );
+}
+
+export function NativeField({
+  label,
+  hint,
+  multiline,
+  style,
+  ...props
+}: TextInputProps & {
+  label: string;
+  hint?: string;
+}) {
+  return (
+    <View style={styles.field}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <TextInput
+        multiline={multiline}
+        placeholderTextColor={levelTheme.colors.muted}
+        style={[styles.fieldInput, multiline && styles.fieldInputMultiline, style]}
+        {...props}
+      />
+      {hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
+    </View>
+  );
+}
+
+export function ChoiceChips<T extends string>({
+  items,
+  value,
+  onChange,
+}: {
+  items: { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <View style={styles.choices}>
+      {items.map((item) => {
+        const selected = item.value === value;
+        return (
+          <Pressable
+            accessibilityRole="radio"
+            accessibilityState={{ checked: selected }}
+            key={item.value}
+            onPress={() => onChange(item.value)}
+            style={[styles.choice, selected && styles.choiceActive]}>
+            <Text style={[styles.choiceText, selected && styles.choiceTextActive]}>
+              {item.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+export function ToggleRow({
+  title,
+  description,
+  value,
+  onChange,
+}: {
+  title: string;
+  description?: string;
+  value: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <View style={styles.toggleRow}>
+      <View style={styles.rowCopy}>
+        <Text style={styles.rowTitle}>{title}</Text>
+        {description ? <Text style={styles.rowSubtitle}>{description}</Text> : null}
+      </View>
+      <Switch
+        accessibilityLabel={title}
+        onValueChange={onChange}
+        thumbColor={value ? levelTheme.colors.background : '#D8E2E0'}
+        trackColor={{ false: '#354440', true: levelTheme.colors.primary }}
+        value={value}
+      />
+    </View>
+  );
+}
+
+export function ProgressBar({ value }: { value: number }) {
+  const width = `${Math.max(0, Math.min(100, value))}%` as `${number}%`;
+  return (
+    <View
+      accessibilityRole="progressbar"
+      accessibilityValue={{ min: 0, max: 100, now: Math.round(value) }}
+      style={styles.progressTrack}>
+      <View style={[styles.progressFill, { width }]} />
     </View>
   );
 }
@@ -268,10 +516,162 @@ const styles = StyleSheet.create({
   buttonDimmed: { opacity: 0.55 },
   buttonText: { color: levelTheme.colors.background, fontSize: 15, fontWeight: '700' },
   buttonTextSecondary: { color: levelTheme.colors.text },
+  actionTile: {
+    alignItems: 'center',
+    backgroundColor: levelTheme.colors.surface,
+    borderColor: levelTheme.colors.border,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 12,
+    minHeight: 86,
+    padding: 14,
+    width: '100%',
+  },
+  actionTileAccent: {
+    backgroundColor: levelTheme.colors.primary,
+    borderColor: levelTheme.colors.primary,
+  },
+  actionTilePressed: {
+    opacity: 0.72,
+    transform: [{ scale: 0.985 }],
+  },
+  actionTileIcon: {
+    alignItems: 'center',
+    backgroundColor: levelTheme.colors.primaryMuted,
+    borderRadius: 12,
+    height: 42,
+    justifyContent: 'center',
+    width: 42,
+  },
+  actionTileIconAccent: {
+    backgroundColor: 'rgba(6, 17, 15, 0.12)',
+  },
+  actionTileCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  actionTileTitle: {
+    color: levelTheme.colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  actionTileDescription: {
+    color: levelTheme.colors.muted,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  actionTileDescriptionAccent: {
+    color: 'rgba(6, 17, 15, 0.72)',
+  },
+  actionTileTitleAccent: {
+    color: levelTheme.colors.background,
+  },
   empty: { alignItems: 'center', gap: 8, paddingHorizontal: 24, paddingVertical: 32 },
   emptyTitle: { color: levelTheme.colors.text, fontSize: 16, fontWeight: '600', marginTop: 4 },
   emptyDescription: { color: levelTheme.colors.muted, fontSize: 13, lineHeight: 19, textAlign: 'center' },
   error: { alignItems: 'center', backgroundColor: '#2D1517', borderRadius: 14, gap: 8, padding: 18 },
   errorText: { color: levelTheme.colors.danger, fontSize: 14 },
   retry: { color: levelTheme.colors.text, fontSize: 14, fontWeight: '700' },
+  segmented: { marginHorizontal: -20 },
+  segmentedContent: { gap: 8, paddingHorizontal: 20 },
+  segment: {
+    alignItems: 'center',
+    borderColor: levelTheme.colors.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 7,
+    minHeight: 42,
+    paddingHorizontal: 14,
+  },
+  segmentActive: {
+    backgroundColor: levelTheme.colors.primary,
+    borderColor: levelTheme.colors.primary,
+  },
+  segmentText: { color: levelTheme.colors.muted, fontSize: 13, fontWeight: '700' },
+  segmentTextActive: { color: levelTheme.colors.background },
+  modalBackdrop: {
+    backgroundColor: 'rgba(0, 0, 0, 0.64)',
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: '#071310',
+    borderColor: levelTheme.colors.border,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    borderWidth: StyleSheet.hairlineWidth,
+    maxHeight: '94%',
+  },
+  modalHeader: {
+    alignItems: 'flex-start',
+    borderBottomColor: levelTheme.colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 16,
+    padding: 20,
+  },
+  modalHeaderCopy: { flex: 1, gap: 4 },
+  modalTitle: { color: levelTheme.colors.text, fontSize: 22, fontWeight: '700' },
+  modalDescription: { color: levelTheme.colors.muted, fontSize: 13, lineHeight: 19 },
+  modalClose: {
+    alignItems: 'center',
+    backgroundColor: levelTheme.colors.surfaceRaised,
+    borderRadius: 999,
+    height: 42,
+    justifyContent: 'center',
+    width: 42,
+  },
+  modalBody: { gap: 18, padding: 20, paddingBottom: 36 },
+  field: { gap: 7 },
+  fieldLabel: { color: levelTheme.colors.text, fontSize: 13, fontWeight: '600' },
+  fieldInput: {
+    backgroundColor: levelTheme.colors.surface,
+    borderColor: levelTheme.colors.border,
+    borderRadius: 14,
+    borderWidth: 1,
+    color: levelTheme.colors.text,
+    fontSize: 15,
+    minHeight: 50,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+  },
+  fieldInputMultiline: { minHeight: 104, textAlignVertical: 'top' },
+  fieldHint: { color: levelTheme.colors.muted, fontSize: 11, lineHeight: 16 },
+  choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  choice: {
+    borderColor: levelTheme.colors.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    minHeight: 40,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+  },
+  choiceActive: {
+    backgroundColor: levelTheme.colors.primaryMuted,
+    borderColor: levelTheme.colors.primary,
+  },
+  choiceText: { color: levelTheme.colors.muted, fontSize: 13, fontWeight: '600' },
+  choiceTextActive: { color: levelTheme.colors.primary },
+  toggleRow: {
+    alignItems: 'center',
+    borderBottomColor: levelTheme.colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 16,
+    minHeight: 68,
+    paddingVertical: 10,
+  },
+  progressTrack: {
+    backgroundColor: levelTheme.colors.surfaceRaised,
+    borderRadius: 999,
+    height: 8,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    backgroundColor: levelTheme.colors.primary,
+    borderRadius: 999,
+    height: '100%',
+  },
 });

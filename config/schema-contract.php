@@ -138,6 +138,27 @@ return [
         ],
     ],
 
+    'mobile_sessions' => [
+        'columns' => [
+            'id' => ['type' => 'bigint', 'unsigned' => true, 'nullable' => false],
+            'user_id' => ['type' => 'int', 'unsigned' => true, 'nullable' => false],
+            'session_version' => ['type' => 'int', 'unsigned' => true, 'nullable' => false],
+            'token_hash' => ['type' => 'char', 'length' => 64, 'nullable' => false],
+            'expires_at' => ['type' => 'datetime', 'nullable' => false],
+            'last_used_at' => ['type' => 'datetime', 'nullable' => false],
+            'revoked_at' => ['type' => 'datetime', 'nullable' => true],
+            'created_at' => ['type' => 'timestamp', 'nullable' => false],
+        ],
+        'primary_key' => ['id'],
+        'indexes' => [
+            ['name' => 'uq_mobile_session_token', 'columns' => ['token_hash'], 'unique' => true],
+            ['name' => 'idx_mobile_session_user_active', 'columns' => ['user_id', 'revoked_at', 'expires_at'], 'unique' => false],
+        ],
+        'foreign_keys' => [
+            ['column' => 'user_id', 'ref_table' => 'users', 'ref_column' => 'id', 'on_delete' => 'CASCADE'],
+        ],
+    ],
+
     'rate_hits' => [
         'columns' => [
             'bucket' => ['type' => 'varchar', 'length' => 48, 'nullable' => false],
