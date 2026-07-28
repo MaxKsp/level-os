@@ -37,6 +37,10 @@ return static function (): void {
         'Every authenticated API must resolve the native session before the PHP cookie.'
     );
     test_assert_true(
+        substr_count($auth, "level_os_mobile_session_request_token() !== ''") >= 2,
+        'Requests without a native token must not open a database connection before the auth guard.'
+    );
+    test_assert_true(
         str_contains($endpoint, "'mobile_token' => \$mobileToken"),
         'The authentication bridge must return the opaque native session token.'
     );

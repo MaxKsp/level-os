@@ -41,9 +41,11 @@ const RATE_HIT_RETENTION_SECONDS = 172800;
 const RATE_HIT_CLEANUP_ODDS = 100;
 
 function current_user_id(): ?int {
-    $mobileSession = level_os_mobile_session_current(get_db());
-    if ($mobileSession !== null) {
-        return $mobileSession['user_id'];
+    if (level_os_mobile_session_request_token() !== '') {
+        $mobileSession = level_os_mobile_session_current(get_db());
+        if ($mobileSession !== null) {
+            return $mobileSession['user_id'];
+        }
     }
 
     if (($_SESSION['auth_provider'] ?? null) === 'supabase'
@@ -134,8 +136,10 @@ function csrf_token(): string {
 function require_csrf(): void {
     // O token nativo é enviado explicitamente em um header privado e não é
     // anexado automaticamente pelo navegador. Portanto não está sujeito a CSRF.
-    if (level_os_mobile_session_current(get_db()) !== null) {
-        return;
+    if (level_os_mobile_session_request_token() !== '') {
+        if (level_os_mobile_session_current(get_db()) !== null) {
+            return;
+        }
     }
 
     $sent = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
