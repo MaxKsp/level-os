@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/bootstrap.php';
+
 return static function (): void {
     $root = dirname(__DIR__, 2);
     $view = (string)file_get_contents($root . '/app/Shared/AuthView.php');

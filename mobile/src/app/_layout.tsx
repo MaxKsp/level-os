@@ -4,7 +4,6 @@ import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { LevelBackground } from '@/components/level-background';
 import { levelTheme } from '@/constants/level-theme';
 import { AuthProvider } from '@/providers/auth-provider';
 
@@ -25,7 +24,6 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={navigationTheme}>
       <View style={styles.root}>
-        <LevelBackground />
         <AuthProvider>
           <StatusBar style="light" />
           <Stack

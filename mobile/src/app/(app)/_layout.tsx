@@ -69,7 +69,7 @@ export default function NativeAppLayout() {
       }}>
       <Tabs.Screen
         name="index"
-        options={{ title: 'Visão geral', tabBarIcon: icon('grid-outline') }}
+        options={{ title: 'Início', tabBarIcon: icon('grid-outline') }}
       />
       <Tabs.Screen
         name="finance"
@@ -84,12 +84,16 @@ export default function NativeAppLayout() {
         options={{ title: 'Treinos', tabBarIcon: icon('barbell-outline') }}
       />
       <Tabs.Screen
-        name="profile"
-        options={{ title: 'Perfil', tabBarIcon: icon('person-outline') }}
+        name="more"
+        options={{ title: 'Mais', tabBarIcon: icon('apps-outline') }}
       />
       <Tabs.Screen
         name="nutrition"
-        options={{ href: null, title: 'Alimentação' }}
+        options={{ href: null, title: 'Nutrição' }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{ href: null, title: 'Perfil' }}
       />
       <Tabs.Screen
         name="assistant"

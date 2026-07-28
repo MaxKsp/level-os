@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/totp.php';
 require_once __DIR__ . '/app/Modules/Auth/TotpSecretCrypto.php';
+require_once __DIR__ . '/app/Modules/Auth/MobileSessionService.php';
 require_once __DIR__ . '/app/Core/Audit.php';
 require_once __DIR__ . '/app/Core/SecurityHeaders.php';
 require_once __DIR__ . '/app/Core/SentryClient.php';
@@ -40,6 +41,11 @@ const RATE_HIT_RETENTION_SECONDS = 172800;
 const RATE_HIT_CLEANUP_ODDS = 100;
 
 function current_user_id(): ?int {
+    $mobileSession = level_os_mobile_session_current(get_db());
+    if ($mobileSession !== null) {
+        return $mobileSession['user_id'];
+    }
+
     if (($_SESSION['auth_provider'] ?? null) === 'supabase'
         && (int)($_SESSION['supabase_expires_at'] ?? 0) <= time()) {
         unset(
@@ -126,6 +132,12 @@ function csrf_token(): string {
 }
 
 function require_csrf(): void {
+    // O token nativo é enviado explicitamente em um header privado e não é
+    // anexado automaticamente pelo navegador. Portanto não está sujeito a CSRF.
+    if (level_os_mobile_session_current(get_db()) !== null) {
+        return;
+    }
+
     $sent = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     if (empty($_SESSION['csrf']) || !hash_equals($_SESSION['csrf'], $sent)) {
         http_response_code(403);

@@ -25,6 +25,23 @@ function mobile_supabase_auth_client(): SupabaseAuthClient {
     return new SupabaseAuthClient($projectUrl, $publishableKey);
 }
 
+function mobile_session_token_for_user(int $userId, int $sessionVersion): string
+{
+    $requestToken = level_os_mobile_session_request_token();
+    if ($requestToken !== '') {
+        $existing = level_os_mobile_session_resolve(get_db(), $requestToken);
+        if (
+            $existing !== null
+            && $existing['user_id'] === $userId
+            && $existing['session_version'] === $sessionVersion
+        ) {
+            return $requestToken;
+        }
+    }
+
+    return level_os_mobile_session_issue(get_db(), $userId, $sessionVersion);
+}
+
 $method = $_SERVER['REQUEST_METHOD'];
 if (!in_array($method, ['GET', 'POST', 'DELETE'], true)) {
     http_response_code(405);
@@ -48,10 +65,17 @@ if ($method === 'GET') {
     exit;
 }
 
-require_csrf();
-
 if ($method === 'DELETE') {
     $uid = current_user_id();
+    if ($uid === null) {
+        require_csrf();
+    } else {
+        level_os_mobile_session_revoke(
+            get_db(),
+            level_os_mobile_session_request_token(),
+            $uid
+        );
+    }
     if ($uid !== null) {
         try {
             audit_record(get_db(), $uid, 'auth.logout', 'success', ['client' => 'native']);
@@ -71,6 +95,16 @@ $localPassword = is_array($requestPayload)
     ? (string)($requestPayload['local_password'] ?? '')
     : '';
 $mode = is_array($requestPayload) ? (string)($requestPayload['mode'] ?? '') : '';
+$isNativeClient = hash_equals(
+    'level-os-mobile-v1',
+    (string)($_SERVER['HTTP_X_LEVEL_NATIVE_CLIENT'] ?? '')
+);
+
+// O bootstrap nativo apresenta uma credencial explicitamente no corpo ou no
+// Authorization. Para qualquer outro cliente, preserva a proteção CSRF web.
+if (!$isNativeClient) {
+    require_csrf();
+}
 
 // Contas anteriores à adoção do Supabase continuam podendo entrar com a
 // credencial existente. Usa exatamente o mesmo attempt_login() do site:
@@ -98,11 +132,20 @@ if ($mode === 'password') {
     $result = attempt_login($email, $password);
     if ($result === 'ok') {
         $csrf = csrf_token();
+        $userId = current_user_id();
+        $sessionVersion = (int)($_SESSION['session_version'] ?? 0);
+        if ($userId === null || $sessionVersion < 1) {
+            http_response_code(503);
+            echo json_encode(['error' => 'authentication_unavailable']);
+            exit;
+        }
+        $mobileToken = mobile_session_token_for_user($userId, $sessionVersion);
         header('X-CSRF-Token: ' . $csrf);
         echo json_encode([
             'status' => 'authenticated',
             'provider' => 'password',
             'csrf' => $csrf,
+            'mobile_token' => $mobileToken,
         ]);
         exit;
     }
@@ -150,11 +193,16 @@ try {
     complete_login($resolved['user_id'], $resolved['session_version']);
     mark_supabase_session($identity);
     $csrf = csrf_token();
+    $mobileToken = mobile_session_token_for_user(
+        $resolved['user_id'],
+        $resolved['session_version']
+    );
     header('X-CSRF-Token: ' . $csrf);
     echo json_encode([
         'status' => 'authenticated',
         'created' => $resolved['created'],
         'csrf' => $csrf,
+        'mobile_token' => $mobileToken,
     ]);
 } catch (SupabaseAccountLinkRequiredException) {
     // O e-mail já existia antes da migração para Supabase. No login nativo por
@@ -195,12 +243,17 @@ try {
             complete_login($userId, max(1, (int)$existing['session_version']));
             mark_supabase_session($identity);
             $csrf = csrf_token();
+            $mobileToken = mobile_session_token_for_user(
+                $userId,
+                max(1, (int)$existing['session_version'])
+            );
             header('X-CSRF-Token: ' . $csrf);
             echo json_encode([
                 'status' => 'authenticated',
                 'created' => false,
                 'linked' => true,
                 'csrf' => $csrf,
+                'mobile_token' => $mobileToken,
             ]);
             exit;
         }
