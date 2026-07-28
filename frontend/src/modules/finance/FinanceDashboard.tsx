@@ -175,14 +175,14 @@ export function FinanceDashboard({ data }: { data: FinanceBootstrap }) {
         </div>
       </div>
 
-      {view === "focus" ? <div className="lg:col-span-6">
+      {view === "focus" ? <div className="lg:col-span-3">
         <SectionCard className="h-full" title="Fluxo no período" description={<span className="numeric-value">{period.label}</span>}>
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(240px,.4fr)] lg:items-end">
+          <div className="grid gap-6">
             <div className="space-y-4">
               <FlowBar label="Receitas" value={periodTotals.income} max={flowMax} tone="bg-tertiary" text="text-tertiary" />
               <FlowBar label="Despesas" value={periodTotals.expenses} max={flowMax} tone="bg-error" text="text-error" />
             </div>
-              <div className="flex items-center justify-between border-y border-outline-variant px-1 py-4">
+            <div className="flex items-center justify-between border-y border-outline-variant px-1 py-4">
               <span className="text-sm font-medium text-on-surface">Saldo do período</span>
               <span className={cn("font-mono text-right text-lg font-semibold", periodTotals.balance >= 0 ? "text-tertiary" : "text-error")}><AnimatedNumber value={periodTotals.balance} animationKey="finance-dashboard-flow-balance" formatValue={formatSignedCurrency} /></span>
             </div>
@@ -190,8 +190,8 @@ export function FinanceDashboard({ data }: { data: FinanceBootstrap }) {
         </SectionCard>
       </div> : null}
 
-      {view === "details" ? <div className="lg:col-span-3">
-        <SectionCard className="h-full" title="Despesas por categoria" description={<><span className="numeric-value">{categories.length}</span> categorias</>}>
+      {view === "focus" ? <div className="lg:col-span-3">
+        <SectionCard className="h-full" title="Categorias do período" description={<><span className="numeric-value">{categories.length}</span> categorias · toque para explorar</>}>
           <ParticipationDonut items={categoryChartItems} formatValue={formatCurrency} ariaLabel={`Participação das despesas por categoria em ${period.label}`} />
         </SectionCard>
       </div> : null}

@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 
 import { LevelBackground } from '@/components/level-background';
+import { LevelLogo } from '@/components/level-logo';
 import { NativeButton } from '@/components/native-ui';
 import { levelTheme } from '@/constants/level-theme';
 import { useAuth } from '@/providers/auth-provider';
@@ -95,10 +96,7 @@ export default function LoginScreen() {
         <Animated.View
           entering={reducedMotion ? undefined : FadeInDown.duration(420).springify()}
           style={styles.brand}>
-          <View style={styles.mark}>
-            <Text style={styles.markText}>L</Text>
-          </View>
-          <Text style={styles.brandName}>LEVEL OS</Text>
+          <LevelLogo size={42} />
         </Animated.View>
 
         <Animated.View
@@ -205,15 +203,12 @@ const styles = StyleSheet.create({
   keyboard: { flex: 1 },
   loginContent: { flexGrow: 1, justifyContent: 'center', padding: 24 },
   brand: { alignItems: 'center', flexDirection: 'row', gap: 10, marginBottom: 40 },
-  mark: { alignItems: 'center', borderColor: levelTheme.colors.primary, borderRadius: 11, borderWidth: 1, height: 34, justifyContent: 'center', transform: [{ rotate: '-8deg' }], width: 34 },
-  markText: { color: levelTheme.colors.primary, fontSize: 20, fontWeight: '800' },
-  brandName: { color: levelTheme.colors.text, fontSize: 15, fontWeight: '800', letterSpacing: 1.6 },
   copy: { gap: 9, marginBottom: 30 },
   eyebrow: { color: levelTheme.colors.primary, fontSize: 11, fontWeight: '700', letterSpacing: 1.5 },
   title: { color: levelTheme.colors.text, fontSize: 36, fontWeight: '700', letterSpacing: -1.5 },
   description: { color: levelTheme.colors.muted, fontSize: 15, lineHeight: 22, maxWidth: 360 },
   form: {
-    backgroundColor: 'rgba(7, 19, 16, 0.72)',
+    backgroundColor: 'rgba(0, 0, 0, 0.78)',
     borderColor: levelTheme.colors.border,
     borderRadius: 22,
     borderWidth: StyleSheet.hairlineWidth,

@@ -1,9 +1,9 @@
 export const levelTheme = {
   colors: {
-    background: '#06110F',
-    surface: '#0B1715',
-    surfaceRaised: '#10201D',
-    border: '#20312E',
+    background: '#000000',
+    surface: '#070B0A',
+    surfaceRaised: '#0D1311',
+    border: '#1B2926',
     primary: '#31E6D4',
     primaryMuted: '#113E38',
     text: '#F2F8F7',
@@ -11,6 +11,7 @@ export const levelTheme = {
     success: '#67D391',
     danger: '#FF6B72',
     warning: '#F3C969',
+    chart: ['#31E6D4', '#4F8CFF', '#F7A928', '#A875FF', '#FF6B72', '#7AC7A5'],
   },
   radius: {
     small: 10,

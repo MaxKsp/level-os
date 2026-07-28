@@ -23,6 +23,8 @@ type State<T> = {
   refresh: () => Promise<void>;
 };
 
+const FOCUSED_SYNC_INTERVAL_MS = 60_000;
+
 function useEndpoint<T>(path: string): State<T> {
   const { authenticated } = useAuth();
   const [data, setData] = useState<T | null>(null);
@@ -43,6 +45,10 @@ function useEndpoint<T>(path: string): State<T> {
 
   useFocusEffect(useCallback(() => {
     void refresh();
+    const interval = setInterval(() => {
+      void refresh();
+    }, FOCUSED_SYNC_INTERVAL_MS);
+    return () => clearInterval(interval);
   }, [refresh]));
 
   // Se o usuário alterou algo no site enquanto o app estava em segundo plano,

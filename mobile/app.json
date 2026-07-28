@@ -2,19 +2,19 @@
   "expo": {
     "name": "Level OS",
     "slug": "level-os",
-    "version": "1.2.1",
+    "version": "1.2.2",
     "orientation": "portrait",
     "icon": "../assets/icon-512.png",
     "scheme": "levelos",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "buildNumber": "6",
+      "buildNumber": "7",
       "bundleIdentifier": "com.lvlos.app",
       "supportsTablet": false
     },
     "android": {
       "package": "com.lvlos.app",
-      "versionCode": 6,
+      "versionCode": 7,
       "googleServicesFile": "../frontend/android/app/google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#06110F",
@@ -32,10 +32,10 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#06110F",
+          "backgroundColor": "#000000",
           "android": {
-            "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
+            "image": "../assets/icon-512.png",
+            "imageWidth": 96
           }
         }
       ],
