@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -190,13 +191,13 @@ export default function RoutineScreen() {
         <>
           <Section title="A fazer" caption={`${pending.length} pendentes`}>
             {pending.length ? pending.map((task) => (
-              <Row
-                icon={task.priority === 'alta' ? 'alert-circle-outline' : 'ellipse-outline'}
+              <TaskItem
+                busy={savingId === task.id}
                 key={task.id}
-                onPress={() => openEdit(task)}
+                onEdit={() => openEdit(task)}
+                onToggle={() => void toggle(task.id)}
                 subtitle={`${task.date ? shortDate(task.date) : 'Recorrente'} · ${task.time || 'Sem horário'}${task.repeat !== 'none' ? ' · repete' : ''}`}
-                title={task.title || 'Tarefa'}
-                value={savingId === task.id ? '...' : undefined}
+                task={task}
               />
             )) : (
               <EmptyState
@@ -206,23 +207,16 @@ export default function RoutineScreen() {
               />
             )}
           </Section>
-          {pending.length ? (
-            <NativeButton
-              icon="checkmark-done"
-              label="Concluir primeira tarefa"
-              onPress={() => void toggle(pending[0].id)}
-              variant="secondary"
-            />
-          ) : null}
           {completed.length ? (
             <Section title="Concluídas" caption={`${completed.length} itens`}>
               {completed.slice(0, 8).map((task) => (
-                <Row
-                  icon="checkmark-circle"
+                <TaskItem
+                  busy={savingId === task.id}
                   key={task.id}
-                  onPress={() => void toggle(task.id)}
+                  onEdit={() => openEdit(task)}
+                  onToggle={() => void toggle(task.id)}
                   subtitle={`${task.date ? shortDate(task.date) : 'Recorrente'} · toque para reabrir`}
-                  title={task.title}
+                  task={task}
                 />
               ))}
             </Section>
@@ -302,6 +296,69 @@ export default function RoutineScreen() {
   );
 }
 
+function TaskItem({
+  task,
+  subtitle,
+  busy,
+  onToggle,
+  onEdit,
+}: {
+  task: RoutineTask;
+  subtitle: string;
+  busy: boolean;
+  onToggle: () => void;
+  onEdit: () => void;
+}) {
+  return (
+    <View style={styles.taskRow}>
+      <Pressable
+        accessibilityLabel={task.completed ? `Reabrir ${task.title}` : `Concluir ${task.title}`}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: task.completed, busy }}
+        disabled={busy}
+        hitSlop={6}
+        onPress={() => {
+          void Haptics.notificationAsync(
+            task.completed
+              ? Haptics.NotificationFeedbackType.Warning
+              : Haptics.NotificationFeedbackType.Success,
+          );
+          onToggle();
+        }}
+        style={({ pressed }) => [
+          styles.taskCheck,
+          task.completed && styles.taskCheckDone,
+          (pressed || busy) && styles.taskPressed,
+        ]}>
+        <Ionicons
+          color={task.completed ? levelTheme.colors.background : levelTheme.colors.primary}
+          name={busy ? 'ellipsis-horizontal' : task.completed ? 'checkmark' : 'ellipse-outline'}
+          size={21}
+        />
+      </Pressable>
+      <Pressable
+        accessibilityHint="Abre os detalhes para editar"
+        accessibilityLabel={task.title || 'Tarefa'}
+        accessibilityRole="button"
+        onPress={onEdit}
+        style={({ pressed }) => [styles.taskContent, pressed && styles.taskPressed]}>
+        <View style={styles.taskCopy}>
+          <Text
+            numberOfLines={2}
+            style={[styles.taskTitle, task.completed && styles.taskTitleDone]}>
+            {task.title || 'Tarefa'}
+          </Text>
+          <Text numberOfLines={2} style={styles.taskSubtitle}>{subtitle}</Text>
+        </View>
+        {task.priority === 'alta' ? (
+          <Ionicons color={levelTheme.colors.danger} name="alert-circle-outline" size={18} />
+        ) : null}
+        <Ionicons color={levelTheme.colors.muted} name="chevron-forward" size={18} />
+      </Pressable>
+    </View>
+  );
+}
+
 function AddButton({ onPress }: { onPress: () => void }) {
   return (
     <Pressable accessibilityLabel="Nova tarefa" accessibilityRole="button" onPress={onPress} style={styles.add}>
@@ -327,4 +384,36 @@ const styles = StyleSheet.create({
   timeText: { color: levelTheme.colors.muted, fontSize: 13 },
   timeTextActive: { color: levelTheme.colors.primary, fontWeight: '700' },
   label: { color: levelTheme.colors.text, fontSize: 13, fontWeight: '600' },
+  taskCheck: {
+    alignItems: 'center',
+    borderColor: levelTheme.colors.primary,
+    borderRadius: 14,
+    borderWidth: 1,
+    height: 46,
+    justifyContent: 'center',
+    width: 46,
+  },
+  taskCheckDone: {
+    backgroundColor: levelTheme.colors.primary,
+  },
+  taskContent: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
+    minHeight: 64,
+    paddingVertical: 9,
+  },
+  taskCopy: { flex: 1, gap: 4 },
+  taskPressed: { opacity: 0.62, transform: [{ scale: 0.98 }] },
+  taskRow: {
+    alignItems: 'center',
+    borderBottomColor: levelTheme.colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 12,
+  },
+  taskSubtitle: { color: levelTheme.colors.muted, fontSize: 12, lineHeight: 17 },
+  taskTitle: { color: levelTheme.colors.text, fontSize: 15, fontWeight: '600' },
+  taskTitleDone: { color: levelTheme.colors.muted, textDecorationLine: 'line-through' },
 });

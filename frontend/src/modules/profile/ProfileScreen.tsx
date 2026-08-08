@@ -12,7 +12,7 @@ type ActivityEvent = {
   ip_address: string | null;
   created_at: string;
 };
-import { Button } from "../../components/ui/Button";
+import { Button } from "../../components/ui/button";
 import { AnimatedNumber } from "../../components/ui/AnimatedNumber";
 import { ThemeToggle } from "../../components/ui/ThemeToggle";
 import { Switch } from "@/components/ui/switch";

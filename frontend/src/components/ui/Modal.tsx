@@ -1,5 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog"
-import { motion, useReducedMotion } from "motion/react"
+import { useReducedMotion } from "motion/react"
+import * as m from "motion/react-m"
 import type { ReactNode } from "react"
 import { Icon } from "../../design-system/Icon"
 
@@ -29,7 +30,7 @@ export function Modal({
     <Dialog.Root open={isOpen} onOpenChange={(open) => { if (!open) onClose() }}>
       <Dialog.Portal>
         <Dialog.Overlay asChild>
-          <motion.div
+          <m.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
@@ -39,7 +40,7 @@ export function Modal({
 
         <div className="pointer-events-none fixed inset-0 z-[111] flex items-center justify-center p-4">
           <Dialog.Content asChild>
-            <motion.div
+            <m.div
               initial={{ opacity: 0, scale: shouldReduceMotion ? 1 : 0.97, y: shouldReduceMotion ? 0 : 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               transition={shouldReduceMotion ? { duration: 0 } : { type: "spring", duration: 0.3, bounce: 0.12 }}
@@ -71,7 +72,7 @@ export function Modal({
               <div className="flex-1 overflow-y-auto px-6 py-5">
                 {children}
               </div>
-            </motion.div>
+            </m.div>
           </Dialog.Content>
         </div>
       </Dialog.Portal>

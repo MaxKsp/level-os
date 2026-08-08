@@ -35,6 +35,7 @@ session_start();
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
 const SESSION_IDLE_TIMEOUT_SECONDS = 43200; // 12h sem atividade encerra a sessão
+const PENDING_2FA_TIMEOUT_SECONDS = 600; // 10 min para concluir o segundo fator
 const PASSWORD_RESET_TOKEN_BYTES = 32;
 const PASSWORD_RESET_TTL_MINUTES = 60;
 const RATE_HIT_RETENTION_SECONDS = 172800;
@@ -95,10 +96,9 @@ function current_user_id(): ?int {
         unset(
             $_SESSION['user_id'],
             $_SESSION['session_version'],
-            $_SESSION['pending_2fa_user_id'],
-            $_SESSION['pending_2fa_session_version'],
             $_SESSION['csrf']
         );
+        discard_pending_auth_challenge();
         return null;
     }
 
@@ -292,6 +292,60 @@ function reset_attempts(): void {
     $stmt->execute([client_ip()]);
 }
 
+/** Remove apenas os dados do desafio; preserva eventual identidade Supabase a vincular. */
+function clear_pending_2fa(): void {
+    unset(
+        $_SESSION['pending_2fa_user_id'],
+        $_SESSION['pending_2fa_session_version'],
+        $_SESSION['pending_2fa_issued_at']
+    );
+}
+
+/** Cancela por completo um desafio pendente, inclusive uma vinculação externa. */
+function discard_pending_auth_challenge(): void {
+    clear_pending_2fa();
+    unset($_SESSION['pending_supabase_identity']);
+}
+
+function stage_pending_2fa(int $userId, int $sessionVersion): void {
+    if ($userId < 1 || $sessionVersion < 1) {
+        throw new InvalidArgumentException('Invalid pending 2FA identity.');
+    }
+
+    session_regenerate_id(true);
+    clear_pending_2fa();
+    $_SESSION['pending_2fa_user_id'] = $userId;
+    $_SESSION['pending_2fa_session_version'] = $sessionVersion;
+    $_SESSION['pending_2fa_issued_at'] = time();
+}
+
+function has_pending_2fa(): bool {
+    $userId = $_SESSION['pending_2fa_user_id'] ?? null;
+    $sessionVersion = $_SESSION['pending_2fa_session_version'] ?? null;
+    $issuedAt = $_SESSION['pending_2fa_issued_at'] ?? null;
+    $now = time();
+    $hasChallengeData = isset($_SESSION['pending_2fa_user_id'])
+        || isset($_SESSION['pending_2fa_session_version'])
+        || isset($_SESSION['pending_2fa_issued_at']);
+
+    // Uma identidade Supabase pode estar aguardando apenas a confirmação da
+    // senha local. Não a descarte enquanto nenhum desafio 2FA foi iniciado.
+    if (!$hasChallengeData) return false;
+
+    if (
+        !is_int($userId) || $userId < 1
+        || !is_int($sessionVersion) || $sessionVersion < 1
+        || !is_int($issuedAt)
+        || $issuedAt > ($now + 30)
+        || ($now - $issuedAt) > PENDING_2FA_TIMEOUT_SECONDS
+    ) {
+        discard_pending_auth_challenge();
+        return false;
+    }
+
+    return true;
+}
+
 /** Retorna 'ok' | '2fa_required' | 'email_unverified' | 'locked' | 'invalid'. */
 function attempt_login(string $username, string $password): string {
     $db = get_db();
@@ -314,9 +368,7 @@ function attempt_login(string $username, string $password): string {
         return 'email_unverified';
     }
     if ((int)$user['totp_enabled'] === 1) {
-        session_regenerate_id(true);
-        $_SESSION['pending_2fa_user_id'] = (int)$user['id'];
-        $_SESSION['pending_2fa_session_version'] = (int)$user['session_version'];
+        stage_pending_2fa((int)$user['id'], (int)$user['session_version']);
         try { audit_record($db, (int)$user['id'], 'auth.login', 'success', ['method' => 'password', '2fa_pending' => true]); } catch (Throwable) {}
         return '2fa_required';
     }
@@ -346,7 +398,7 @@ function complete_login(int $userId, ?int $sessionVersion = null): void {
     $_SESSION['session_version'] = $sessionVersion;
     $_SESSION['last_activity'] = time();
     unset($_SESSION['auth_provider'], $_SESSION['supabase_expires_at']);
-    unset($_SESSION['pending_2fa_user_id'], $_SESSION['pending_2fa_session_version']);
+    clear_pending_2fa();
     complete_pending_supabase_link($userId);
 }
 
@@ -399,15 +451,17 @@ function complete_pending_supabase_link(int $userId): bool {
 
 /**
  * Confere o codigo TOTP (ou um codigo de backup) pra concluir um login
- * pendente de 2FA. Retorna 'ok' | 'locked' | 'invalid'. Tentativas erradas
+ * pendente de 2FA. Retorna 'ok' | 'expired' | 'locked' | 'invalid'. Tentativas erradas
  * contam no mesmo lockout por IP do login com senha — sem isso daria pra
  * forçar o codigo de 6 digitos na base da repetição.
  */
 function attempt_2fa(string $code): string {
+    if (!has_pending_2fa()) return 'expired';
+
     $uid = $_SESSION['pending_2fa_user_id'] ?? null;
     $pendingVersion = $_SESSION['pending_2fa_session_version'] ?? null;
     if (!is_int($uid) || !is_int($pendingVersion)) {
-        unset($_SESSION['pending_2fa_user_id'], $_SESSION['pending_2fa_session_version']);
+        discard_pending_auth_challenge();
         return 'invalid';
     }
     if (is_locked_out()) {
@@ -420,7 +474,7 @@ function attempt_2fa(string $code): string {
     $stmt->execute([$uid]);
     $user = $stmt->fetch();
     if (!$user || !$user['totp_secret'] || (int)$user['session_version'] !== $pendingVersion) {
-        unset($_SESSION['pending_2fa_user_id'], $_SESSION['pending_2fa_session_version']);
+        discard_pending_auth_challenge();
         return 'invalid';
     }
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Check, History, RotateCcw, ShoppingCart, Trash2, UtensilsCrossed } from "lucide-react"
-import { Button } from "../../components/ui/Button"
+import { Button } from "../../components/ui/button"
 import { ConfirmIconAction } from "../../components/ui/IconAction"
 import { EmptyState, SectionCard } from "../../design-system"
 import { cn } from "../../lib/cn"

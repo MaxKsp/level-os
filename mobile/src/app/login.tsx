@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -167,6 +166,7 @@ export default function LoginScreen() {
           <NativeButton
             disabled={busy}
             label={creating ? 'Criar conta' : 'Entrar'}
+            loading={busy}
             onPress={() => void submit()}
           />
           <View style={styles.divider}>
@@ -181,7 +181,6 @@ export default function LoginScreen() {
             onPress={() => void google()}
             variant="secondary"
           />
-          {busy ? <ActivityIndicator color={levelTheme.colors.primary} /> : null}
         </Animated.View>
 
         <Pressable onPress={() => setCreating((value) => !value)} style={styles.switchMode}>

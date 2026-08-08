@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Button } from "../../components/ui/Button"
+import { Button } from "../../components/ui/button"
 import { Modal } from "../../components/ui/Modal"
 import { EmptyState, Icon } from "../../design-system"
 import { useApp, type Task } from "../../context/AppContext"

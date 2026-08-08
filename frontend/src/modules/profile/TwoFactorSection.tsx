@@ -1,7 +1,8 @@
 import { useState } from "react"
 import { QRCodeSVG } from "qrcode.react"
-import { Button } from "../../components/ui/Button"
+import { Button } from "../../components/ui/button"
 import { Modal } from "../../components/ui/Modal"
+import { OtpInput, type OtpStatus } from "../../components/ui/OtpInput"
 import { Icon, SectionCard } from "../../design-system"
 import { useIdentity } from "../identity/store"
 import { confirmTotp, disableTotp, enrollTotp } from "./securityApi"
@@ -25,9 +26,11 @@ function LegacyTwoFactorSection() {
   const [backupCodes, setBackupCodes] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [otpStatus, setOtpStatus] = useState<OtpStatus>("idle")
 
   const startEnrollment = async () => {
     setBusy(true); setError(null)
+    setOtpStatus("idle")
     try {
       const result = await enrollTotp()
       setEnrollment({ secret: result.secret, uri: result.otpauth_uri })
@@ -40,11 +43,16 @@ function LegacyTwoFactorSection() {
     if (!/^\d{6}$/.test(code)) { setError("Digite o código de seis dígitos do autenticador."); return }
     setBusy(true); setError(null)
     try {
-      setBackupCodes(await confirmTotp(code))
+      const recoveryCodes = await confirmTotp(code)
+      setOtpStatus("success")
+      await new Promise((resolve) => window.setTimeout(resolve, 520))
+      setBackupCodes(recoveryCodes)
       setEnrollment(null); setCode("")
+      setOtpStatus("idle")
       await refresh()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Código inválido.")
+      setOtpStatus("error")
     } finally { setBusy(false) }
   }
 
@@ -79,9 +87,18 @@ function LegacyTwoFactorSection() {
         {enrollment ? <div className="space-y-4 border-t border-outline-variant pt-4">
           <div className="mx-auto w-fit rounded-xl bg-white p-3"><QRCodeSVG value={enrollment.uri} size={164} level="M" /></div>
           <p className="text-center text-xs leading-5 text-muted">Leia o QR Code e confirme com o código atual. Se necessário, use a chave <span className="select-all font-mono text-on-surface">{enrollment.secret}</span>.</p>
-          <input className={inputClass} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" aria-label="Código do autenticador" />
+          <OtpInput
+            value={code}
+            onChange={(next) => { setCode(next); setError(null); setOtpStatus("idle") }}
+            status={otpStatus}
+            disabled={busy}
+            autoFocus
+            label="Código do autenticador"
+            hint="Cole o código ou digite os seis números."
+            errorMessage={error ?? "Código inválido ou expirado."}
+          />
           <div className="flex gap-2">
-            <Button type="button" variant="ghost" className="flex-1" onClick={() => { setEnrollment(null); setCode(""); setError(null) }}>Cancelar</Button>
+            <Button type="button" variant="ghost" className="flex-1" onClick={() => { setEnrollment(null); setCode(""); setError(null); setOtpStatus("idle") }}>Cancelar</Button>
             <Button type="button" className="flex-1" disabled={busy || code.length !== 6} onClick={() => void confirm()}>Confirmar</Button>
           </div>
         </div> : null}
@@ -90,7 +107,7 @@ function LegacyTwoFactorSection() {
           {identity.has_password ? <input className={inputClass} type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" placeholder="Confirme sua senha" aria-label="Senha atual" /> : null}
           <Button type="button" variant="danger" className="w-full" disabled={busy || (identity.has_password && !password)} onClick={() => void disable()}>Desativar 2FA</Button>
         </div> : null}
-        {error ? <p role="alert" className="text-xs text-error">{error}</p> : null}
+        {error && !enrollment ? <p role="alert" className="text-xs text-error">{error}</p> : null}
       </div>
     </SectionCard>
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
-import { Button } from "../../components/ui/Button"
+import { Button } from "../../components/ui/button"
 import { CurrencyInput } from "../../components/ui/CurrencyInput"
 import { Icon } from "../../design-system"
 import { formatCurrency } from "../../lib/format"

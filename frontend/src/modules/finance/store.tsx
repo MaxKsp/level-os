@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { hasFinanceBackend, loadFinanceBootstrap, saveFinanceAuxiliary, saveFinanceSet, type FinanceAuxKey, type FinanceSetKey } from "./api"
 import type { AccountV2, ExpenseLineV4, FinanceBootstrap, IfoodEntry, IncomeLine, Transfer } from "./contracts"
 import type { SalaryInput } from "./salary"
@@ -241,7 +241,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(timer)
   }, [remoteReady, state.bankFavorites, state.transfers])
 
-  const bootstrap: FinanceBootstrap = {
+  const bootstrap = useMemo<FinanceBootstrap>(() => ({
     accounts_v2: state.accounts,
     income_lines: state.income,
     expense_lines_v4: state.expenses,
@@ -250,20 +250,20 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     transfers: state.transfers,
     acc_view: state.accountView,
     bank_favorites: state.bankFavorites,
-  }
+  }), [state.accountView, state.accounts, state.bankFavorites, state.expenses, state.income, state.transfers, state.variableIncome, state.vaults])
 
-  const rememberUndo = (expense: ExpenseLineV4) => {
+  const rememberUndo = useCallback((expense: ExpenseLineV4) => {
     if (undoTimer.current) window.clearTimeout(undoTimer.current)
     setUndoableExpense(expense)
     undoTimer.current = window.setTimeout(() => setUndoableExpense(null), 7000)
-  }
+  }, [])
 
-  const dismissUndo = () => {
+  const dismissUndo = useCallback(() => {
     if (undoTimer.current) window.clearTimeout(undoTimer.current)
     setUndoableExpense(null)
-  }
+  }, [])
 
-  const value: FinanceContextValue = {
+  const value = useMemo<FinanceContextValue>(() => ({
     ...state,
     bootstrap,
     syncStatus,
@@ -325,7 +325,7 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     removeVariableIncome: (id) => setState((current) => ({ ...current, variableIncome: current.variableIncome.filter((entry, index) => (entry.id ?? `variable-${index}`) !== id) })),
     toggleBankFavorite: (bank) => setState((current) => ({ ...current, bankFavorites: toggleFavoriteBank(current.bankFavorites, bank) })),
     addTransfer: (transfer) => setState((current) => ({ ...current, transfers: [...current.transfers, transfer], accounts: applyTransferToAccounts(current.accounts, transfer) })),
-  }
+  }), [bootstrap, dismissUndo, refresh, rememberUndo, state, syncError, syncStatus, undoableExpense])
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>
 }

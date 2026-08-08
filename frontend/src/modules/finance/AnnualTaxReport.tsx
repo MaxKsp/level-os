@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { Button } from "../../components/ui/Button"
+import { Button } from "../../components/ui/button"
 import { AnimatedNumber } from "../../components/ui/AnimatedNumber"
 import { BankLogo } from "../../components/ui/BankLogo"
 import { Icon, SectionCard } from "../../design-system"

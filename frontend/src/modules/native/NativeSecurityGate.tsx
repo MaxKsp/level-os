@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Button } from "../../components/ui/Button";
+import { Button } from "../../components/ui/button";
 import { Icon } from "../../design-system";
 import {
   NATIVE_PREFERENCE_EVENT,

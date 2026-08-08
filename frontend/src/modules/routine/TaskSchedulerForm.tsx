@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react"
-import { Button } from "../../components/ui/Button"
+import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/Input"
 import { useApp, type Task } from "../../context/AppContext"
 import { Icon } from "../../design-system"

@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react"
 import { userStorageKey } from "../../lib/userStorage"
 
 const RECENTS_KEY = "level-os:search-recents:v1"
@@ -30,7 +30,7 @@ export function SearchProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState("")
   const [recentQueries, setRecentQueries] = useState(readRecents)
-  const rememberQuery = (next: string) => {
+  const rememberQuery = useCallback((next: string) => {
     const clean = next.trim()
     if (clean.length < 2) return
     setRecentQueries((current) => {
@@ -38,12 +38,12 @@ export function SearchProvider({ children }: { children: ReactNode }) {
       try { sessionStorage.setItem(userStorageKey(RECENTS_KEY), JSON.stringify(updated)) } catch { /* Sem persistência, a busca continua funcional. */ }
       return updated
     })
-  }
-  const clearRecentQueries = () => {
+  }, [])
+  const clearRecentQueries = useCallback(() => {
     setRecentQueries([])
     try { sessionStorage.removeItem(userStorageKey(RECENTS_KEY)) } catch { /* noop */ }
-  }
-  const value = useMemo(() => ({ isOpen, setIsOpen, query, setQuery, recentQueries, rememberQuery, clearRecentQueries }), [isOpen, query, recentQueries])
+  }, [])
+  const value = useMemo(() => ({ isOpen, setIsOpen, query, setQuery, recentQueries, rememberQuery, clearRecentQueries }), [clearRecentQueries, isOpen, query, recentQueries, rememberQuery])
 
   return <SearchContext.Provider value={value}>{children}</SearchContext.Provider>
 }

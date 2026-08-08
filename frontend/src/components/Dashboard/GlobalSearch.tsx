@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import { AnimatePresence, useReducedMotion } from "motion/react"
+import * as m from "motion/react-m"
 import { useApp } from "../../context/AppContext"
 import { EmptyState, Icon } from "../../design-system"
 import { cn } from "../../lib/cn"
@@ -161,7 +162,7 @@ export function GlobalSearch() {
     <AnimatePresence>
       {isSearchOpen ? (
         <div className="fixed inset-0 z-[120] flex items-start justify-center sm:p-4 sm:pt-[10vh]">
-          <motion.button
+          <m.button
             type="button"
             aria-label="Fechar busca"
             className="fixed inset-0 bg-black/78"
@@ -170,7 +171,7 @@ export function GlobalSearch() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           />
-          <motion.section
+          <m.section
             role="dialog"
             aria-modal="true"
             aria-label="Busca global"
@@ -248,7 +249,7 @@ export function GlobalSearch() {
               )}
             </div>
             <footer className="hidden shrink-0 items-center justify-between border-t border-outline-variant px-4 py-2 text-[10px] text-muted sm:flex"><span>↑↓ navegar · Enter abrir</span><span>{results.length} resultados</span></footer>
-          </motion.section>
+          </m.section>
         </div>
       ) : null}
     </AnimatePresence>

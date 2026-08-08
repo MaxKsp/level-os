@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { Redirect, Tabs } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -9,6 +10,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { levelTheme } from '@/constants/level-theme';
 import { LevelLogo } from '@/components/level-logo';
@@ -40,6 +42,7 @@ const icon = (name: IconName) =>
   };
 
 export default function NativeAppLayout() {
+  const insets = useSafeAreaInsets();
   const { authenticated, loading, locked, unlock } = useAuth();
   if (loading) {
     return (
@@ -72,6 +75,11 @@ export default function NativeAppLayout() {
 
   return (
     <Tabs
+      screenListeners={{
+        tabPress: () => {
+          void Haptics.selectionAsync();
+        },
+      }}
       screenOptions={{
         animation: 'fade',
         headerShown: false,
@@ -79,13 +87,14 @@ export default function NativeAppLayout() {
         tabBarActiveTintColor: levelTheme.colors.primary,
         tabBarInactiveTintColor: levelTheme.colors.muted,
         tabBarHideOnKeyboard: true,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginTop: 2 },
+        tabBarItemStyle: { paddingTop: 3 },
+        tabBarLabelStyle: { fontSize: 10.5, fontWeight: '700', marginTop: 1 },
         tabBarStyle: {
           backgroundColor: '#000000',
           borderTopColor: levelTheme.colors.border,
-          height: 74,
-          paddingBottom: 12,
-          paddingTop: 8,
+          height: 62 + insets.bottom,
+          paddingBottom: Math.max(insets.bottom, 8),
+          paddingTop: 5,
         },
       }}>
       <Tabs.Screen

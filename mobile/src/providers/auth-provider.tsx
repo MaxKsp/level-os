@@ -1,8 +1,12 @@
 import type { Session } from '@supabase/supabase-js';
+import {
+  GoogleSignin,
+  isCancelledResponse,
+  isSuccessResponse,
+} from '@react-native-google-signin/google-signin';
 import * as Linking from 'expo-linking';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { router } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
 import React, {
   createContext,
   useCallback,
@@ -21,6 +25,7 @@ import {
   establishLegacyPhpSession,
   establishPhpSession,
 } from '@/lib/api';
+import { appConfig } from '@/lib/config';
 import { secureStorage } from '@/lib/secure-storage';
 import { supabase } from '@/lib/supabase';
 
@@ -29,9 +34,12 @@ const AUTH_STARTED_AT_KEY = 'level_os_auth_started_at';
 const AUTH_BOOTSTRAP_TIMEOUT_MS = 12_000;
 const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1_000;
 const BIOMETRIC_BACKGROUND_GRACE_MS = 5 * 60 * 1_000;
-const NATIVE_AUTH_CALLBACK = Linking.createURL('auth/callback');
+const MOBILE_AUTH_BRIDGE = `${appConfig.apiUrl}/auth-supabase-callback.php?mobile=1`;
 
-WebBrowser.maybeCompleteAuthSession();
+GoogleSignin.configure({
+  webClientId: appConfig.googleWebClientId,
+  offlineAccess: false,
+});
 
 function withTimeout<T>(operation: PromiseLike<T>): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -68,6 +76,12 @@ function authMessage(reason: unknown): string {
   const raw = reason instanceof Error ? reason.message : String(reason ?? '');
   if (/invalid login credentials/i.test(raw)) return 'E-mail ou senha inválidos.';
   if (/email not confirmed/i.test(raw)) return 'Confirme seu e-mail antes de entrar.';
+  if (/DEVELOPER_ERROR|sign_in_required|\b10\b/i.test(raw)) {
+    return 'O Google ainda não reconhece a assinatura deste aplicativo.';
+  }
+  if (/PLAY_SERVICES_NOT_AVAILABLE/i.test(raw)) {
+    return 'Atualize o Google Play Services para usar este acesso.';
+  }
   if (/cancel|dismiss/i.test(raw)) return 'O acesso com Google foi cancelado.';
   if (/network|fetch|timeout/i.test(raw)) {
     return 'Sem conexão com o serviço de acesso. Verifique sua internet.';
@@ -83,6 +97,12 @@ function authParams(url: string): URLSearchParams {
     if (!params.has(key)) params.set(key, value);
   });
   return params;
+}
+
+function mobileAuthBridge(mode?: string): string {
+  const url = new URL(MOBILE_AUTH_BRIDGE);
+  if (mode) url.searchParams.set('mode', mode);
+  return url.toString();
 }
 
 type AuthContextValue = {
@@ -369,7 +389,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     const result = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
       password,
-      options: { emailRedirectTo: NATIVE_AUTH_CALLBACK },
+      options: { emailRedirectTo: mobileAuthBridge() },
     });
     if (result.error) {
       const message = authMessage(result.error);
@@ -392,32 +412,23 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
     setError(null);
     authFlowActive.current = true;
     try {
-      const result = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: NATIVE_AUTH_CALLBACK,
-          skipBrowserRedirect: true,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'select_account',
-          },
-        },
-      });
-      if (result.error || !result.data.url) {
-        throw result.error ?? new Error('google_oauth_failed');
-      }
-
-      const browser = await WebBrowser.openAuthSessionAsync(
-        result.data.url,
-        NATIVE_AUTH_CALLBACK,
-      );
-      if (browser.type !== 'success' || !browser.url) {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      const google = await GoogleSignin.signIn();
+      if (isCancelledResponse(google)) {
         throw new Error('google_oauth_cancelled');
       }
-      if (!authenticatedRef.current) {
-        const authenticatedSession = await acceptAuthUrl(browser.url);
-        if (!authenticatedSession) throw new Error('google_oauth_invalid_callback');
+      if (!isSuccessResponse(google) || !google.data.idToken) {
+        throw new Error('google_oauth_invalid_token');
       }
+      const result = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: google.data.idToken,
+      });
+      if (result.error || !result.data.session) {
+        throw result.error ?? new Error('google_oauth_failed');
+      }
+      await syncSession(result.data.session, undefined, true);
+      router.replace('/(app)');
     } catch (reason) {
       const message = authMessage(reason);
       setError(message);
@@ -426,7 +437,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
       authFlowActive.current = false;
       backgroundedAt.current = null;
     }
-  }, [acceptAuthUrl]);
+  }, [syncSession]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     setError(null);
@@ -473,7 +484,7 @@ export function AuthProvider({ children }: React.PropsWithChildren) {
   const requestPasswordReset = useCallback(async (email: string) => {
     setError(null);
     const result = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-      redirectTo: `${NATIVE_AUTH_CALLBACK}?mode=recovery`,
+      redirectTo: mobileAuthBridge('recovery'),
     });
     if (result.error) {
       const message = authMessage(result.error);

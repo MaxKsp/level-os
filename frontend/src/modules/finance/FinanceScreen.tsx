@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Button } from "../../components/ui/Button";
+import { Button } from "../../components/ui/button";
 import { AnimatedNumber } from "../../components/ui/AnimatedNumber";
 import { BankLogo } from "../../components/ui/BankLogo";
 import { PersistentCollapsibleSection } from "../../components/ui/PersistentCollapsibleSection";
@@ -10,6 +10,7 @@ import {
   ChartNoAxesCombined,
   ChartPie,
   CalendarRange,
+  ChevronDown,
   FileText,
   Pencil,
   ReceiptText,
@@ -43,6 +44,11 @@ import { FinanceInstallments } from "./FinanceInstallments";
 import { FinancePanelSkeleton, FinanceSummarySkeleton } from "./FinanceSkeleton";
 
 type Tab = "contas" | "extrato" | "gastos" | "parcelamentos" | "dash" | "ir";
+const MORE_TABS: Array<{ value: Tab; label: string }> = [
+  { value: "parcelamentos", label: "Parcelamentos" },
+  { value: "gastos", label: "Gastos" },
+  { value: "ir", label: "Imposto de renda" },
+];
 const TYPE_LABEL: Record<string, string> = {
   conta: "Conta corrente",
   poupanca: "Poupança",
@@ -149,42 +155,57 @@ export function FinanceScreen() {
 
       {fin.syncStatus === "loading" ? <FinanceSummarySkeleton /> : <FinanceSummaryRow summary={summary} accountCount={accounts.length} cardCount={cards.length} />}
 
-      <Tabs
-        value={tab}
-        onValueChange={(value) => changeTab(value as Tab)}
-        className="w-full"
-      >
-        <TabsList
-          variant="line"
-          aria-label="Seções do financeiro"
-          className="w-full justify-start overflow-x-auto sm:w-fit"
+      <div className="flex min-w-0 items-center gap-2">
+        <Tabs
+          value={tab}
+          onValueChange={(value) => changeTab(value as Tab)}
+          className="min-w-0 flex-1"
         >
-          <TabsTrigger value="contas">
+          <TabsList
+            variant="line"
+            aria-label="Seções do financeiro"
+            className="w-full min-w-0 justify-stretch overflow-hidden sm:w-fit sm:justify-start"
+          >
+          <TabsTrigger value="contas" className="min-w-0 flex-1 gap-1 px-2 text-xs sm:flex-none sm:gap-2 sm:px-3 sm:text-sm">
             <WalletCards aria-hidden="true" />
             Contas
           </TabsTrigger>
-          <TabsTrigger value="parcelamentos">
-            <CalendarRange aria-hidden="true" />
-            Parcelamentos
-          </TabsTrigger>
-          <TabsTrigger value="extrato">
+          <TabsTrigger value="extrato" className="min-w-0 flex-1 gap-1 px-2 text-xs sm:flex-none sm:gap-2 sm:px-3 sm:text-sm">
             <ReceiptText aria-hidden="true" />
             Extrato
           </TabsTrigger>
-          <TabsTrigger value="gastos">
-            <ChartPie aria-hidden="true" />
-            Gastos
-          </TabsTrigger>
-          <TabsTrigger value="dash">
+          <TabsTrigger value="dash" className="min-w-0 flex-1 gap-1 px-2 text-xs sm:flex-none sm:gap-2 sm:px-3 sm:text-sm">
             <ChartNoAxesCombined aria-hidden="true" />
             Dashboard
           </TabsTrigger>
-          <TabsTrigger value="ir">
+          <TabsTrigger value="parcelamentos" className="hidden sm:inline-flex">
+            <CalendarRange aria-hidden="true" />
+            Parcelamentos
+          </TabsTrigger>
+          <TabsTrigger value="gastos" className="hidden sm:inline-flex">
+            <ChartPie aria-hidden="true" />
+            Gastos
+          </TabsTrigger>
+          <TabsTrigger value="ir" className="hidden sm:inline-flex">
             <FileText aria-hidden="true" />
             Imposto de renda
           </TabsTrigger>
-        </TabsList>
-      </Tabs>
+          </TabsList>
+        </Tabs>
+        <label className="relative shrink-0 sm:hidden">
+          <span className="sr-only">Mais seções financeiras</span>
+          <select
+            aria-label="Mais seções financeiras"
+            value={MORE_TABS.some((item) => item.value === tab) ? tab : ""}
+            onChange={(event) => changeTab(event.target.value as Tab)}
+            className="h-10 max-w-[8.5rem] appearance-none rounded-lg border border-outline-variant bg-surface-container-low px-3 pr-8 text-sm font-medium text-on-surface outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30"
+          >
+            <option value="" disabled>Mais</option>
+            {MORE_TABS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          </select>
+          <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-muted" />
+        </label>
+      </div>
 
       {tab === "parcelamentos" ? (
         <FinanceInstallments data={fin.bootstrap} syncStatus={fin.syncStatus} syncError={fin.syncError} />

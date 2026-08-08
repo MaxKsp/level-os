@@ -1,9 +1,10 @@
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import { AnimatePresence, useReducedMotion } from "motion/react"
+import * as m from "motion/react-m"
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { PixelCard } from "@/components/ui/pixel-card"
-import { Button } from "../../components/ui/Button"
+import { Button } from "../../components/ui/button"
 import { Modal } from "../../components/ui/Modal"
 import { Icon } from "../../design-system/Icon"
 import { usePreferences } from "../preferences/store"
@@ -79,7 +80,7 @@ export function FirstLoginOnboarding() {
         </div>
 
         <AnimatePresence mode="wait" initial={false}>
-          <motion.div
+          <m.div
             key={step}
             initial={reduceMotion ? false : { opacity: 0, x: 14 }}
             animate={{ opacity: 1, x: 0 }}
@@ -116,7 +117,7 @@ export function FirstLoginOnboarding() {
                 </div>
               </section>
             )}
-          </motion.div>
+          </m.div>
         </AnimatePresence>
 
         <footer className="flex flex-col-reverse items-stretch justify-between gap-3 sm:flex-row sm:items-center">

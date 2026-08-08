@@ -30,6 +30,7 @@ function auth_view_head(string $title, bool $noReferrer = true): void
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&amp;family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/auth.css?v=<?= @filemtime(__DIR__ . '/../../assets/auth.css') ?: '1' ?>">
 <script src="assets/auth-password.js?v=<?= @filemtime(__DIR__ . '/../../assets/auth-password.js') ?: '1' ?>" defer></script>
+<script src="assets/auth-otp.js?v=<?= @filemtime(__DIR__ . '/../../assets/auth-otp.js') ?: '1' ?>" defer></script>
 <?php if (function_exists('supabase_auth_enabled') && supabase_auth_enabled()):
     $authConfig = supabase_public_config();
     $authCsrf = session_status() === PHP_SESSION_ACTIVE ? csrf_token() : '';

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { TrendingUp } from "lucide-react"
 import { Modal } from "../../components/ui/Modal"
-import { Button } from "../../components/ui/Button"
+import { Button } from "../../components/ui/button"
 import { formatCurrency } from "../../lib/format"
 import type { AccountV2, IfoodEntry, IncomeLine } from "./contracts"
 import { IncomeForm } from "./IncomeForm"

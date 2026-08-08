@@ -47,20 +47,25 @@ export function OverviewScreen() {
   return (
     <main className="level-page mx-auto max-w-[1280px] px-4 pb-20 pt-24 sm:px-6 lg:px-8">
       <OverviewHeader userName={identity.username.split(/\s+/)[0] || "você"} avatar={identity.avatar} date={now} pendingTasks={routine.pending} hasWorkout={hasWorkout} />
-      <div className="flex flex-col gap-10">
+      <div className="flex flex-col gap-8">
         <section aria-labelledby="today-title" className="border-y border-outline-variant py-5">
           <div className="mb-4 flex items-end justify-between gap-4"><div><p className="text-xs font-medium text-primary">Prioridades</p><h2 id="today-title" className="mt-1 text-xl font-semibold text-on-surface">Hoje</h2></div><span className="font-mono text-xs text-muted">{weekly.percent}% da semana concluída</span></div>
+          <div className="mb-5 h-1 overflow-hidden rounded-full bg-surface-container-high" role="progressbar" aria-label="Progresso da semana" aria-valuemin={0} aria-valuemax={100} aria-valuenow={weekly.percent}>
+            <span className="block h-full rounded-full bg-primary transition-[width] duration-500 motion-reduce:transition-none" style={{ width: `${weekly.percent}%` }} />
+          </div>
           <div className="grid divide-y divide-outline-variant md:grid-cols-3 md:divide-x md:divide-y-0">
             <TodayItem to="/agenda" icon="schedule" label="Próxima tarefa" value={routine.nextTask ? `${routine.nextTask.time} · ${routine.nextTask.title}` : "Rotina concluída"} detail={`${routine.pending} pendente(s) hoje`} />
             <TodayItem to="/treinos" icon="fitness_center" label="Próximo treino" value={hasWorkout ? workout.title : "Treino concluído"} detail={workout.focus} />
             <TodayItem to="/financeiro?tab=dash" icon={insight?.icon ?? "monitoring"} label="Alerta financeiro" value={insight?.title ?? "Sem alertas importantes"} detail={insight?.detail ?? "Seus indicadores estão dentro do esperado."} />
           </div>
         </section>
-        <ProgressOverview pendingTasks={routine.pending} workoutReady={hasWorkout} />
         <section id="finance" className="scroll-mt-24">{syncStatus === "loading" ? <FinancePanelSkeleton overview /> : <FinanceOverview data={bootstrap} trend={financeTrend} detailsHref="/financeiro" />}</section>
         <section id="routine" aria-labelledby="modules-title" className="scroll-mt-24">
           <div className="mb-4 flex items-center justify-between"><h2 id="modules-title" className="text-lg font-semibold text-on-surface">Rotina e treino</h2></div>
           <div className="grid items-start gap-x-8 gap-y-6 lg:grid-cols-2"><RoutineOverview tasks={todayTasks} /><span id="training" className="sr-only scroll-mt-24" /><TrainingOverview workout={workout} weights={loggedWeights} /><VaultsOverview vaults={bootstrap.vaults} className="lg:col-span-2" /></div>
+        </section>
+        <section aria-label="Progresso e conquistas" className="border-t border-outline-variant pt-6">
+          <ProgressOverview pendingTasks={routine.pending} workoutReady={hasWorkout} />
         </section>
       </div>
     </main>

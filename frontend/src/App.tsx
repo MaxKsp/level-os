@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { AnimatePresence, MotionConfig, motion } from 'motion/react';
+import { AnimatePresence, LazyMotion, MotionConfig } from 'motion/react';
+import * as m from 'motion/react-m';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { BottomNav } from './components/Dashboard/BottomNav';
 import { TopNavBar } from './components/Dashboard/TopNavBar';
@@ -25,6 +26,8 @@ import { NativeSecurityGate } from './modules/native/NativeSecurityGate';
 import { NativePushBridge } from './modules/native/NativePushBridge';
 import { FinanceUndoToast } from './modules/finance/FinanceUndoToast';
 import { loadFinance, loadNutrition, loadOverview, loadProfile, loadRoutine, loadTraining } from './app/routeLoaders';
+
+const loadMotionFeatures = () => import('./app/motionFeatures').then((module) => module.default);
 
 const ModalsContainer = lazy(() => import('./components/Dashboard/ModalsContainer').then((module) => ({ default: module.ModalsContainer })));
 const OverviewScreen = lazy(() => loadOverview().then((module) => ({ default: module.OverviewScreen as typeof import('./modules/overview/OverviewScreen').OverviewScreen })));
@@ -91,7 +94,7 @@ function AppRoutes() {
       <div id="level-main-content" tabIndex={-1} className="level-app-main min-h-screen scroll-mt-20 transition-[padding] duration-200 outline-none motion-reduce:transition-none md:pl-[var(--level-sidebar-width)]">
         {!blocked ? <TrialBanner /> : null}
         {blocked ? <ExpiredPaywall /> : <AnimatePresence mode="wait" initial={false}>
-          <motion.div
+          <m.div
             key={location.pathname}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -109,7 +112,7 @@ function AppRoutes() {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
-          </motion.div>
+          </m.div>
         </AnimatePresence>}
       </div>
       {!blocked ? <BottomNav /> : null}
@@ -125,7 +128,8 @@ function AppRoutes() {
 
 export default function App() {
   return <MotionConfig reducedMotion="user">
-    <IdentityProvider>
+    <LazyMotion features={loadMotionFeatures} strict>
+      <IdentityProvider>
       <PreferencesProvider>
         <SubscriptionProvider>
           <ProgressProvider>
@@ -150,6 +154,7 @@ export default function App() {
           </ProgressProvider>
         </SubscriptionProvider>
       </PreferencesProvider>
-    </IdentityProvider>
+      </IdentityProvider>
+    </LazyMotion>
   </MotionConfig>;
 }

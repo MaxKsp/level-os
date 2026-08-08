@@ -1,5 +1,6 @@
 import { useEffect } from "react"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import { AnimatePresence, useReducedMotion } from "motion/react"
+import * as m from "motion/react-m"
 import { Icon } from "../../../design-system"
 import { useProgress } from "../store"
 
@@ -24,7 +25,7 @@ export function XpFeedback() {
   return (
     <AnimatePresence>
       {feedback && meta ? (
-        <motion.aside
+        <m.aside
           key={feedback.id}
           role="status"
           aria-live="polite"
@@ -50,7 +51,7 @@ export function XpFeedback() {
               {feedback.unlocked.length === 1 ? feedback.unlocked[0].title : `${feedback.unlocked.length} conquistas desbloqueadas`}
             </div>
           ) : null}
-        </motion.aside>
+        </m.aside>
       ) : null}
     </AnimatePresence>
   )

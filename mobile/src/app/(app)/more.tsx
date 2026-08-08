@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
-import { Alert, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import {
   ActionTile,
   ErrorState,
+  LoadingState,
   Metric,
   NativeScreen,
   PageHeader,
@@ -11,6 +12,8 @@ import {
   Row,
   Section,
 } from '@/components/native-ui';
+import { ProfileAvatar } from '@/components/profile-avatar';
+import { levelTheme } from '@/constants/level-theme';
 import { useProfile, useProgress, useSubscription } from '@/hooks/use-native-data';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -39,17 +42,36 @@ export default function MoreScreen() {
         title="Mais"
       />
 
-      {profile.error ? <ErrorState retry={() => void refresh()} /> : (
+      {profile.loading && !profile.data ? (
+        <LoadingState label="Carregando sua conta…" rows={3} />
+      ) : profile.error ? <ErrorState retry={() => void refresh()} /> : (
         <>
-          <Section title={profile.data?.username || 'Sua conta'} caption={profile.data?.email || 'Perfil Level OS'}>
-            <Row
-              icon="person-outline"
-              onPress={() => router.push('/(app)/profile')}
-              subtitle="Dados pessoais, segurança, plano e preferências"
-              title="Abrir perfil"
-              value={subscription.data?.paid_access ? 'Individual' : 'Free'}
+          <Pressable
+            accessibilityHint="Abre seus dados pessoais e preferências"
+            accessibilityLabel="Abrir perfil"
+            accessibilityRole="button"
+            onPress={() => router.push('/(app)/profile')}
+            style={({ pressed }) => [styles.profileSummary, pressed && styles.profilePressed]}>
+            <ProfileAvatar
+              avatar={profile.data?.avatar}
+              name={profile.data?.username}
+              size={58}
             />
-          </Section>
+            <View style={styles.profileCopy}>
+              <Text numberOfLines={1} style={styles.profileName}>
+                {profile.data?.username || 'Sua conta'}
+              </Text>
+              <Text numberOfLines={1} style={styles.profileEmail}>
+                {profile.data?.email || 'Perfil Level OS'}
+              </Text>
+              <View style={styles.planPill}>
+                <Text style={styles.planPillText}>
+                  {subscription.data?.paid_access ? 'Plano Individual' : 'Plano Free'}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.profileChevron}>›</Text>
+          </Pressable>
 
           <View style={styles.level}>
             <View style={styles.levelMetrics}>
@@ -139,5 +161,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 18,
+  },
+  planPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: levelTheme.colors.primaryMuted,
+    borderRadius: 999,
+    marginTop: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  planPillText: { color: levelTheme.colors.primary, fontSize: 10, fontWeight: '800' },
+  profileChevron: { color: levelTheme.colors.muted, fontSize: 30, fontWeight: '300' },
+  profileCopy: { flex: 1, gap: 3 },
+  profileEmail: { color: levelTheme.colors.muted, fontSize: 12 },
+  profileName: { color: levelTheme.colors.text, fontSize: 18, fontWeight: '700' },
+  profilePressed: { opacity: 0.72, transform: [{ scale: 0.99 }] },
+  profileSummary: {
+    alignItems: 'center',
+    backgroundColor: levelTheme.colors.surface,
+    borderColor: levelTheme.colors.border,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 14,
+    minHeight: 92,
+    padding: 16,
   },
 });

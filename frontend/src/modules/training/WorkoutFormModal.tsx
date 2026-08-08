@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Modal } from "../../components/ui/Modal"
-import { Button } from "../../components/ui/Button"
+import { Button } from "../../components/ui/button"
 import { Icon } from "../../design-system"
 import type { Workout, WorkoutExercise } from "./contracts"
 import { wid } from "./store"

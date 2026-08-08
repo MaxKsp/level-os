@@ -1,5 +1,6 @@
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
-import { Button } from "../../components/ui/Button"
+import { AnimatePresence, useReducedMotion } from "motion/react"
+import * as m from "motion/react-m"
+import { Button } from "../../components/ui/button"
 import { Icon } from "../../design-system"
 import { useFinance } from "./store"
 
@@ -9,7 +10,7 @@ export function FinanceUndoToast() {
   return (
     <AnimatePresence>
       {undoableExpense ? (
-        <motion.aside
+        <m.aside
           role="status"
           aria-live="polite"
           initial={{ opacity: 0, y: reduceMotion ? 0 : 16 }}
@@ -24,7 +25,7 @@ export function FinanceUndoToast() {
           </div>
           <Button size="sm" variant="ghost" onClick={undoLastExpense}>Desfazer</Button>
           <button type="button" onClick={dismissUndo} aria-label="Fechar aviso" className="grid size-9 place-items-center rounded-lg text-muted hover:bg-surface-container-highest"><Icon name="close" className="text-[16px]" /></button>
-        </motion.aside>
+        </m.aside>
       ) : null}
     </AnimatePresence>
   )

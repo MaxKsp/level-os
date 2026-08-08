@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Button } from "../../components/ui/Button"
+import { Button } from "../../components/ui/button"
 import { Icon, SectionCard } from "../../design-system"
 import { cn } from "../../lib/cn"
 import { formatCurrency } from "../../lib/format"

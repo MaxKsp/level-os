@@ -1,5 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import { AnimatePresence, useReducedMotion } from "motion/react"
+import * as m from "motion/react-m"
 import { ArrowLeftRight, BarChart3, Bot, ChefHat, Command, Dumbbell, Gauge, GraduationCap, ListTodo, LoaderCircle, LockKeyhole, Ruler, Scale, SendHorizonal, Trash2, TrendingDown, TrendingUp, Undo2, X } from "lucide-react"
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react"
 import { cn } from "../../lib/cn"
@@ -76,7 +77,7 @@ function TypingDots() {
   return (
     <span className="inline-flex items-center">
       {[0, 1, 2].map((dot) => (
-        <motion.span
+        <m.span
           key={dot}
           className="mx-0.5 size-1.5 rounded-full bg-primary"
           animate={{ opacity: [0.3, 0.9, 0.3], scale: [0.85, 1.1, 0.85] }}
@@ -302,11 +303,11 @@ export function AssistantCommand() {
       <Dialog.Root open={assistant.open} onOpenChange={assistant.setOpen}>
         <Dialog.Portal>
           <Dialog.Overlay asChild>
-            <motion.div className="fixed inset-0 z-[130] bg-black/78 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} />
+            <m.div className="fixed inset-0 z-[130] bg-black/78 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} />
           </Dialog.Overlay>
           <div className="pointer-events-none fixed inset-0 z-[131] flex items-center justify-center p-4 sm:p-6">
             <Dialog.Content asChild aria-describedby="assistant-paid-description">
-              <motion.section
+              <m.section
                 initial={{ opacity: 0, y: reduce ? 0 : 18, scale: reduce ? 1 : 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 className="pointer-events-auto relative w-full max-w-md overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-low p-6 shadow-2xl"
@@ -337,7 +338,7 @@ export function AssistantCommand() {
                     Ver plano Individual
                   </button>
                 ) : null}
-              </motion.section>
+              </m.section>
             </Dialog.Content>
           </div>
         </Dialog.Portal>
@@ -350,11 +351,11 @@ export function AssistantCommand() {
       <Dialog.Root open={assistant.open} onOpenChange={assistant.setOpen}>
         <Dialog.Portal>
           <Dialog.Overlay asChild>
-            <motion.div className="fixed inset-0 z-[130] bg-black/78 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} />
+            <m.div className="fixed inset-0 z-[130] bg-black/78 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} />
           </Dialog.Overlay>
           <div className="pointer-events-none fixed inset-0 z-[131] flex items-center justify-center p-0 sm:p-6">
             <Dialog.Content asChild aria-describedby={undefined}>
-              <motion.section
+              <m.section
                 initial={{ opacity: 0, y: reduce ? 0 : 18, scale: reduce ? 1 : 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
@@ -404,23 +405,23 @@ export function AssistantCommand() {
                   {historyLoading ? <p role="status" className="mb-3 flex items-center gap-2 text-xs text-muted"><LoaderCircle className="size-3.5 animate-spin" />Carregando histórico…</p> : null}
                   {empty ? (
                     <div className="flex h-full flex-col items-center justify-center gap-8">
-                      <motion.div initial={{ opacity: 0, y: reduce ? 0 : 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.5 }} className="text-center">
+                      <m.div initial={{ opacity: 0, y: reduce ? 0 : 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.5 }} className="text-center">
                         <h2 className="bg-gradient-to-r from-on-surface to-muted bg-clip-text pb-1 text-3xl font-medium tracking-tight text-transparent">
                           {persona.greeting}
                         </h2>
-                        <motion.div
+                        <m.div
                           className="mx-auto h-px bg-gradient-to-r from-transparent via-outline-variant to-transparent"
                           initial={{ width: 0, opacity: 0 }}
                           animate={{ width: "100%", opacity: 1 }}
                           transition={{ delay: 0.5, duration: 0.8 }}
                         />
-                        <motion.p className="mt-3 text-sm text-muted" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
+                        <m.p className="mt-3 text-sm text-muted" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
                           Digite um comando com / ou peça em linguagem natural
-                        </motion.p>
-                      </motion.div>
+                        </m.p>
+                      </m.div>
                       <div className="flex flex-wrap items-center justify-center gap-2">
                         {visibleSuggestions.map((suggestion, index) => (
-                          <motion.button
+                          <m.button
                             key={suggestion.prefix}
                             type="button"
                             onClick={() => pick(index)}
@@ -431,7 +432,7 @@ export function AssistantCommand() {
                           >
                             {suggestion.icon}
                             <span>{suggestion.label}</span>
-                          </motion.button>
+                          </m.button>
                         ))}
                       </div>
                     </div>
@@ -439,7 +440,7 @@ export function AssistantCommand() {
                     <div className="flex flex-col gap-4">
                       <AnimatePresence initial={false}>
                         {messages.map((message) => (
-                          <motion.div
+                          <m.div
                             key={message.id}
                             initial={{ opacity: 0, y: reduce ? 0 : 12 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -547,12 +548,12 @@ export function AssistantCommand() {
                                 </div>
                               </div>
                             )}
-                          </motion.div>
+                          </m.div>
                         ))}
                       </AnimatePresence>
                       <AnimatePresence>
                         {assistant.loading ? (
-                          <motion.div
+                          <m.div
                             initial={{ opacity: 0, y: reduce ? 0 : 8 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0 }}
@@ -562,7 +563,7 @@ export function AssistantCommand() {
                             <span className="flex items-center gap-2 rounded-2xl rounded-bl-md border border-outline-variant bg-surface-container px-4 py-2.5 text-sm text-on-surface-variant">
                               Pensando<TypingDots />
                             </span>
-                          </motion.div>
+                          </m.div>
                         ) : null}
                       </AnimatePresence>
                     </div>
@@ -571,7 +572,7 @@ export function AssistantCommand() {
 
                 <div className="relative flex flex-col gap-3 border-t border-outline-variant p-4">
                   {workoutForm ? (
-                    <motion.div
+                    <m.div
                       initial={{ opacity: 0, y: reduce ? 0 : 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="rounded-2xl border border-primary/30 bg-primary/[0.04] p-4"
@@ -617,10 +618,10 @@ export function AssistantCommand() {
                         <p className="text-[10px] text-muted">Envie para {persona.name} montar. Você pode acrescentar detalhes no campo abaixo.</p>
                         <button type="button" onClick={() => setWorkoutForm(null)} className="shrink-0 rounded-lg px-3 py-1.5 text-xs text-muted hover:bg-surface-container-high">Cancelar</button>
                       </div>
-                    </motion.div>
+                    </m.div>
                   ) : null}
                   {dietForm ? (
-                    <motion.div
+                    <m.div
                       initial={{ opacity: 0, y: reduce ? 0 : 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="rounded-2xl border border-primary/30 bg-primary/[0.04] p-4"
@@ -666,12 +667,12 @@ export function AssistantCommand() {
                         <p className="text-[10px] text-muted">Orçamento mínimo R$ 20,00. Acrescente restrições no campo abaixo.</p>
                         <button type="button" onClick={() => setDietForm(null)} className="shrink-0 rounded-lg px-3 py-1.5 text-xs text-muted hover:bg-surface-container-high">Cancelar</button>
                       </div>
-                    </motion.div>
+                    </m.div>
                   ) : null}
                   <div className="relative rounded-2xl border border-outline-variant bg-background/45 shadow-inner">
                     <AnimatePresence>
                       {showPalette ? (
-                        <motion.div
+                        <m.div
                           className="absolute inset-x-3 bottom-full z-50 mb-2 overflow-hidden rounded-lg border border-outline-variant bg-surface-container-high/95 shadow-lg backdrop-blur-xl"
                           initial={{ opacity: 0, y: 5 }}
                           animate={{ opacity: 1, y: 0 }}
@@ -696,7 +697,7 @@ export function AssistantCommand() {
                               </button>
                             ))}
                           </div>
-                        </motion.div>
+                        </m.div>
                       ) : null}
                     </AnimatePresence>
 
@@ -724,7 +725,7 @@ export function AssistantCommand() {
                       </button>
                       <div className="flex items-center gap-3">
                         <kbd className="hidden text-[10px] text-muted sm:block">Enter envia · Shift+Enter quebra linha</kbd>
-                        <motion.button
+                        <m.button
                           type="button"
                           onClick={workoutForm ? sendWorkoutProgram : dietForm ? sendDietPlan : send}
                           whileTap={reduce ? undefined : { scale: 0.97 }}
@@ -738,12 +739,12 @@ export function AssistantCommand() {
                         >
                           {assistant.loading ? <LoaderCircle className="size-4 animate-spin" /> : <SendHorizonal className="size-4" />}
                           Enviar
-                        </motion.button>
+                        </m.button>
                       </div>
                     </div>
                   </div>
                 </div>
-              </motion.section>
+              </m.section>
             </Dialog.Content>
           </div>
         </Dialog.Portal>
@@ -751,7 +752,7 @@ export function AssistantCommand() {
 
       <AnimatePresence>
         {!assistant.open && assistant.result && assistant.result.status !== "refused" && assistant.result.status !== "query" ? (
-          <motion.div
+          <m.div
             role="status"
             initial={{ opacity: 0, y: reduce ? 0 : 18 }}
             animate={{ opacity: 1, y: 0 }}
@@ -776,7 +777,7 @@ export function AssistantCommand() {
             <button onClick={assistant.dismiss} className="grid size-10 place-items-center rounded-lg text-muted hover:bg-surface-container" aria-label="Dispensar">
               <X className="size-4" />
             </button>
-          </motion.div>
+          </m.div>
         ) : null}
       </AnimatePresence>
     </>

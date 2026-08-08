@@ -38,10 +38,8 @@ try {
         $resolved['totp_enabled'] = false;
     }
     if ($resolved['totp_enabled'] && $identity->assuranceLevel !== 'aal2') {
-        session_regenerate_id(true);
+        stage_pending_2fa($resolved['user_id'], $resolved['session_version']);
         stage_pending_supabase_link($identity);
-        $_SESSION['pending_2fa_user_id'] = $resolved['user_id'];
-        $_SESSION['pending_2fa_session_version'] = $resolved['session_version'];
         echo json_encode(['status' => 'mfa_required']);
         exit;
     }

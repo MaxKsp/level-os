@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Button } from "../../components/ui/Button"
+import { Button } from "../../components/ui/button"
 import { CurrencyInput } from "../../components/ui/CurrencyInput"
 import { userStorageKey } from "../../lib/userStorage"
 import type { AccountV2, ExpenseLineV4 } from "./contracts"

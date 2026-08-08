@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Button } from "../../components/ui/Button"
+import { Button } from "../../components/ui/button"
 import { Icon, SectionCard } from "../../design-system"
 import { hasCalendarBackend } from "./api"
 import { useCalendar } from "./store"

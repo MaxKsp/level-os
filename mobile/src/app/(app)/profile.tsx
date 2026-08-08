@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { LevelMark } from '@/components/level-logo';
+import { NativeOtpInput, type NativeOtpStatus } from '@/components/otp-input';
 import {
   ChoiceChips,
   EmptyState,
@@ -87,6 +88,7 @@ export default function ProfileScreen() {
   const [totpEnrollment, setTotpEnrollment] = useState<TotpEnrollment | null>(null);
   const [totpCode, setTotpCode] = useState('');
   const [totpPassword, setTotpPassword] = useState('');
+  const [totpStatus, setTotpStatus] = useState<NativeOtpStatus>('idle');
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [securityOpen, setSecurityOpen] = useState(false);
   const handledSection = useRef('');
@@ -196,6 +198,7 @@ export default function ProfileScreen() {
       const enrollment = await enrollTotp();
       setTotpEnrollment(enrollment);
       setTotpCode('');
+      setTotpStatus('idle');
       setSecurityOpen(true);
     } catch {
       Alert.alert('Não foi possível iniciar o 2FA', 'Tente novamente em alguns instantes.');
@@ -206,18 +209,23 @@ export default function ProfileScreen() {
 
   const verifyTotp = async () => {
     if (!/^\d{6}$/.test(totpCode.trim())) {
+      setTotpStatus('error');
       Alert.alert('Código inválido', 'Digite os 6 números exibidos no seu autenticador.');
       return;
     }
     setSaving(true);
     try {
       const codes = await confirmTotp(totpCode.trim());
+      setTotpStatus('success');
+      await new Promise((resolve) => setTimeout(resolve, 520));
       setBackupCodes(codes);
       setTotpEnrollment(null);
       setTotpCode('');
+      setTotpStatus('idle');
       await profile.refresh();
       Alert.alert('2FA ativado', 'Guarde os códigos de recuperação exibidos nesta tela.');
     } catch {
+      setTotpStatus('error');
       Alert.alert('Código inválido', 'Confira o código no aplicativo autenticador e tente novamente.');
     } finally {
       setSaving(false);
@@ -530,6 +538,7 @@ export default function ProfileScreen() {
           setSecurityOpen(false);
           setTotpEnrollment(null);
           setTotpCode('');
+          setTotpStatus('idle');
           setTotpPassword('');
           setBackupCodes([]);
         }}
@@ -572,11 +581,10 @@ export default function ProfileScreen() {
               onPress={() => void Clipboard.setStringAsync(totpEnrollment.secret)}
               variant="secondary"
             />
-            <NativeField
-              keyboardType="number-pad"
-              label="Código de 6 dígitos"
-              maxLength={6}
-              onChangeText={setTotpCode}
+            <NativeOtpInput
+              disabled={saving}
+              onChange={(next) => { setTotpCode(next); setTotpStatus('idle'); }}
+              status={totpStatus}
               value={totpCode}
             />
             <NativeButton disabled={saving} icon="checkmark" label="Confirmar 2FA" onPress={() => void verifyTotp()} />

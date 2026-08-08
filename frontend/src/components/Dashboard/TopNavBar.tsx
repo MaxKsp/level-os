@@ -1,5 +1,5 @@
 import { Bell, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react"
-import { motion } from "motion/react"
+import * as m from "motion/react-m"
 import { lazy, Suspense, useLayoutEffect, useState } from "react"
 import { NavLink, useLocation, useNavigate } from "react-router-dom"
 import { NAV_ITEMS } from "../../app/nav"
@@ -82,7 +82,7 @@ export const TopNavBar = () => {
                   className={({ isActive }) => cn("relative flex min-h-11 items-center overflow-hidden rounded-md text-sm transition-colors", collapsed ? "justify-center px-0" : "gap-3 px-3", isActive ? "font-semibold text-on-surface" : "font-medium text-muted hover:bg-surface-container-high hover:text-on-surface")}
                 >
                   {({ isActive }) => <>
-                    {isActive ? <motion.span layoutId="level-sidebar-active" className="absolute inset-0 border-l-2 border-primary bg-primary/[0.09]" transition={{ type: "spring", stiffness: 440, damping: 36, mass: 0.75 }} aria-hidden="true" /> : null}
+                    {isActive ? <m.span layoutId="level-sidebar-active" className="absolute inset-0 border-l-2 border-primary bg-primary/[0.09]" transition={{ type: "spring", stiffness: 440, damping: 36, mass: 0.75 }} aria-hidden="true" /> : null}
                     <Icon name={item.icon} filled={isActive} className={cn("relative z-[1] shrink-0 text-[20px]", isActive && "text-primary")} />
                     {!collapsed ? <span className="relative z-[1]">{item.label}</span> : null}
                   </>}

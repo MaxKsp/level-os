@@ -47,8 +47,22 @@ export function FinancePeriodFilter({
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="flex max-w-full gap-1 overflow-x-auto rounded-lg border border-outline-variant bg-surface-container p-1" role="group" aria-label="Períodos rápidos">
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+          <label className="relative sm:hidden">
+            <span className="sr-only">Período rápido</span>
+            <select
+              aria-label="Período rápido"
+              value={preset}
+              onChange={(event) => onPresetChange(event.target.value as FinancePeriodPreset)}
+              className="min-h-11 w-full appearance-none rounded-lg border border-outline-variant bg-surface-container px-3 pr-10 text-sm font-medium text-on-surface outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30"
+            >
+              {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              <option value="custom">Personalizado</option>
+            </select>
+            <Icon name="expand_more" className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[18px] text-muted" />
+          </label>
+
+          <div className="hidden max-w-full flex-wrap gap-1 rounded-lg border border-outline-variant bg-surface-container p-1 sm:flex" role="group" aria-label="Períodos rápidos">
             {options.map((option) => (
               <button
                 key={option.value}
@@ -81,7 +95,7 @@ export function FinancePeriodFilter({
           </div>
 
           {preset === "custom" ? (
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2" aria-label="Intervalo personalizado">
+            <div className="grid min-w-0 grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]" aria-label="Intervalo personalizado">
               <label className="sr-only" htmlFor="finance-period-start">Data inicial</label>
               <input
                 id="finance-period-start"
@@ -89,9 +103,9 @@ export function FinancePeriodFilter({
                 value={customStart}
                 max={customEnd}
                 onChange={(event) => onCustomStartChange(event.target.value)}
-                className="min-h-10 min-w-0 rounded-lg border border-outline-variant bg-surface-container px-2.5 text-xs text-on-surface"
+                className="min-h-11 min-w-0 max-w-full rounded-lg border border-outline-variant bg-surface-container px-2.5 text-xs text-on-surface"
               />
-              <span className="text-xs text-muted" aria-hidden="true">até</span>
+              <span className="hidden text-xs text-muted sm:inline" aria-hidden="true">até</span>
               <label className="sr-only" htmlFor="finance-period-end">Data final</label>
               <input
                 id="finance-period-end"
@@ -99,7 +113,7 @@ export function FinancePeriodFilter({
                 value={customEnd}
                 min={customStart}
                 onChange={(event) => onCustomEndChange(event.target.value)}
-                className="min-h-10 min-w-0 rounded-lg border border-outline-variant bg-surface-container px-2.5 text-xs text-on-surface"
+                className="min-h-11 min-w-0 max-w-full rounded-lg border border-outline-variant bg-surface-container px-2.5 text-xs text-on-surface"
               />
             </div>
           ) : null}

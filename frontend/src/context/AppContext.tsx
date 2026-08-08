@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useCallback, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import { useProgress } from '../modules/progress/store';
 import { hasRoutineBackend, loadTasks, saveTasks } from '../modules/routine/api';
 import { userStorageKey } from '../lib/userStorage';
@@ -155,13 +155,13 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [isWorkoutActive, isWorkoutModalOpen]);
 
   // Handlers
-  const handleToggleTask = (id: string, occurrenceDate?: string) => {
+  const handleToggleTask = useCallback((id: string, occurrenceDate?: string) => {
     const target = tasks.find((task) => task.id === id);
     const targetCompleted = target?.repeat && target.repeat !== 'none' && occurrenceDate
       ? (target.completedDates ?? []).includes(occurrenceDate)
       : Boolean(target?.completed);
-    setTasks(
-      tasks.map((task) => {
+    setTasks((current) =>
+      current.map((task) => {
         if (task.id === id) {
           if (task.repeat && task.repeat !== 'none' && occurrenceDate) {
             const completedDates = new Set(task.completedDates ?? []);
@@ -179,9 +179,9 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const safeId = target.id.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
       void awardEvent('rotina', `rotina:${date}:${safeId}`);
     }
-  };
+  }, [awardEvent, tasks]);
 
-  const handleAddTaskSubmit = (e: React.FormEvent) => {
+  const handleAddTaskSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
     const newTask: Task = {
@@ -191,74 +191,82 @@ export const AppContextProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       subtitle: newTaskSubtitle || 'Geral',
       completed: false,
     };
-    setTasks([...tasks, newTask]);
+    setTasks((current) => [...current, newTask]);
     setNewTaskTitle('');
     setNewTaskSubtitle('');
     setIsTaskModalOpen(false);
-  };
+  }, [newTaskSubtitle, newTaskTime, newTaskTitle]);
 
-  const handleAddWeightSubmit = (e: React.FormEvent) => {
+  const handleAddWeightSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     const weightNum = parseFloat(weightValue);
     if (isNaN(weightNum) || weightNum <= 0) return;
 
     const dateStr = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-    setLoggedWeights([...loggedWeights, { date: dateStr, weight: weightNum }]);
+    setLoggedWeights((current) => [...current, { date: dateStr, weight: weightNum }]);
     setIsWeightModalOpen(false);
-  };
+  }, [weightValue]);
 
-  const handleToggleExercise = (id: string) => {
-    setExercises(
-      exercises.map((ex) => {
+  const handleToggleExercise = useCallback((id: string) => {
+    setExercises((current) =>
+      current.map((ex) => {
         if (ex.id === id) {
           return { ...ex, completed: !ex.completed };
         }
         return ex;
       })
     );
-  };
+  }, []);
+
+  const contextValue = useMemo<AppContextType>(() => ({
+    tasks,
+    setTasks,
+    refreshTasks,
+    exercises,
+    setExercises,
+    isTaskModalOpen,
+    setIsTaskModalOpen,
+    isExpenseModalOpen,
+    setIsExpenseModalOpen,
+    isWeightModalOpen,
+    setIsWeightModalOpen,
+    isWorkoutModalOpen,
+    setIsWorkoutModalOpen,
+    isProfileMenuOpen,
+    setIsProfileMenuOpen,
+    newTaskTitle,
+    setNewTaskTitle,
+    newTaskTime,
+    setNewTaskTime,
+    newTaskSubtitle,
+    setNewTaskSubtitle,
+    expenseDesc,
+    setExpenseDesc,
+    expenseAmount,
+    setExpenseAmount,
+    weightValue,
+    setWeightValue,
+    loggedWeights,
+    setLoggedWeights,
+    isWorkoutActive,
+    setIsWorkoutActive,
+    workoutTimer,
+    setWorkoutTimer,
+    handleToggleTask,
+    handleAddTaskSubmit,
+    handleAddWeightSubmit,
+    handleToggleExercise,
+  }), [
+    exercises, expenseAmount, expenseDesc, handleAddTaskSubmit, handleAddWeightSubmit,
+    handleToggleExercise, handleToggleTask, isExpenseModalOpen, isProfileMenuOpen,
+    isTaskModalOpen, isWeightModalOpen, isWorkoutActive, isWorkoutModalOpen,
+    loggedWeights, newTaskSubtitle, newTaskTime, newTaskTitle, refreshTasks, tasks,
+    weightValue, workoutTimer,
+  ]);
 
   return (
     <AppContext.Provider
-      value={{
-        tasks,
-        setTasks,
-        refreshTasks,
-        exercises,
-        setExercises,
-        isTaskModalOpen,
-        setIsTaskModalOpen,
-        isExpenseModalOpen,
-        setIsExpenseModalOpen,
-        isWeightModalOpen,
-        setIsWeightModalOpen,
-        isWorkoutModalOpen,
-        setIsWorkoutModalOpen,
-        isProfileMenuOpen,
-        setIsProfileMenuOpen,
-        newTaskTitle,
-        setNewTaskTitle,
-        newTaskTime,
-        setNewTaskTime,
-        newTaskSubtitle,
-        setNewTaskSubtitle,
-        expenseDesc,
-        setExpenseDesc,
-        expenseAmount,
-        setExpenseAmount,
-        weightValue,
-        setWeightValue,
-        loggedWeights,
-        setLoggedWeights,
-        isWorkoutActive,
-        setIsWorkoutActive,
-        workoutTimer,
-        setWorkoutTimer,
-        handleToggleTask,
-        handleAddTaskSubmit,
-        handleAddWeightSubmit,
-        handleToggleExercise,
-      }}
+      value={contextValue}
     >
       {children}
     </AppContext.Provider>

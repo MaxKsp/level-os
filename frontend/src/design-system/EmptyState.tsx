@@ -13,8 +13,9 @@ interface EmptyStateProps {
 /** Estado vazio orientado à próxima ação, inspirado nas referências do 21st. */
 export function EmptyState({ title, description, icon = "inbox", action, className }: EmptyStateProps) {
   return (
-    <div className={cn("flex flex-col items-center px-5 py-10 text-center sm:py-12", className)}>
-      <span className="grid size-11 place-items-center rounded-xl border border-outline-variant bg-surface-container text-primary shadow-sm">
+    <div className={cn("level-empty-state relative flex flex-col items-center overflow-hidden px-5 py-10 text-center sm:py-12", className)}>
+      <span aria-hidden="true" className="level-empty-state__halo absolute top-4 size-28 rounded-full border border-primary/10" />
+      <span className="level-empty-state__icon relative grid size-11 place-items-center rounded-xl border border-outline-variant bg-surface-container text-primary shadow-sm">
         <Icon name={icon} className="text-[21px]" />
       </span>
       <h3 className="mt-3 text-sm font-semibold text-on-surface">{title}</h3>

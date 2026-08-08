@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react"
 import { useNavigate } from "react-router-dom"
 import { resolveAssistantConfirmation, sendAssistantCommand, undoAssistantAction, type AssistantApproval } from "./api"
 import type { AssistantResponse } from "./contracts"
@@ -34,7 +34,12 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<AssistantResponse | null>(null)
-  const finance = useFinance(), training = useTraining(), nutrition = useNutrition(), app = useApp(), progress = useProgress(), navigate = useNavigate()
+  const { refresh: refreshFinance } = useFinance()
+  const { refresh: refreshTraining } = useTraining()
+  const { refresh: refreshNutrition } = useNutrition()
+  const { refreshTasks } = useApp()
+  const { refresh: refreshProgress } = useProgress()
+  const navigate = useNavigate()
   const subscriptionContext = useOptionalSubscription()
   const paidAccess = subscriptionContext === null
     ? true
@@ -51,19 +56,19 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const refresh = useCallback(async (module?: AssistantResponse["module"]) => {
-    const requests: Promise<void>[] = [progress.refresh()]
-    if (module === "financeiro") requests.push(finance.refresh())
-    if (module === "agenda") requests.push(app.refreshTasks())
-    if (module === "treinos") requests.push(training.refresh())
-    if (module === "alimentacao") requests.push(nutrition.refresh())
+    const requests: Promise<void>[] = [refreshProgress()]
+    if (module === "financeiro") requests.push(refreshFinance())
+    if (module === "agenda") requests.push(refreshTasks())
+    if (module === "treinos") requests.push(refreshTraining())
+    if (module === "alimentacao") requests.push(refreshNutrition())
     await Promise.allSettled(requests)
     if (module === "financeiro") navigate("/financeiro")
     if (module === "agenda") navigate("/agenda")
     if (module === "treinos") navigate("/treinos")
     if (module === "alimentacao") navigate("/alimentacao")
-  }, [app, finance, navigate, nutrition, progress, training])
+  }, [navigate, refreshFinance, refreshNutrition, refreshProgress, refreshTasks, refreshTraining])
 
-  const submit = async (text: string) => {
+  const submit = useCallback(async (text: string) => {
     if (!paidAccess) {
       setError("O Agente de IA é uma funcionalidade exclusiva do plano pago.")
       return
@@ -78,9 +83,9 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [moduleContext, paidAccess, refresh])
 
-  const undo = async (actionToken?: string | null, module?: AssistantResponse["module"]) => {
+  const undo = useCallback(async (actionToken?: string | null, module?: AssistantResponse["module"]) => {
     if (!paidAccess) {
       setError("O Agente de IA é uma funcionalidade exclusiva do plano pago.")
       return
@@ -98,9 +103,9 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [paidAccess, refresh, result?.actionToken, result?.module])
 
-  const resolveConfirmation = async (actionToken: string, decision: "confirm" | "cancel", module?: AssistantResponse["module"], approval?: AssistantApproval) => {
+  const resolveConfirmation = useCallback(async (actionToken: string, decision: "confirm" | "cancel", module?: AssistantResponse["module"], approval?: AssistantApproval) => {
     if (!paidAccess) {
       setError("O Agente de IA é uma funcionalidade exclusiva do plano pago.")
       return
@@ -115,10 +120,16 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [paidAccess, refresh])
+
+  const dismiss = useCallback(() => { setResult(null); setError(null) }, [])
+  const value = useMemo<Value>(() => ({
+    open, setOpen, openFor, moduleContext, loading, error, result, paidAccess,
+    planReady, submit, undo, resolveConfirmation, dismiss,
+  }), [dismiss, error, loading, moduleContext, open, openFor, paidAccess, planReady, resolveConfirmation, result, setOpen, submit, undo])
 
   return (
-    <Ctx.Provider value={{ open, setOpen, openFor, moduleContext, loading, error, result, paidAccess, planReady, submit, undo, resolveConfirmation, dismiss: () => { setResult(null); setError(null) } }}>
+    <Ctx.Provider value={value}>
       {children}
     </Ctx.Provider>
   )

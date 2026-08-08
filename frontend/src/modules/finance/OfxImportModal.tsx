@@ -1,5 +1,5 @@
 import { useMemo, useState, type ChangeEvent } from "react"
-import { Button } from "../../components/ui/Button"
+import { Button } from "../../components/ui/button"
 import { Icon } from "../../design-system"
 import { formatCurrency } from "../../lib/format"
 import type { ExpenseLineV4, IfoodEntry } from "./contracts"

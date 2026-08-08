@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Modal } from "../../components/ui/Modal"
-import { Button } from "../../components/ui/Button"
+import { Button } from "../../components/ui/button"
 import { BankLogo } from "../../components/ui/BankLogo"
 import { BankPicker } from "../../components/ui/BankPicker"
 import type { AccountV2 } from "./contracts"

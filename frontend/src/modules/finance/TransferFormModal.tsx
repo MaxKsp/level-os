@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { BankLogo } from "../../components/ui/BankLogo"
-import { Button } from "../../components/ui/Button"
+import { Button } from "../../components/ui/button"
 import { Icon } from "../../design-system"
 import { formatCurrency } from "../../lib/format"
 import type { AccountV2, Transfer } from "./contracts"

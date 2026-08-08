@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Modal } from "../../components/ui/Modal"
-import { Button } from "../../components/ui/Button"
+import { Button } from "../../components/ui/button"
 import type { BodyMeasurement, MeasurementType, MeasurementUnit, TrainingModality, TrainingSessionLog, Workout } from "./contracts"
 
 const field = "min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"

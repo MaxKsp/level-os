@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { Button } from "../../components/ui/Button"
+import { Button } from "../../components/ui/button"
 import { Modal } from "../../components/ui/Modal"
 import { useAssistant } from "../assistant/store"
 import { AssistantAvatar } from "../assistant/AssistantAvatar"

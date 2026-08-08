@@ -1,7 +1,7 @@
 import { useApp } from "../../context/AppContext"
 import { useFinance } from "../../modules/finance/store"
 import { Modal } from "../ui/Modal"
-import { Button } from "../ui/Button"
+import { Button } from "../ui/button"
 import { GlobalSearch } from "./GlobalSearch"
 import { Icon } from "../../design-system"
 import { useProgress } from "../../modules/progress/store"
