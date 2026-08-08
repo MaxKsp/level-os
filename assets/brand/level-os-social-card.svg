@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-labelledby="title description">
+  <title id="title">Level OS</title>
+  <desc id="description">Sua vida, em um só sistema.</desc>
+  <rect width="1200" height="630" fill="#050706"/>
+  <g stroke="#18201E" stroke-width="1" opacity=".8">
+    <path d="M0 105h1200M0 210h1200M0 315h1200M0 420h1200M0 525h1200"/>
+    <path d="M100 0v630M205 0v630M310 0v630M415 0v630M520 0v630M625 0v630M730 0v630M835 0v630M940 0v630M1045 0v630M1150 0v630"/>
+  </g>
+  <g transform="translate(80 64) scale(1.25)" fill="#31E6D4"><path d="M7 33.5 24 8l17 25.5h-8.4L24 20.6l-8.6 12.9H7Z"/><path d="m15 41 9-13.5L33 41h-7l-2-3-2 3h-7Z" opacity=".55"/></g>
+  <text x="155" y="107" fill="#F1F7F5" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="700" letter-spacing="6">LEVEL OS</text>
+  <text x="80" y="276" fill="#F1F7F5" font-family="Arial, Helvetica, sans-serif" font-size="76" font-weight="700" letter-spacing="-3">Sua vida,</text>
+  <text x="80" y="358" fill="#82908C" font-family="Arial, Helvetica, sans-serif" font-size="76" font-weight="700" letter-spacing="-3">em um só sistema.</text>
+  <text x="80" y="446" fill="#AAB5B2" font-family="Arial, Helvetica, sans-serif" font-size="25">Finanças · Rotina · Treinos · Alimentação · Progresso</text>
+  <g transform="translate(912 315)"><circle r="154" fill="none" stroke="#31E6D4" stroke-width="2" opacity=".24"/><circle r="108" fill="none" stroke="#31E6D4" stroke-width="2" opacity=".42"/><circle r="56" fill="#31E6D4" opacity=".1"/><circle r="12" fill="#31E6D4"/><path d="M-154 0H154M0-154V154" stroke="#31E6D4" opacity=".2"/></g>
+  <text x="80" y="558" fill="#31E6D4" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" letter-spacing="3">LVLOS.COM</text>
+</svg>

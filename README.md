@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/level-os-icon.svg" width="104" height="104" alt="Símbolo do Level OS" />
+  <img src="assets/brand/level-os-mark.svg" width="104" height="104" alt="Símbolo do Level OS" />
 </p>
 
 <h1 align="center">Level OS</h1>
@@ -40,6 +40,18 @@ O **Level OS** reúne os principais pilares da vida pessoal em uma experiência 
 | **Agentes de IA** | Agentes especializados que consultam dados e executam ações validadas no servidor |
 
 > **Estágio atual:** release candidate em homologação. O núcleo do produto, as integrações e os testes automatizados estão implementados. A publicação definitiva ainda exige concluir o [checklist de produção](docs/deployment/PRODUCTION_CHECKLIST.md), aplicar as migrations no banco de destino e validar as credenciais reais de cada provedor.
+
+## Marca, landing page e campanha de lançamento
+
+O repositório inclui uma página pública própria, carregada para visitantes não autenticados, e um kit editorial para comunicação do produto:
+
+- landing page responsiva, com SEO, Open Graph, narrativa por módulos e revelações sutis durante a rolagem;
+- marca principal, lockups para fundos claros e escuros e versão monocromática em SVG;
+- social card em `1200 × 630` para compartilhamento de links;
+- seis peças de Instagram em `1080 × 1350`, com versões PNG prontas e SVG editáveis;
+- posicionamento, tom de voz, pilares editoriais, calendário de quatro semanas e legendas prontas.
+
+Consulte o [guia de marketing](docs/marketing/README.md) e as [legendas da campanha](docs/marketing/captions.md).
 
 ## Experiência
 
