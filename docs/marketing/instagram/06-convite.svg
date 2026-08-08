@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350">
+  <defs><linearGradient id="fade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#050706" stop-opacity=".25"/><stop offset="1" stop-color="#050706"/></linearGradient></defs>
+  <rect width="1080" height="1350" fill="#050706"/>
+  <image href="level-os-key-visual.png" width="1080" height="1350" preserveAspectRatio="xMidYMid slice" opacity=".52"/>
+  <rect width="1080" height="1350" fill="url(#fade)"/>
+  <g transform="translate(72 66) scale(1.2)" fill="#31E6D4"><path d="M7 33.5 24 8l17 25.5h-8.4L24 20.6l-8.6 12.9H7Z"/><path d="m15 41 9-13.5L33 41h-7l-2-3-2 3h-7Z" opacity=".55"/></g>
+  <text x="145" y="112" fill="#F1F7F5" font-family="Arial, sans-serif" font-size="25" font-weight="700" letter-spacing="6">LEVEL OS</text>
+  <text x="72" y="662" fill="#31E6D4" font-family="Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="5">SEU PRÓXIMO NÍVEL COMEÇA AQUI</text>
+  <text x="72" y="790" fill="#F1F7F5" font-family="Arial, sans-serif" font-size="86" font-weight="700" letter-spacing="-4">Menos abas abertas.</text>
+  <text x="72" y="888" fill="#8C9995" font-family="Arial, sans-serif" font-size="86" font-weight="700" letter-spacing="-4">Mais vida</text>
+  <text x="72" y="986" fill="#8C9995" font-family="Arial, sans-serif" font-size="86" font-weight="700" letter-spacing="-4">em movimento.</text>
+  <rect x="72" y="1080" width="420" height="82" rx="10" fill="#31E6D4"/>
+  <text x="282" y="1131" fill="#03211E" font-family="Arial, sans-serif" font-size="25" font-weight="700" text-anchor="middle">COMEÇAR GRÁTIS →</text>
+  <text x="72" y="1224" fill="#C3CDCA" font-family="Arial, sans-serif" font-size="25">30 dias para experimentar · sem cartão</text>
+  <text x="72" y="1305" fill="#31E6D4" font-family="Arial, sans-serif" font-size="20" font-weight="700" letter-spacing="4">LVLOS.COM</text>
+</svg>

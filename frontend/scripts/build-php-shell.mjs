@@ -5,7 +5,11 @@ const target = new URL('../dist/index.php', import.meta.url);
 const html = await readFile(source, 'utf8');
 const php = `<?php
 require_once __DIR__ . '/auth.php';
-$userId = require_login_page();
+$userId = current_user_id();
+if ($userId === null) {
+    readfile(__DIR__ . '/landing.html');
+    exit;
+}
 ?>
 `;
 const csrf = `<meta name="level-os-csrf" content="<?= htmlspecialchars(csrf_token(), ENT_QUOTES, 'UTF-8') ?>">`;
