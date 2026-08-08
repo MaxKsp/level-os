@@ -23,14 +23,16 @@ import { usePreferences } from './modules/preferences/store';
 import { SearchProvider, useSearch } from './modules/search/store';
 import { NativeSecurityGate } from './modules/native/NativeSecurityGate';
 import { NativePushBridge } from './modules/native/NativePushBridge';
+import { FinanceUndoToast } from './modules/finance/FinanceUndoToast';
+import { loadFinance, loadNutrition, loadOverview, loadProfile, loadRoutine, loadTraining } from './app/routeLoaders';
 
 const ModalsContainer = lazy(() => import('./components/Dashboard/ModalsContainer').then((module) => ({ default: module.ModalsContainer })));
-const OverviewScreen = lazy(() => import('./modules/overview/OverviewScreen').then((module) => ({ default: module.OverviewScreen })));
-const FinanceScreen = lazy(() => import('./modules/finance/FinanceScreen').then((module) => ({ default: module.FinanceScreen })));
-const ProfileScreen = lazy(() => import('./modules/profile/ProfileScreen').then((module) => ({ default: module.ProfileScreen })));
-const RoutineScreen = lazy(() => import('./modules/routine/RoutineScreen').then((module) => ({ default: module.RoutineScreen })));
-const TrainingScreen = lazy(() => import('./modules/training/TrainingScreen').then((module) => ({ default: module.TrainingScreen })));
-const NutritionScreen = lazy(() => import('./modules/nutrition/NutritionScreen').then((module) => ({ default: module.NutritionScreen })));
+const OverviewScreen = lazy(() => loadOverview().then((module) => ({ default: module.OverviewScreen as typeof import('./modules/overview/OverviewScreen').OverviewScreen })));
+const FinanceScreen = lazy(() => loadFinance().then((module) => ({ default: module.FinanceScreen as typeof import('./modules/finance/FinanceScreen').FinanceScreen })));
+const ProfileScreen = lazy(() => loadProfile().then((module) => ({ default: module.ProfileScreen as typeof import('./modules/profile/ProfileScreen').ProfileScreen })));
+const RoutineScreen = lazy(() => loadRoutine().then((module) => ({ default: module.RoutineScreen as typeof import('./modules/routine/RoutineScreen').RoutineScreen })));
+const TrainingScreen = lazy(() => loadTraining().then((module) => ({ default: module.TrainingScreen as typeof import('./modules/training/TrainingScreen').TrainingScreen })));
+const NutritionScreen = lazy(() => loadNutrition().then((module) => ({ default: module.NutritionScreen as typeof import('./modules/nutrition/NutritionScreen').NutritionScreen })));
 const FirstLoginOnboarding = lazy(() => import('./modules/onboarding/FirstLoginOnboarding').then((module) => ({ default: module.FirstLoginOnboarding })));
 const AssistantCommand = lazy(() => import('./modules/assistant/AssistantCommand').then((module) => ({ default: module.AssistantCommand })));
 
@@ -82,10 +84,11 @@ function AppRoutes() {
   }, [setAssistantOpen, setSearchOpen]);
 
   return <div id="top" className={`level-app-shell min-h-screen bg-background text-on-surface${urgentTrial ? ' level-trial-active' : ''}`}>
+    <a href="#level-main-content" className="level-skip-link">Pular para o conteúdo</a>
     <ShaderBackground opacity={0.2} />
     <div className="level-app-content">
       <TopNavBar />
-      <div className="level-app-main min-h-screen transition-[padding] duration-200 motion-reduce:transition-none md:pl-[var(--level-sidebar-width)]">
+      <div id="level-main-content" tabIndex={-1} className="level-app-main min-h-screen scroll-mt-20 transition-[padding] duration-200 outline-none motion-reduce:transition-none md:pl-[var(--level-sidebar-width)]">
         {!blocked ? <TrialBanner /> : null}
         {blocked ? <ExpiredPaywall /> : <AnimatePresence mode="wait" initial={false}>
           <motion.div
@@ -113,6 +116,7 @@ function AppRoutes() {
       {!blocked && (modalUiLoaded || modalUiOpen) ? <Suspense fallback={null}><ModalsContainer /></Suspense> : null}
       {!blocked ? <LevelUpOverlay /> : null}
       {!blocked ? <XpFeedback /> : null}
+      {!blocked ? <FinanceUndoToast /> : null}
       {!blocked && (assistantUiLoaded || assistant.open || Boolean(assistant.result)) ? <Suspense fallback={null}><AssistantCommand /></Suspense> : null}
       {!blocked && showOnboarding ? <Suspense fallback={null}><FirstLoginOnboarding /></Suspense> : null}
     </div>

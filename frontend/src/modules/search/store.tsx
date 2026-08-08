@@ -1,10 +1,23 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react"
+import { userStorageKey } from "../../lib/userStorage"
+
+const RECENTS_KEY = "level-os:search-recents:v1"
+
+function readRecents(): string[] {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(userStorageKey(RECENTS_KEY)) ?? "[]")
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string").slice(0, 6) : []
+  } catch { return [] }
+}
 
 interface SearchContextValue {
   isOpen: boolean
   setIsOpen: (open: boolean) => void
   query: string
   setQuery: (query: string) => void
+  recentQueries: string[]
+  rememberQuery: (query: string) => void
+  clearRecentQueries: () => void
 }
 
 const SearchContext = createContext<SearchContextValue | null>(null)
@@ -16,7 +29,21 @@ const SearchContext = createContext<SearchContextValue | null>(null)
 export function SearchProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState("")
-  const value = useMemo(() => ({ isOpen, setIsOpen, query, setQuery }), [isOpen, query])
+  const [recentQueries, setRecentQueries] = useState(readRecents)
+  const rememberQuery = (next: string) => {
+    const clean = next.trim()
+    if (clean.length < 2) return
+    setRecentQueries((current) => {
+      const updated = [clean, ...current.filter((item) => item.toLocaleLowerCase("pt-BR") !== clean.toLocaleLowerCase("pt-BR"))].slice(0, 6)
+      try { sessionStorage.setItem(userStorageKey(RECENTS_KEY), JSON.stringify(updated)) } catch { /* Sem persistência, a busca continua funcional. */ }
+      return updated
+    })
+  }
+  const clearRecentQueries = () => {
+    setRecentQueries([])
+    try { sessionStorage.removeItem(userStorageKey(RECENTS_KEY)) } catch { /* noop */ }
+  }
+  const value = useMemo(() => ({ isOpen, setIsOpen, query, setQuery, recentQueries, rememberQuery, clearRecentQueries }), [isOpen, query, recentQueries])
 
   return <SearchContext.Provider value={value}>{children}</SearchContext.Provider>
 }

@@ -66,6 +66,9 @@ interface FinanceContextValue extends FinanceState {
   versionIncome: (id: string, value: number, effectiveMonth: string, salaryDetails?: SalaryInput | null) => void
   removeIncome: (id: string) => void
   addExpense: (expense: ExpenseLineV4) => void
+  undoableExpense: ExpenseLineV4 | null
+  undoLastExpense: () => void
+  dismissUndo: () => void
   addExpenses: (expenses: ExpenseLineV4[]) => void
   addVariableIncome: (income: IfoodEntry) => void
   addVariableIncomes: (income: IfoodEntry[]) => void
@@ -138,11 +141,17 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const [syncStatus, setSyncStatus] = useState<FinanceSyncStatus>(remote ? "loading" : "local")
   const [syncError, setSyncError] = useState<string | null>(null)
   const [remoteReady, setRemoteReady] = useState(false)
+  const [undoableExpense, setUndoableExpense] = useState<ExpenseLineV4 | null>(null)
+  const undoTimer = useRef<number | null>(null)
   const persistedSets = useRef<Record<FinanceSetKey, string>>({ accounts_v2: "", income_lines: "", expense_lines_v4: "", "ifood-entries": "" })
   const persistedAuxiliary = useRef<Record<FinanceAuxKey, string>>({ bank_favorites: "", transfers: "" })
   const saveQueue = useRef<Promise<unknown>>(Promise.resolve())
   const auxiliaryQueue = useRef<Promise<unknown>>(Promise.resolve())
   const revision = useRef(0)
+
+  useEffect(() => () => {
+    if (undoTimer.current) window.clearTimeout(undoTimer.current)
+  }, [])
 
   useEffect(() => {
     const key = userStorageKey(STORAGE_KEY)
@@ -243,6 +252,17 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     bank_favorites: state.bankFavorites,
   }
 
+  const rememberUndo = (expense: ExpenseLineV4) => {
+    if (undoTimer.current) window.clearTimeout(undoTimer.current)
+    setUndoableExpense(expense)
+    undoTimer.current = window.setTimeout(() => setUndoableExpense(null), 7000)
+  }
+
+  const dismissUndo = () => {
+    if (undoTimer.current) window.clearTimeout(undoTimer.current)
+    setUndoableExpense(null)
+  }
+
   const value: FinanceContextValue = {
     ...state,
     bootstrap,
@@ -284,7 +304,21 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       return { ...current, income: current.income.map((item) => item.id === id ? closed : item).concat(next) }
     }),
     removeIncome: (id) => setState((current) => ({ ...current, income: current.income.filter((item) => item.id !== id) })),
-    addExpense: (expense) => setState((current) => ({ ...current, expenses: [...current.expenses, expense], accounts: applyExpenseToAccount(current.accounts, expense) })),
+    addExpense: (expense) => {
+      setState((current) => ({ ...current, expenses: [...current.expenses, expense], accounts: applyExpenseToAccount(current.accounts, expense) }))
+      rememberUndo(expense)
+    },
+    undoableExpense,
+    undoLastExpense: () => {
+      if (!undoableExpense) return
+      setState((current) => ({
+        ...current,
+        expenses: current.expenses.filter((item) => item.id !== undoableExpense.id),
+        accounts: revertExpenseFromAccount(current.accounts, undoableExpense),
+      }))
+      dismissUndo()
+    },
+    dismissUndo,
     addExpenses: (expenses) => setState((current) => ({ ...current, expenses: [...current.expenses, ...expenses], accounts: expenses.reduce(applyExpenseToAccount, current.accounts) })),
     addVariableIncome: (income) => setState((current) => ({ ...current, variableIncome: [...current.variableIncome, income] })),
     addVariableIncomes: (income) => setState((current) => ({ ...current, variableIncome: [...current.variableIncome, ...income] })),
@@ -303,6 +337,16 @@ function applyExpenseToAccount(accounts: AccountV2[], expense: ExpenseLineV4): A
     return account.tipo === "cartao"
       ? { ...account, fatura: addMoney(account.fatura, expense.value) }
       : { ...account, saldo: subtractMoney(account.saldo, expense.value) }
+  })
+}
+
+function revertExpenseFromAccount(accounts: AccountV2[], expense: ExpenseLineV4): AccountV2[] {
+  if (!expense.accountId) return accounts
+  return accounts.map((account) => {
+    if (account.id !== expense.accountId) return account
+    return account.tipo === "cartao"
+      ? { ...account, fatura: subtractMoney(account.fatura, expense.value) }
+      : { ...account, saldo: addMoney(account.saldo, expense.value) }
   })
 }
 

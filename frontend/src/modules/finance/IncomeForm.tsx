@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { Button } from "../../components/ui/Button"
+import { CurrencyInput } from "../../components/ui/CurrencyInput"
 import { Icon } from "../../design-system"
 import { formatCurrency } from "../../lib/format"
 import type { AccountV2, IfoodEntry, IncomeLine } from "./contracts"
@@ -142,7 +143,7 @@ export function IncomeForm({ accounts, initial, resetKey, onCancel, onSaveIncome
         ) : (
           <div>
             <label className={label} htmlFor="income-value">{mode === "avulsa" ? "Valor recebido" : "Valor por recebimento"}</label>
-            <input id="income-value" className={field} type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" />
+            <CurrencyInput id="income-value" className={field} value={amount} onValueChange={setAmount} placeholder="R$ 0,00" />
           </div>
         )}
 
@@ -184,19 +185,19 @@ function SalaryFields({ salary, onChange }: { salary: SalaryInput; onChange: (sa
   const setNumber = (key: keyof SalaryInput, value: string) => onChange({ ...salary, [key]: Math.max(0, Number(value) || 0) })
   return (
     <div className="contents">
-      <div><label className={label} htmlFor="salary-gross">Salário bruto</label><input id="salary-gross" className={field} type="number" min="0" step="0.01" value={salary.grossSalary || ""} onChange={(event) => setNumber("grossSalary", event.target.value)} /></div>
+      <div><label className={label} htmlFor="salary-gross">Salário bruto</label><CurrencyInput id="salary-gross" className={field} value={salary.grossSalary ? String(salary.grossSalary) : ""} onValueChange={(value) => setNumber("grossSalary", value)} placeholder="R$ 0,00" /></div>
       <div><label className={label} htmlFor="salary-dependents">Dependentes</label><input id="salary-dependents" className={field} type="number" min="0" step="1" value={salary.dependents || ""} onChange={(event) => setNumber("dependents", event.target.value)} /></div>
-      <div><label className={label} htmlFor="salary-health">Plano de saúde (desconto)</label><input id="salary-health" className={field} type="number" min="0" step="0.01" value={salary.healthPlan || ""} onChange={(event) => setNumber("healthPlan", event.target.value)} /></div>
-      <div><label className={label} htmlFor="salary-dental">Plano odontológico (desconto)</label><input id="salary-dental" className={field} type="number" min="0" step="0.01" value={salary.dentalPlan || ""} onChange={(event) => setNumber("dentalPlan", event.target.value)} /></div>
-      <div><label className={label} htmlFor="salary-pension">Pensão alimentícia</label><input id="salary-pension" className={field} type="number" min="0" step="0.01" value={salary.pension || ""} onChange={(event) => setNumber("pension", event.target.value)} /></div>
-      <div><label className={label} htmlFor="salary-other">Outros descontos</label><input id="salary-other" className={field} type="number" min="0" step="0.01" value={salary.otherDiscounts || ""} onChange={(event) => setNumber("otherDiscounts", event.target.value)} /></div>
+      <div><label className={label} htmlFor="salary-health">Plano de saúde (desconto)</label><CurrencyInput id="salary-health" className={field} value={salary.healthPlan ? String(salary.healthPlan) : ""} onValueChange={(value) => setNumber("healthPlan", value)} placeholder="R$ 0,00" /></div>
+      <div><label className={label} htmlFor="salary-dental">Plano odontológico (desconto)</label><CurrencyInput id="salary-dental" className={field} value={salary.dentalPlan ? String(salary.dentalPlan) : ""} onValueChange={(value) => setNumber("dentalPlan", value)} placeholder="R$ 0,00" /></div>
+      <div><label className={label} htmlFor="salary-pension">Pensão alimentícia</label><CurrencyInput id="salary-pension" className={field} value={salary.pension ? String(salary.pension) : ""} onValueChange={(value) => setNumber("pension", value)} placeholder="R$ 0,00" /></div>
+      <div><label className={label} htmlFor="salary-other">Outros descontos</label><CurrencyInput id="salary-other" className={field} value={salary.otherDiscounts ? String(salary.otherDiscounts) : ""} onValueChange={(value) => setNumber("otherDiscounts", value)} placeholder="R$ 0,00" /></div>
       <label className="flex items-center gap-2 rounded-lg border border-outline-variant px-3 py-2.5 text-sm text-on-surface sm:col-span-2">
         <input type="checkbox" checked={salary.hasTransportVoucher} onChange={(event) => onChange({ ...salary, hasTransportVoucher: event.target.checked })} className="size-4 accent-primary" />
         Aplicar desconto de vale-transporte (limitado a 6% do bruto)
       </label>
-      <div><label className={label} htmlFor="salary-vt">Benefício VT (informativo)</label><input id="salary-vt" className={field} type="number" min="0" step="0.01" value={salary.transportVoucherBenefit || ""} onChange={(event) => setNumber("transportVoucherBenefit", event.target.value)} /></div>
-      <div><label className={label} htmlFor="salary-vr">Vale-refeição (informativo)</label><input id="salary-vr" className={field} type="number" min="0" step="0.01" value={salary.mealVoucher || ""} onChange={(event) => setNumber("mealVoucher", event.target.value)} /></div>
-      <div><label className={label} htmlFor="salary-va">Vale-alimentação (informativo)</label><input id="salary-va" className={field} type="number" min="0" step="0.01" value={salary.foodAllowance || ""} onChange={(event) => setNumber("foodAllowance", event.target.value)} /></div>
+      <div><label className={label} htmlFor="salary-vt">Benefício VT (informativo)</label><CurrencyInput id="salary-vt" className={field} value={salary.transportVoucherBenefit ? String(salary.transportVoucherBenefit) : ""} onValueChange={(value) => setNumber("transportVoucherBenefit", value)} placeholder="R$ 0,00" /></div>
+      <div><label className={label} htmlFor="salary-vr">Vale-refeição (informativo)</label><CurrencyInput id="salary-vr" className={field} value={salary.mealVoucher ? String(salary.mealVoucher) : ""} onValueChange={(value) => setNumber("mealVoucher", value)} placeholder="R$ 0,00" /></div>
+      <div><label className={label} htmlFor="salary-va">Vale-alimentação (informativo)</label><CurrencyInput id="salary-va" className={field} value={salary.foodAllowance ? String(salary.foodAllowance) : ""} onValueChange={(value) => setNumber("foodAllowance", value)} placeholder="R$ 0,00" /></div>
     </div>
   )
 }
