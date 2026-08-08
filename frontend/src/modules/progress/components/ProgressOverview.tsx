@@ -20,15 +20,15 @@ export function ProgressOverview({ pendingTasks, workoutReady }: { pendingTasks:
   })
   return (
     <section id="progress" className="border-t border-outline-variant pt-6" aria-labelledby="progress-title">
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,.95fr)]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(340px,.8fr)]">
         <div>
           <div className="flex items-center justify-between gap-4">
             <p className="text-sm font-medium text-primary">Sistema de progressão</p>
             <span className="text-xs text-muted">{status === "loading" ? "Carregando…" : <><AnimatedNumber value={progress.streak} animationKey="overview-progress-streak" formatValue={(value) => Math.round(value).toLocaleString("pt-BR")} /> dias em sequência</>}</span>
           </div>
-          <div className="mt-5 flex items-end justify-between gap-4">
+          <div className="mt-3 flex items-end justify-between gap-4">
             <div>
-              <p className="font-mono text-[clamp(2.8rem,7vw,5.4rem)] font-medium leading-none tracking-[-0.07em] text-on-surface">
+              <p className="font-mono text-[clamp(2.4rem,5vw,3.8rem)] font-medium leading-none tracking-[-0.06em] text-on-surface">
                 <AnimatedNumber value={progress.level} animationKey="overview-progress-level" formatValue={(value) => String(Math.round(value)).padStart(2, "0")} />
               </p>
               <h2 id="progress-title" className="mt-3 text-xl font-medium text-on-surface">Nível {progress.level} · {progress.title}</h2>

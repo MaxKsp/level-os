@@ -205,7 +205,7 @@ export function FinanceScreen() {
             bodyClassName="p-0"
           >
             {accounts.length === 0 ? (
-              <EmptyState title="Nenhuma conta cadastrada" description="Cadastre uma conta para acompanhar saldo, extrato e movimentações." icon="account_balance" />
+              <EmptyState title="Nenhuma conta cadastrada" description="Cadastre uma conta para acompanhar saldo, extrato e movimentações." icon="account_balance" action={<Button size="sm" onClick={() => setAccModal({ open: true, edit: null })}>Cadastrar primeira conta</Button>} />
             ) : (
               <ul className="divide-y divide-outline-variant">
                 {accounts.map((a) => (
@@ -255,7 +255,7 @@ export function FinanceScreen() {
             bodyClassName="p-0"
           >
             {cards.length === 0 ? (
-              <EmptyState title="Nenhum cartão cadastrado" description="Adicione um cartão para acompanhar limite, fechamento e fatura." icon="credit_card" />
+              <EmptyState title="Nenhum cartão cadastrado" description="Adicione um cartão para acompanhar limite, fechamento e fatura." icon="credit_card" action={<Button size="sm" onClick={() => setAccModal({ open: true, edit: null })}>Adicionar cartão</Button>} />
             ) : (
               <ul className="divide-y divide-outline-variant">
                 {cards.map((c) => (
@@ -319,7 +319,7 @@ export function FinanceScreen() {
               bodyClassName="p-0"
             >
               {fin.income.length === 0 ? (
-                <EmptyState title="Nenhuma renda recorrente" description="Cadastre salário, pró-labore ou outra entrada recorrente." icon="trending_up" />
+                <EmptyState title="Nenhuma renda recorrente" description="Cadastre salário, pró-labore ou outra entrada recorrente." icon="trending_up" action={<Button size="sm" onClick={() => setIncModal({ open: true, edit: null })}>Cadastrar renda</Button>} />
               ) : (
                 <ul className="divide-y divide-outline-variant">
                   {fin.income.map((i) => {
@@ -365,7 +365,7 @@ export function FinanceScreen() {
               bodyClassName="p-0"
             >
               {fin.variableIncome.length === 0 ? (
-                <EmptyState title="Nenhuma renda variável" description="Lance recebimentos pontuais, comissões ou trabalhos avulsos." icon="ssid_chart" />
+                <EmptyState title="Nenhuma renda variável" description="Lance recebimentos pontuais, comissões ou trabalhos avulsos." icon="ssid_chart" action={<Button size="sm" onClick={() => setActionCenter(true)}>Adicionar movimentação</Button>} />
               ) : (
                 <ul className="divide-y divide-outline-variant">
                   {fin.variableIncome.map((item, index) => {

@@ -1,34 +1,19 @@
-import { useState, type FormEvent, type ReactNode } from "react"
 import { useApp } from "../../context/AppContext"
-import { useFinance, genId } from "../../modules/finance/store"
-import { CATEGORY_LABEL } from "../../modules/finance/categories"
-import { isCard } from "../../modules/finance/selectors"
+import { useFinance } from "../../modules/finance/store"
 import { Modal } from "../ui/Modal"
-import { Input } from "../ui/Input"
 import { Button } from "../ui/Button"
 import { GlobalSearch } from "./GlobalSearch"
 import { Icon } from "../../design-system"
 import { useProgress } from "../../modules/progress/store"
 import { TaskSchedulerForm } from "../../modules/routine/TaskSchedulerForm"
+import { ExpenseForm } from "../../modules/finance/ExpenseForm"
 
 export function ModalsContainer() {
   const app = useApp()
   const fin = useFinance()
   const { awardEvent } = useProgress()
-  const [expenseAccountId, setExpenseAccountId] = useState(fin.accounts.find((a) => a.principal)?.id ?? fin.accounts[0]?.id ?? "")
-  const [expenseCategory, setExpenseCategory] = useState("outros")
-  const [expenseDate, setExpenseDate] = useState(new Date().toISOString().slice(0, 10))
   const completed = app.exercises.filter((item) => item.completed).length
   const formatSeconds = (total: number) => `${Math.floor(total / 60).toString().padStart(2, "0")}:${(total % 60).toString().padStart(2, "0")}`
-
-  const addExpense = (event: FormEvent) => {
-    event.preventDefault()
-    const value = Number(app.expenseAmount)
-    const account = fin.accounts.find((item) => item.id === expenseAccountId)
-    if (!account || !app.expenseDesc.trim() || !Number.isFinite(value) || value <= 0) return
-    fin.addExpense({ id: genId("exp"), label: app.expenseDesc.trim(), value, date: expenseDate, time: null, recorrencia: "none", categoria: expenseCategory, method: isCard(account) ? "credito" : "debito", bank: account.bank, accountId: account.id, parcelas: null, createdAt: Math.floor(Date.now() / 1000) })
-    app.setExpenseDesc(""); app.setExpenseAmount(""); app.setIsExpenseModalOpen(false)
-  }
 
   const completeWorkout = () => {
     if (completed !== app.exercises.length) return
@@ -44,7 +29,7 @@ export function ModalsContainer() {
       <TaskSchedulerForm onClose={() => app.setIsTaskModalOpen(false)} />
     </Modal>
     <Modal isOpen={app.isExpenseModalOpen} onClose={() => app.setIsExpenseModalOpen(false)} title="Lançar despesa" icon="payments" maxWidth="max-w-lg">
-      <form onSubmit={addExpense} className="space-y-4"><Input label="Descrição" required placeholder="Ex.: Supermercado" value={app.expenseDesc} onChange={(e) => app.setExpenseDesc(e.target.value)} /><div className="grid gap-4 sm:grid-cols-2"><Input label="Valor (R$)" type="number" min="0" step="0.01" required value={app.expenseAmount} onChange={(e) => app.setExpenseAmount(e.target.value)} fontFamily="mono" /><Input label="Data" type="date" required value={expenseDate} onChange={(e) => setExpenseDate(e.target.value)} /></div><div className="grid gap-4 sm:grid-cols-2"><Select label="Conta ou cartão" value={expenseAccountId} onChange={setExpenseAccountId}>{fin.accounts.map((account) => <option key={account.id} value={account.id}>{account.label} · {account.bank ?? "Sem banco"}</option>)}</Select><Select label="Categoria" value={expenseCategory} onChange={setExpenseCategory}>{Object.entries(CATEGORY_LABEL).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</Select></div><p className="rounded-xl bg-primary/8 px-3 py-2 text-xs text-on-surface-variant">O valor será descontado do saldo ou somado à fatura, conforme a conta selecionada.</p><div className="flex justify-end gap-2 border-t border-outline-variant pt-4"><Button type="button" variant="ghost" onClick={() => app.setIsExpenseModalOpen(false)}>Cancelar</Button><Button type="submit">Lançar despesa</Button></div></form>
+      <ExpenseForm accounts={fin.accounts} resetKey={app.isExpenseModalOpen} onCancel={() => app.setIsExpenseModalOpen(false)} onSave={fin.addExpense} />
     </Modal>
     <Modal isOpen={app.isWeightModalOpen} onClose={() => app.setIsWeightModalOpen(false)} title="Registrar peso" icon="monitor_weight"><form onSubmit={app.handleAddWeightSubmit} className="space-y-5"><div className="py-3 text-center"><p className="font-mono text-4xl font-bold text-primary">{app.weightValue} <span className="text-sm">kg</span></p><input type="range" min="65" max="120" step="0.1" value={app.weightValue} onChange={(e) => app.setWeightValue(e.target.value)} className="mt-6 w-full accent-primary" /></div><div className="flex justify-end gap-2"><Button type="button" variant="ghost" onClick={() => app.setIsWeightModalOpen(false)}>Cancelar</Button><Button type="submit">Salvar registro</Button></div></form></Modal>
     <Modal isOpen={app.isWorkoutModalOpen} onClose={() => app.setIsWorkoutModalOpen(false)} title="Treino do dia: Superior A" icon="fitness_center" maxWidth="max-w-xl">
@@ -52,5 +37,3 @@ export function ModalsContainer() {
     </Modal>
   </>
 }
-
-function Select({ label, value, onChange, children }: { label: string; value: string; onChange: (value: string) => void; children: ReactNode }) { return <label className="flex flex-col gap-1.5 text-sm font-medium text-on-surface-variant">{label}<select value={value} onChange={(e) => onChange(e.target.value)} className="rounded-lg border border-outline-variant bg-surface-container px-3 py-2.5 text-sm font-normal text-on-surface outline-none focus:border-primary">{children}</select></label> }

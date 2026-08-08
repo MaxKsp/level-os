@@ -159,8 +159,10 @@ export function ShaderBackground({ className, opacity = 0.28 }: ShaderBackground
 
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)")
     const compactScreen = window.matchMedia("(max-width: 640px)")
-    const lowPowerMobile = compactScreen.matches && (navigator.hardwareConcurrency || 4) <= 4
-    const dpr = Math.min(window.devicePixelRatio || 1, lowPowerMobile ? 1 : 1.5)
+    const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8
+    const lowPowerDevice = (navigator.hardwareConcurrency || 4) <= 4 || memory <= 4
+    const staticFallback = compactScreen.matches && lowPowerDevice
+    const dpr = Math.min(window.devicePixelRatio || 1, lowPowerDevice ? 1 : 1.5)
     let reduce = reducedMotion.matches
     let pageVisible = !document.hidden
     let canvasVisible = true
@@ -169,6 +171,8 @@ export function ShaderBackground({ className, opacity = 0.28 }: ShaderBackground
     let previous = performance.now()
     let lastDraw = 0
     let frameInterval = 1000 / (reduce ? 20 : 30)
+    let scrolling = false
+    let scrollTimer = 0
 
     const resize = () => {
       const width = Math.max(1, Math.floor(window.innerWidth * dpr))
@@ -197,7 +201,7 @@ export function ShaderBackground({ className, opacity = 0.28 }: ShaderBackground
     }
 
     const frame = (now: number) => {
-      if (!pageVisible || !canvasVisible || lowPowerMobile) { stop(); return }
+      if (!pageVisible || !canvasVisible || staticFallback || scrolling) { stop(); return }
       const delta = Math.min((now - previous) / 1000, 0.08)
       previous = now
       elapsed += delta * (reduce ? 0.28 : 1)
@@ -209,7 +213,7 @@ export function ShaderBackground({ className, opacity = 0.28 }: ShaderBackground
     }
 
     const start = () => {
-      if (raf || !pageVisible || !canvasVisible || lowPowerMobile) return
+      if (raf || !pageVisible || !canvasVisible || staticFallback || scrolling) return
       previous = performance.now()
       raf = requestAnimationFrame(frame)
     }
@@ -223,6 +227,12 @@ export function ShaderBackground({ className, opacity = 0.28 }: ShaderBackground
       frameInterval = 1000 / (reduce ? 20 : 30)
     }
     const onResize = () => { resize(); draw() }
+    const onScroll = () => {
+      scrolling = true
+      stop()
+      window.clearTimeout(scrollTimer)
+      scrollTimer = window.setTimeout(() => { scrolling = false; start() }, 160)
+    }
     const onContextLost = (event: Event) => { event.preventDefault(); stop(); setFallback(true) }
 
     const intersection = typeof IntersectionObserver === "undefined" ? null : new IntersectionObserver(([entry]) => {
@@ -235,6 +245,7 @@ export function ShaderBackground({ className, opacity = 0.28 }: ShaderBackground
     themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] })
     document.addEventListener("visibilitychange", onVisibility)
     window.addEventListener("resize", onResize, { passive: true })
+    window.addEventListener("scroll", onScroll, { passive: true })
     canvas.addEventListener("webglcontextlost", onContextLost)
     reducedMotion.addEventListener("change", onMotionChange)
 
@@ -248,6 +259,8 @@ export function ShaderBackground({ className, opacity = 0.28 }: ShaderBackground
       themeObserver.disconnect()
       document.removeEventListener("visibilitychange", onVisibility)
       window.removeEventListener("resize", onResize)
+      window.removeEventListener("scroll", onScroll)
+      window.clearTimeout(scrollTimer)
       canvas.removeEventListener("webglcontextlost", onContextLost)
       reducedMotion.removeEventListener("change", onMotionChange)
       gl.deleteBuffer(buffer)

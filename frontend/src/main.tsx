@@ -26,18 +26,14 @@ if (window.LEVEL_OS_SENTRY_DSN) {
   window.addEventListener('unhandledrejection', rememberRejection);
 
   const initializeMonitoring = () => {
-    void import('@sentry/react').then((Sentry) => {
-      Sentry.init({
+    void import('@sentry/react').then(({ init, captureException }) => {
+      init({
         dsn: window.LEVEL_OS_SENTRY_DSN,
-        integrations: [
-          Sentry.browserTracingIntegration(),
-          Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true }),
-        ],
-        tracesSampleRate: 0.1,
-        replaysOnErrorSampleRate: 1.0,
-        replaysSessionSampleRate: 0,
+        // O PWA usa o Sentry apenas para erros. Replay e tracing adicionavam
+        // centenas de kB a um chunk assíncrono sem benefício proporcional.
+        enableLogs: false,
       });
-      earlyErrors.splice(0, 10).forEach((error) => Sentry.captureException(error));
+      earlyErrors.splice(0, 10).forEach((error) => captureException(error));
       window.removeEventListener('error', rememberError);
       window.removeEventListener('unhandledrejection', rememberRejection);
     });
