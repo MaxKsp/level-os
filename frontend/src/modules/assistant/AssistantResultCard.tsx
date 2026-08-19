@@ -1,4 +1,4 @@
-import { ChefHat, Dumbbell, ExternalLink } from "lucide-react"
+import { Bot, ChefHat, Clock3, Database, Dumbbell, ExternalLink } from "lucide-react"
 import { useState, type ReactNode } from "react"
 import type { AssistantApproval } from "./api"
 import type { AssistantResponse } from "./contracts"
@@ -92,12 +92,80 @@ export function assistantResultPresentation(response: AssistantResponse): Assist
 interface ResultCardProps {
   response: AssistantResponse
   onView: (module: AssistantModule) => void
+  onRoute?: (module: AssistantModule, suggestedPrompt?: string) => void
   approval?: AssistantApproval
   onApprovalChange?: (approval: AssistantApproval) => void
 }
 
-export function AssistantResultCard({ response, onView, approval, onApprovalChange }: ResultCardProps) {
+export function AssistantResultCard({ response, onView, onRoute, approval, onApprovalChange }: ResultCardProps) {
   const [editing, setEditing] = useState(false)
+
+  if (response.status === "routed" && response.action === "route_to_agent") {
+    const data = record(response.data)
+    const handoff = record(data?.handoff)
+    const rawModule = text(handoff?.module) ?? response.module
+    const module: AssistantModule | null = rawModule === "financeiro" || rawModule === "agenda" || rawModule === "treinos" || rawModule === "alimentacao" ? rawModule : null
+    if (!module) return null
+    const agent = text(handoff?.agent) ?? "especialista"
+    const suggestedPrompt = text(handoff?.suggestedPrompt) ?? undefined
+    return (
+      <section className="mt-3 rounded-xl border border-primary/25 bg-primary/5 p-3" aria-label={`Direcionamento para ${agent}`}>
+        <div className="flex items-start gap-2.5">
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><Bot className="size-4" /></span>
+          <div className="min-w-0">
+            <p className="text-[10px] font-medium text-primary">Especialista recomendado</p>
+            <h4 className="mt-0.5 text-xs font-semibold text-on-surface">{agent}</h4>
+            <p className="mt-1 text-[11px] leading-5 text-muted">{text(handoff?.scope)}</p>
+          </div>
+        </div>
+        <ResultButton icon={<ExternalLink className="size-4" />} label={`Conversar com ${agent}`} onClick={() => onRoute ? onRoute(module, suggestedPrompt) : onView(module)} />
+      </section>
+    )
+  }
+
+  if (response.action === "query") {
+    const data = record(response.data)
+    const sourceLabel = text(data?.sourceLabel) ?? "Dados do Level OS"
+    const title = text(data?.title) ?? "Consulta"
+    const period = record(data?.period)
+    const primary = record(data?.primaryMetric)
+    const destination = record(data?.destination)
+    const rawModule = text(destination?.module)
+    const module: AssistantModule | null = rawModule === "financeiro" || rawModule === "agenda" || rawModule === "treinos" || rawModule === "alimentacao" ? rawModule : null
+    const asOf = text(data?.asOf)
+    const updatedLabel = asOf && !Number.isNaN(Date.parse(asOf))
+      ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(asOf))
+      : "agora"
+    const details = Array.isArray(data?.details) ? data.details.map(record).filter((item): item is Record<string, unknown> => item !== null) : []
+    const chart = record(data?.chart)
+    const chartItems = Array.isArray(chart?.items) ? chart.items.map(record).filter((item): item is Record<string, unknown> => item !== null) : []
+    const maximum = Math.max(0, ...chartItems.map((item) => number(item.value) ?? 0))
+    const format = (value: unknown, kind: unknown) => {
+      const parsed = number(value)
+      if (kind === "currency") return parsed === null ? "—" : brl(parsed)
+      if (kind === "days") return parsed === null ? "—" : `${parsed.toLocaleString("pt-BR")} dias`
+      return parsed === null ? text(value) ?? "—" : parsed.toLocaleString("pt-BR")
+    }
+    return (
+      <section className="mt-3 rounded-xl border border-outline-variant bg-surface-container-low p-3" aria-label={title}>
+        <div className="flex items-start justify-between gap-3">
+          <div><p className="text-[10px] font-medium text-primary">{sourceLabel}</p><h4 className="mt-0.5 text-xs font-semibold text-on-surface">{title}</h4></div>
+          <span className="flex items-center gap-1 text-[9px] text-muted"><Database className="size-3" />Atualizado {updatedLabel}</span>
+        </div>
+        {primary ? <div className="mt-3 border-t border-outline-variant pt-3">
+          <p className="numeric-value text-xl font-semibold text-on-surface">{format(primary.value, primary.format)}</p>
+          <p className="mt-0.5 text-[10px] text-muted">{text(primary.label)}</p>
+        </div> : null}
+        {text(period?.label) ? <p className="mt-2 flex items-center gap-1 text-[10px] text-muted"><Clock3 className="size-3" />{text(period?.label)}</p> : null}
+        {details.length ? <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 border-t border-outline-variant pt-3">{details.map((item, index) => <div key={`${text(item.label)}-${index}`}><dt className="text-[9px] text-muted">{text(item.label)}</dt><dd className="numeric-value mt-0.5 text-xs font-medium text-on-surface">{format(item.value, item.format)}</dd></div>)}</dl> : null}
+        {chartItems.length ? <div className="mt-3 space-y-2 border-t border-outline-variant pt-3" aria-label="Distribuição dos dados">{chartItems.map((item, index) => {
+          const value = number(item.value) ?? 0
+          return <div key={`${text(item.label)}-${index}`} className="text-[10px]"><div className="mb-1 flex justify-between gap-2"><span className="truncate text-on-surface-variant">{text(item.label)}</span><span className="numeric-value text-muted">{brl(value)}</span></div><div className="h-1.5 overflow-hidden rounded-full bg-surface-container-high"><div className="h-full rounded-full bg-primary transition-[width] duration-500 motion-reduce:transition-none" style={{ width: `${maximum > 0 ? Math.max(3, value * 100 / maximum) : 0}%` }} /></div></div>
+        })}</div> : null}
+        {module ? <ResultButton icon={<ExternalLink className="size-4" />} label={text(destination?.label) ?? "Abrir módulo"} onClick={() => onView(module)} /> : null}
+      </section>
+    )
+  }
 
   if (response.action === "create_diet_plan") {
     const data = record(response.data)

@@ -239,11 +239,11 @@ return static function (): void {
     };
 
     $router = new AssistantRouter([$failing, $working], $repository);
-    $result = $router->route(7, 'registre meu peso', ['today'=>'2026-07-18']);
+    $result = $router->route(7, 'registre meu peso', ['today'=>'2026-07-18'], 'treinos');
     test_assert_same('second', $result['provider'], 'The router must fall back after a quota error.');
     test_assert_same('log_measurement', $result['route']['action'], 'Only a catalog action may be returned.');
 
-    $cached = $router->route(7, 'registre meu peso', ['today'=>'2026-07-18']);
+    $cached = $router->route(7, 'registre meu peso', ['today'=>'2026-07-18'], 'treinos');
     test_assert_true($cached['cached'], 'An identical scoped route must use the short encrypted cache.');
     test_assert_same(1, $working->calls, 'A cache hit must not spend provider quota.');
     $firstTool = $working->lastPayload['tools'][0]['function'] ?? [];

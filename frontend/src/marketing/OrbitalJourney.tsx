@@ -1,8 +1,8 @@
 import { useRef, type Key } from "react"
 import { useReducedMotion, useScroll, useSpring, useTransform, type MotionValue } from "motion/react"
 import * as m from "motion/react-m"
-import { ArrowRight, CalendarDays, Dumbbell, Trophy, Utensils, WalletCards } from "lucide-react"
 import { LevelMark } from "../components/ui/LevelMark"
+import { Icon } from "../design-system"
 
 const worlds = [
   {
@@ -11,10 +11,10 @@ const worlds = [
     eyebrow: "Finanças",
     title: "Entenda seu dinheiro sem montar outra planilha.",
     description: "Contas, cartões, patrimônio, rendas, despesas, parcelamentos e imposto de renda compartilham a mesma visão.",
-    proof: "Do lançamento ao patrimônio",
-    value: "R$ 4.820",
-    valueLabel: "saldo projetado",
-    icon: WalletCards,
+    capabilities: ["Contas e cartões", "OFX e parcelamentos", "Imposto de renda"],
+    insight: "Veja o disponível, o comprometido e o impacto das próximas decisões.",
+    next: "A previsão financeira encontra sua rotina",
+    icon: "account_balance",
   },
   {
     number: "02",
@@ -22,10 +22,10 @@ const worlds = [
     eyebrow: "Rotina",
     title: "Transforme intenção em um dia que realmente acontece.",
     description: "Tarefas, horários recorrentes e compromissos aparecem no momento certo, sem disputar atenção o dia inteiro.",
-    proof: "Hoje, semana, mês e ano",
-    value: "03",
-    valueLabel: "prioridades hoje",
-    icon: CalendarDays,
+    capabilities: ["Agenda recorrente", "Google Calendar", "Lembretes no contexto"],
+    insight: "Encontre o próximo passo sem transformar o dia inteiro em urgência.",
+    next: "A rotina abre espaço para o treino",
+    icon: "event",
   },
   {
     number: "03",
@@ -33,10 +33,10 @@ const worlds = [
     eyebrow: "Treinos",
     title: "Registre consistência, não apenas repetições.",
     description: "Planeje sessões, acompanhe cargas, medidas e evolução corporal sem perder o histórico que explica seu progresso.",
-    proof: "Treino e evolução conectados",
-    value: "04",
-    valueLabel: "treinos em sequência",
-    icon: Dumbbell,
+    capabilities: ["Fichas e sessões", "Cargas e medidas", "Evolução corporal"],
+    insight: "Compare sessões e ajuste o plano usando o histórico real do seu corpo.",
+    next: "O treino se conecta à alimentação",
+    icon: "exercise",
   },
   {
     number: "04",
@@ -44,10 +44,10 @@ const worlds = [
     eyebrow: "Alimentação",
     title: "Planejamento alimentar dentro da sua realidade.",
     description: "Crie cardápios, revise custos e transforme refeições em uma lista de compras prática para a semana.",
-    proof: "Cardápio, orçamento e compras",
-    value: "35",
-    valueLabel: "refeições planejadas",
-    icon: Utensils,
+    capabilities: ["Plano alimentar", "Custo estimado", "Lista de compras"],
+    insight: "Aprove o cardápio com o custo previsto e uma lista pronta para o mercado.",
+    next: "As escolhas alimentam seu progresso",
+    icon: "restaurant",
   },
   {
     number: "05",
@@ -55,22 +55,22 @@ const worlds = [
     eyebrow: "Progresso",
     title: "Veja sua evolução atravessar todas as áreas.",
     description: "XP, níveis e conquistas tornam visível o efeito acumulado das pequenas ações — sem transformar sua vida em um jogo vazio.",
-    proof: "Uma jornada, vários sinais",
-    value: "2.840",
-    valueLabel: "XP acumulado",
-    icon: Trophy,
+    capabilities: ["XP e níveis", "Conquistas", "Visão semanal"],
+    insight: "Transforme pequenas ações em uma leitura clara da sua evolução.",
+    next: "Tudo retorna ao seu centro",
+    icon: "trophy",
   },
 ] as const
 
 type World = (typeof worlds)[number]
 const chapterStops = [0.2, 0.4, 0.6, 0.8, 0.985] as const
-const cameraStops = [0, 0.08, 0.2, 0.28, 0.4, 0.48, 0.6, 0.68, 0.8, 0.88, 0.985, 1]
+const cameraStops = [0, 0.08, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.985, 1]
 const routePhases = [
-  { from: "Núcleo", to: "Finanças", start: 0.08, end: 0.16 },
-  { from: "Finanças", to: "Rotina", start: 0.25, end: 0.35 },
-  { from: "Rotina", to: "Treinos", start: 0.45, end: 0.55 },
-  { from: "Treinos", to: "Alimentação", start: 0.65, end: 0.75 },
-  { from: "Alimentação", to: "Progresso", start: 0.85, end: 0.94 },
+  { from: "Núcleo", to: "Finanças", start: 0.06, end: 0.18 },
+  { from: "Finanças", to: "Rotina", start: 0.22, end: 0.38 },
+  { from: "Rotina", to: "Treinos", start: 0.42, end: 0.58 },
+  { from: "Treinos", to: "Alimentação", start: 0.62, end: 0.78 },
+  { from: "Alimentação", to: "Progresso", start: 0.82, end: 0.97 },
 ] as const
 
 function OrbitalNode({ world, index, progress, reduceMotion }: { world: World; index: number; progress: MotionValue<number>; reduceMotion: boolean; key?: Key }) {
@@ -84,51 +84,45 @@ function OrbitalNode({ world, index, progress, reduceMotion }: { world: World; i
     [0.25, 1, 1, 0.38],
   )
   const scale = useTransform(progress, [scaleStart, scalePeak, scaleEnd], [0.78, 1.18, 0.86])
-  const Icon = world.icon
-
   return (
     <m.div className={`orbit-node orbit-node-${world.id}`} style={reduceMotion ? undefined : { opacity, scale }} aria-hidden="true">
       <span className="orbit-node-radar" />
-      <span className="orbit-node-disc"><Icon /></span>
+      <span className="orbit-node-disc"><Icon name={world.icon} /></span>
       <span className="orbit-node-label">{world.number} / {world.eyebrow}</span>
     </m.div>
   )
 }
 
 function OrbitalMap({ progress, reduceMotion }: { progress: MotionValue<number>; reduceMotion: boolean }) {
-  const x = useTransform(progress, cameraStops, ["11%", "16%", "72%", "20%", "-9%", "0%", "-42%", "-20%", "-52%", "-25%", "-36%", "-9%"])
-  const y = useTransform(progress, cameraStops, ["10%", "5%", "-21%", "-2%", "-51%", "-15%", "44%", "20%", "25%", "5%", "-25%", "0%"])
-  const scale = useTransform(progress, cameraStops, [0.74, 0.94, 1.56, 1.02, 1.58, 1.02, 1.62, 1.03, 1.66, 1.02, 1.62, 0.86])
-  const rotate = useTransform(progress, cameraStops, [-7, -3, -1, 3, 5, 7, 9, 7, 5, 8, 11, 13])
+  const x = useTransform(progress, cameraStops, ["25%", "21%", "15%", "6%", "-3%", "-12%", "-21%", "-30%", "-39%", "-48%", "-57%", "-59%"])
+  const y = useTransform(progress, cameraStops, ["0%", "1%", "4%", "0%", "-4%", "0%", "4%", "0%", "-4%", "0%", "4%", "1%"])
+  const scale = useTransform(progress, cameraStops, [0.88, 0.92, 1.04, 0.96, 1.04, 0.96, 1.04, 0.96, 1.04, 0.96, 1.04, 0.92])
   const travelerDistance = useTransform(
     progress,
     [0.08, 0.2, 0.4, 0.6, 0.8, 0.985],
-    ["0%", "25%", "42%", "74%", "84%", "100%"],
+    ["7%", "18%", "36%", "54%", "72%", "90%"],
   )
   const journeyPathLength = useTransform(progress, [0.08, 0.985], [0, 1])
 
   return (
-    <m.div className="orbital-map" style={reduceMotion ? undefined : { x, y, scale, rotate }}>
-      <svg className="orbital-routes" viewBox="0 0 1200 900" aria-hidden="true">
-        <m.path className="orbit-route route-primary" d="M-80 828C180 796 216 535 423 573C643 614 738 827 1280 690" style={{ pathLength: reduceMotion ? 1 : progress }} />
-        <m.path className="orbit-route" d="M128 822C285 595 383 413 600 493C817 573 856 757 1168 547" style={{ pathLength: reduceMotion ? 1 : progress }} />
-        <m.path className="orbit-route" d="M258 706C337 442 575 265 844 316C1000 345 1076 197 1192 70" style={{ pathLength: reduceMotion ? 1 : progress }} />
-        <m.path className="orbit-route route-dashed" d="M12 706C297 381 501 779 774 511C945 344 974 127 1215 92" style={{ pathLength: reduceMotion ? 1 : progress }} />
+    <m.div className="orbital-map" style={reduceMotion ? undefined : { x, y, scale }}>
+      <svg className="orbital-routes" viewBox="0 0 1800 620" aria-hidden="true">
+        <m.path className="orbit-route route-primary" d="M70 310C150 310 210 250 300 250S500 370 620 370S820 250 940 250S1140 370 1260 370S1460 250 1580 250S1680 310 1730 310" style={{ pathLength: reduceMotion ? 1 : progress }} />
+        <m.path className="orbit-route" d="M70 278C150 278 210 218 300 218S500 338 620 338S820 218 940 218S1140 338 1260 338S1460 218 1580 218S1680 278 1730 278" style={{ pathLength: reduceMotion ? 1 : progress }} />
+        <m.path className="orbit-route route-dashed" d="M70 342C150 342 210 282 300 282S500 402 620 402S820 282 940 282S1140 402 1260 402S1460 282 1580 282S1680 342 1730 342" style={{ pathLength: reduceMotion ? 1 : progress }} />
         <m.path
           className="orbit-route journey-route"
-          d="M690 575C520 650 310 520 180 567C280 630 390 700 516 702C710 650 820 310 984 153C925 195 870 245 816 270C875 350 945 425 1008 522"
+          d="M70 310C150 310 210 250 300 250S500 370 620 370S820 250 940 250S1140 370 1260 370S1460 250 1580 250S1680 310 1730 310"
           style={{ pathLength: reduceMotion ? 1 : journeyPathLength }}
         />
-        <ellipse className="core-orbit" cx="690" cy="575" rx="220" ry="142" />
-        <ellipse className="core-orbit core-orbit-inner" cx="690" cy="575" rx="134" ry="84" />
-        {[{ x: 87, y: 794 }, { x: 298, y: 660 }, { x: 455, y: 598 }, { x: 836, y: 704 }, { x: 1010, y: 602 }, { x: 1110, y: 202 }].map((point, index) => <circle className="route-junction" cx={point.x} cy={point.y} r={index % 2 ? 7 : 4} key={`${point.x}-${point.y}`} />)}
+        {[{ x: 70, y: 310 }, { x: 300, y: 250 }, { x: 620, y: 370 }, { x: 940, y: 250 }, { x: 1260, y: 370 }, { x: 1580, y: 250 }, { x: 1730, y: 310 }].map((point, index) => <circle className="route-junction" cx={point.x} cy={point.y} r={index === 0 || index === 6 ? 4 : 7} key={point.x} />)}
       </svg>
       <m.span className="orbit-traveler" style={reduceMotion ? undefined : { offsetDistance: travelerDistance }} aria-hidden="true" />
 
       <div className="orbit-core" aria-hidden="true">
         <span className="orbit-core-ring ring-outer" /><span className="orbit-core-ring ring-inner" />
         <span className="orbit-core-disc"><LevelMark /></span>
-        <span className="orbit-core-caption">LEVEL OS / NÚCLEO</span>
+        <span className="orbit-core-caption">INÍCIO / LEVEL OS</span>
       </div>
       {worlds.map((world, index) => <OrbitalNode world={world} index={index} progress={progress} reduceMotion={reduceMotion} key={world.id} />)}
     </m.div>
@@ -171,16 +165,56 @@ function JourneyHud({ progress, reduceMotion }: { progress: MotionValue<number>;
   )
 }
 
+function WorldChapter({ world, reduceMotion }: { world: World; reduceMotion: boolean; key?: Key }) {
+  const chapterRef = useRef<HTMLElement>(null)
+  const { scrollYProgress } = useScroll({ target: chapterRef, offset: ["start end", "end start"] })
+  const chapterProgress = useSpring(scrollYProgress, { stiffness: 110, damping: 34, mass: 0.2 })
+  const opacity = useTransform(chapterProgress, [0.06, 0.22, 0.72, 0.94], [0, 1, 1, 0])
+  const y = useTransform(chapterProgress, [0.06, 0.28, 0.72, 0.94], [42, 0, 0, -30])
+  const scale = useTransform(chapterProgress, [0.06, 0.3, 0.72, 0.94], [0.975, 1, 1, 0.985])
+  return (
+    <article ref={chapterRef} className="orbit-chapter chapter-right" id={world.id}>
+      <m.div className="orbit-copy" style={reduceMotion ? undefined : { opacity, y, scale }}>
+        <div className="orbit-card-header">
+          <span className="orbit-module-symbol"><Icon name={world.icon} /></span>
+          <span><small>ESTAÇÃO {world.number} / 05</small><strong>{world.eyebrow}</strong></span>
+        </div>
+        <h3>{world.title}</h3>
+        <p className="orbit-summary">{world.description}</p>
+        <span className="orbit-feature-label">O QUE VOCÊ ENCONTRA</span>
+        <div className="orbit-feature-list" aria-label={`Funcionalidades de ${world.eyebrow}`}>
+          {world.capabilities.map((capability) => (
+            <div key={capability}>
+              <Icon name="check_circle" />
+              <strong>{capability}</strong>
+            </div>
+          ))}
+        </div>
+        <div className="orbit-result">
+          <Icon name="insights" />
+          <p>{world.insight}</p>
+        </div>
+        <div className="orbit-card-footer">
+          <span>{world.next}</span>
+          <Icon name="arrow_forward" />
+        </div>
+      </m.div>
+    </article>
+  )
+}
+
 export function OrbitalJourney() {
   const journeyRef = useRef<HTMLDivElement>(null)
   const reduceMotion = Boolean(useReducedMotion())
   const { scrollYProgress } = useScroll({ target: journeyRef, offset: ["start start", "end end"] })
-  const progress = useSpring(scrollYProgress, { stiffness: 90, damping: 28, mass: 0.32 })
+  const progress = useSpring(scrollYProgress, { stiffness: 105, damping: 34, mass: 0.22, restDelta: 0.0005 })
+  const starsY = useTransform(progress, [0, 1], ["0%", "-6%"])
+  const starsScale = useTransform(progress, [0, 1], [1, 1.08])
 
   return (
     <div className="orbital-journey" ref={journeyRef}>
       <div className="orbital-stage" aria-hidden="true">
-        <div className="orbital-stars" />
+        <m.div className="orbital-stars" style={reduceMotion ? undefined : { y: starsY, scale: starsScale }} />
         <OrbitalMap progress={progress} reduceMotion={reduceMotion} />
         <JourneyHud progress={progress} reduceMotion={reduceMotion} />
         <div className="orbital-coordinate coordinate-a">35° 41′ 22″ / LVL.01</div>
@@ -188,32 +222,13 @@ export function OrbitalJourney() {
       </div>
 
       <header className="orbital-intro">
-        <p className="marketing-eyebrow">UMA VISÃO, NÃO CINCO APLICATIVOS</p>
-        <h2>Uma constelação.<br />Seu centro.</h2>
-        <p>Cada módulo orbita a mesma vida. Conforme você avança, o Level OS aproxima o que importa e mantém todo o contexto conectado.</p>
+        <p className="marketing-eyebrow">LEVEL OS POR DENTRO</p>
+        <h2>Uma jornada.<br />Um sistema.</h2>
+        <p>Cada parada apresenta um módulo e o papel dele na sua vida.</p>
       </header>
 
       <div className="orbit-chapters">
-        {worlds.map((world, index) => {
-          const Icon = world.icon
-          return (
-            <article className={`orbit-chapter ${index % 2 ? "chapter-right" : "chapter-left"}`} id={world.id} key={world.id}>
-              <m.div
-                className="orbit-copy"
-                initial={reduceMotion ? false : { opacity: 0, y: 30, filter: "blur(8px)" }}
-                whileInView={reduceMotion ? undefined : { opacity: 1, y: 0, filter: "blur(0px)" }}
-                viewport={{ once: false, amount: 0.55 }}
-                transition={{ duration: 0.48, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <div className="orbit-copy-meta"><span>{world.number}</span><span><Icon size={15} /> {world.eyebrow}</span></div>
-                <h3>{world.title}</h3>
-                <p>{world.description}</p>
-                <div className="orbit-readout"><strong>{world.value}</strong><span>{world.valueLabel}</span></div>
-                <small>{world.proof} <ArrowRight size={14} /></small>
-              </m.div>
-            </article>
-          )
-        })}
+        {worlds.map((world) => <WorldChapter world={world} reduceMotion={reduceMotion} key={world.id} />)}
       </div>
     </div>
   )

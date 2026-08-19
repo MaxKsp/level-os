@@ -40,6 +40,28 @@ const PASSWORD_RESET_TOKEN_BYTES = 32;
 const PASSWORD_RESET_TTL_MINUTES = 60;
 const RATE_HIT_RETENTION_SECONDS = 172800;
 const RATE_HIT_CLEANUP_ODDS = 100;
+const RETURNING_USER_COOKIE = 'levelos_returning';
+const RETURNING_USER_COOKIE_TTL_SECONDS = 31536000;
+
+/** Marcador opaco: informa apenas que este navegador já concluiu um login. */
+function has_returning_user_marker(): bool {
+    return hash_equals('1', (string)($_COOKIE[RETURNING_USER_COOKIE] ?? ''));
+}
+
+function remember_returning_user(): void {
+    $configuredUrl = defined('APP_URL') && is_string(APP_URL) ? trim(APP_URL) : '';
+    $isSecure = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off')
+        || str_starts_with(strtolower($configuredUrl), 'https://');
+
+    setcookie(RETURNING_USER_COOKIE, '1', [
+        'expires' => time() + RETURNING_USER_COOKIE_TTL_SECONDS,
+        'path' => '/',
+        'secure' => $isSecure,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+    $_COOKIE[RETURNING_USER_COOKIE] = '1';
+}
 
 function current_user_id(): ?int {
     if (level_os_mobile_session_request_token() !== '') {
@@ -400,6 +422,7 @@ function complete_login(int $userId, ?int $sessionVersion = null): void {
     unset($_SESSION['auth_provider'], $_SESSION['supabase_expires_at']);
     clear_pending_2fa();
     complete_pending_supabase_link($userId);
+    remember_returning_user();
 }
 
 function mark_supabase_session(SupabaseIdentity $identity): void {

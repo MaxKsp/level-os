@@ -6,6 +6,8 @@ require_once dirname(__DIR__, 2) . '/Core/Clock.php';
 require_once __DIR__ . '/AssistantRouter.php';
 require_once __DIR__ . '/AssistantActionExecutor.php';
 require_once __DIR__ . '/AssistantRepository.php';
+require_once __DIR__ . '/AssistantAgentPolicy.php';
+require_once __DIR__ . '/AssistantTriage.php';
 
 final class AssistantUsageLimitExceeded extends RuntimeException {
 }
@@ -24,6 +26,7 @@ final class AssistantService {
 
     /** @return array<string,mixed> */
     public function handle(int $userId, string $requestId, string $text, ?string $module = null): array {
+        $startedAt = hrtime(true);
         $requestId = $this->requestId($requestId);
         $displayText = $this->command($text);
         $reservation = $this->repository->reserve($userId, $requestId);
@@ -37,11 +40,38 @@ final class AssistantService {
 
         $provider = null;
         try {
+            if (!AssistantAgentPolicy::isModule($module)) {
+                $usage = ['prompt_tokens' => 0, 'completion_tokens' => 0, 'total_tokens' => 0];
+                $triage = AssistantTriage::analyze($displayText);
+                $response = $triage + [
+                    'ok' => true,
+                    'undoAvailable' => false,
+                    'confirmationRequired' => false,
+                    'usage' => self::publicUsage($usage),
+                ];
+                $resultStatus = (string)($response['status'] ?? 'clarification');
+                $action = (string)($response['action'] ?? 'select_agent');
+                $summary = $resultStatus === 'routed'
+                    ? 'Pedido direcionado sem consultar dados ou executar ações.'
+                    : 'Seleção de agente solicitada.';
+                $this->repository->complete($userId, $requestId, $action, 'level-os', $resultStatus, $response, null, null, $summary);
+                $this->repository->saveHistory($userId, 'geral', $requestId, $displayText, $response, $usage, $displayText, null, 'level-os', self::elapsedMs($startedAt));
+                audit_record($this->db, $userId, 'assistant.triage', 'success', [
+                    'status' => $resultStatus,
+                    'target_module' => $response['module'] ?? null,
+                ]);
+                return $response;
+            }
             $agentKey = self::agentKey($module);
             $standaloneAction = AssistantPromptOptimizer::preferredAction($displayText, $module);
-            $routingText = $standaloneAction !== null
-                ? $displayText
-                : $this->repository->continuationText($userId, $agentKey, $displayText);
+            $continuationMemory = null;
+            if ($standaloneAction !== null) {
+                $routingText = $displayText;
+            } else {
+                $continuation = $this->repository->continuation($userId, $agentKey, $displayText);
+                $routingText = $continuation['text'];
+                $continuationMemory = $continuation['memory'];
+            }
             $preferredAction = $standaloneAction ?? AssistantPromptOptimizer::preferredAction($routingText, $module);
             $localRoute = AssistantPromptOptimizer::localRoute($routingText, $module);
             $scopeRefusal = AssistantPromptOptimizer::isOutOfScope($displayText, $module);
@@ -58,6 +88,13 @@ final class AssistantService {
             $usage = self::routeUsage($routed);
             $route = $routed['route'];
             if (!is_array($route)) throw new AssistantRouteException('Rota inválida.');
+            if (is_string($route['action'] ?? null)) {
+                $route = assistant_validate_route(
+                    (string)$route['action'],
+                    is_array($route['arguments'] ?? null) ? $route['arguments'] : [],
+                );
+                AssistantAgentPolicy::assertActionAllowed((string)$module, (string)$route['action']);
+            }
 
             $accountClarification = $this->financialAccountClarification($userId, $route, $routingText, $context);
             if ($accountClarification !== null) {
@@ -75,7 +112,7 @@ final class AssistantService {
                     'usage' => self::publicUsage($usage),
                 ];
                 $this->repository->complete($userId, $requestId, 'refusal', $provider, 'refused', $response, null, null, 'Pedido fora do escopo.');
-                $this->repository->saveHistory($userId, $agentKey, $requestId, $displayText, $response, $usage, $routingText);
+                $this->repository->saveHistory($userId, $agentKey, $requestId, $displayText, $response, $usage, $routingText, null, $provider, self::elapsedMs($startedAt));
                 audit_record($this->db, $userId, 'assistant.refused', 'denied', [
                     'provider' => $provider,
                     'local_route' => (bool)($routed['local'] ?? false),
@@ -100,7 +137,8 @@ final class AssistantService {
                     'data' => ['missingFields' => $fields] + $clarificationData,
                 ];
                 $this->repository->complete($userId, $requestId, 'clarification', $provider, 'clarification', $response, null, null, 'Informações adicionais solicitadas.');
-                $this->repository->saveHistory($userId, $agentKey, $requestId, $displayText, $response, $usage, $routingText);
+                $memory = self::clarificationMemory($module, $displayText, $fields, $preferredAction, $continuationMemory);
+                $this->repository->saveHistory($userId, $agentKey, $requestId, $displayText, $response, $usage, $routingText, $memory, $provider, self::elapsedMs($startedAt));
                 audit_record($this->db, $userId, 'assistant.clarification', 'success', [
                     'provider' => $provider,
                     'fields' => $fields,
@@ -146,7 +184,7 @@ final class AssistantService {
                     $confirmationExpiry,
                     'Aguardando confirmação do usuário.',
                 );
-                $this->repository->saveHistory($userId, $agentKey, $requestId, $displayText, $response, $usage, $routingText);
+                $this->repository->saveHistory($userId, $agentKey, $requestId, $displayText, $response, $usage, $routingText, null, $provider, self::elapsedMs($startedAt));
                 audit_record($this->db, $userId, 'assistant.confirmation_requested', 'success', [
                     'action' => (string)($route['action'] ?? 'unknown'),
                     'provider' => $provider,
@@ -209,7 +247,7 @@ final class AssistantService {
                 $undoExpiry,
                 (string)$result['summary'],
             );
-            $this->repository->saveHistory($userId, $agentKey, $requestId, $displayText, $response, $usage, $routingText);
+            $this->repository->saveHistory($userId, $agentKey, $requestId, $displayText, $response, $usage, $routingText, null, $provider, self::elapsedMs($startedAt));
             audit_record($this->db, $userId, 'assistant.action', 'success', [
                 'action' => (string)($route['action'] ?? 'unknown'),
                 'provider' => $provider,
@@ -223,11 +261,13 @@ final class AssistantService {
         } catch (AssistantProvidersExhausted $e) {
             if ($this->db->inTransaction()) $this->db->rollBack();
             $this->repository->fail($userId, $requestId, $provider, 'Cadeia de provedores indisponível.');
+            $this->repository->recordQuality($userId, self::agentKey($module), $provider, 'failure', self::elapsedMs($startedAt));
             audit_record($this->db, $userId, 'assistant.providers_exhausted', 'failure', []);
             throw $e;
         } catch (Throwable $e) {
             if ($this->db->inTransaction()) $this->db->rollBack();
             $this->repository->fail($userId, $requestId, $provider, 'Ação rejeitada ou inválida.');
+            $this->repository->recordQuality($userId, self::agentKey($module), $provider, 'failure', self::elapsedMs($startedAt));
             audit_record($this->db, $userId, 'assistant.action', 'failure', ['provider' => $provider, 'type' => get_class($e)]);
             throw $e;
         }
@@ -259,31 +299,44 @@ final class AssistantService {
                 ];
                 $this->repository->resolveConfirmation($userId, $actionToken, 'cancelled', $response, null, null, 'Ação cancelada pelo usuário.');
                 $this->repository->updateHistoryResponse($userId, (string)$row['request_id'], $response);
+                $this->repository->recordQuality($userId, self::agentKey(self::responseModule($pending['module'] ?? null)), (string)($row['provider'] ?? 'local'), 'cancelled');
                 audit_record($this->db, $userId, 'assistant.confirmation_cancelled', 'success', ['action'=>(string)$row['action_type']]);
                 $this->db->commit();
                 return $response;
             }
 
+            $pendingModule = self::responseModule($pending['module'] ?? null);
+            if (!AssistantAgentPolicy::isModule($pendingModule)) throw new RuntimeException('confirmation_unavailable');
+            $approvedRoute = assistant_validate_route(
+                (string)($pending['route']['action'] ?? ''),
+                is_array($pending['route']['arguments'] ?? null) ? $pending['route']['arguments'] : [],
+            );
+            AssistantAgentPolicy::assertActionAllowed((string)$pendingModule, (string)$approvedRoute['action']);
+            if (!assistant_action_requires_confirmation((string)$approvedRoute['action'])
+                || !hash_equals((string)$row['action_type'], (string)$approvedRoute['action'])) {
+                throw new RuntimeException('confirmation_unavailable');
+            }
+
             $expectedStateHash = is_string($pending['stateHash'] ?? null) ? $pending['stateHash'] : null;
             if ($expectedStateHash !== null) {
-                $currentPreview = $this->executor->preview($userId, $pending['route']);
+                $currentPreview = $this->executor->preview($userId, $approvedRoute);
                 $currentStateHash = is_string($currentPreview['stateHash'] ?? null) ? $currentPreview['stateHash'] : null;
                 if ($currentStateHash === null || !hash_equals($expectedStateHash, $currentStateHash)) {
                     throw new RuntimeException('confirmation_conflict');
                 }
             }
 
-            $approvedRoute = $pending['route'];
             if (is_array($approval['draft'] ?? null)
                 && in_array((string)($approvedRoute['action'] ?? ''), ['create_diet_plan','create_workout','create_workout_program'], true)) {
-                $approvedRoute['arguments'] = $approval['draft'];
+                $approvedRoute = assistant_validate_route((string)$approvedRoute['action'], $approval['draft']);
+                AssistantAgentPolicy::assertActionAllowed((string)$pendingModule, (string)$approvedRoute['action']);
                 $this->executor->preview($userId, $approvedRoute);
             }
             $result = $this->executor->execute(
                 $userId,
                 $approvedRoute,
                 $approval,
-                self::responseModule($pending['module'] ?? null),
+                $pendingModule,
             );
             $response = $result['response'];
             $undo = $result['undo'];
@@ -302,6 +355,7 @@ final class AssistantService {
                 (string)$result['summary'],
             );
             $this->repository->updateHistoryResponse($userId, (string)$row['request_id'], $response);
+            $this->repository->recordQuality($userId, self::agentKey(self::responseModule($pending['module'] ?? null)), (string)($row['provider'] ?? 'local'), 'confirmed');
             audit_record($this->db, $userId, 'assistant.confirmation_applied', 'success', ['action'=>(string)$row['action_type']]);
             $this->db->commit();
             return $response;
@@ -322,9 +376,11 @@ final class AssistantService {
             if ($expires === false || $expires < level_clock_epoch()) throw new RuntimeException('undo_expired');
             $undo = $this->repository->undoFromRow($row, $userId);
             if ($undo === null) throw new RuntimeException('undo_unavailable');
+            $previousResponse = $this->repository->responseFromRow($row, $userId);
             $message = $this->executor->undo($userId, $undo);
             $response = ['ok'=>true, 'status'=>'undone', 'message'=>$message, 'undoAvailable'=>false, 'actionToken'=>$actionToken];
             $this->repository->markUndone($userId, $actionToken, $response);
+            $this->repository->recordQuality($userId, self::agentKey(is_array($previousResponse) ? self::responseModule($previousResponse['module'] ?? null) : null), (string)($row['provider'] ?? 'local'), 'undone');
             audit_record($this->db, $userId, 'assistant.undo', 'success', ['action' => (string)$row['action_type']]);
             $this->db->commit();
             return $response;
@@ -463,16 +519,7 @@ final class AssistantService {
 
     /** @param array<string,mixed> $route */
     private function requiresConfirmation(array $route): bool {
-        $action = (string)($route['action'] ?? '');
-        if (in_array($action, ['create_diet_plan', 'create_workout', 'create_workout_program'], true)) return true;
-        if ($action === 'add_transfer') return true;
-        if ($action !== 'add_expense') return false;
-        $configured = getenv('LEVELOS_ASSISTANT_EXPENSE_CONFIRM_CENTS');
-        $threshold = $configured === false || trim($configured) === '' ? 50000 : (int)$configured;
-        if ($threshold <= 0) return false;
-        $arguments = is_array($route['arguments'] ?? null) ? $route['arguments'] : [];
-        $valueCents = is_numeric($arguments['value'] ?? null) ? (int)round((float)$arguments['value'] * 100) : 0;
-        return $valueCents >= max(100, min(100000000, $threshold));
+        return assistant_action_requires_confirmation((string)($route['action'] ?? ''));
     }
 
     private static function dietBudgetCorrection(
@@ -497,29 +544,69 @@ final class AssistantService {
         $arguments = is_array($route['arguments'] ?? null) ? $route['arguments'] : [];
         $value = is_numeric($arguments['value'] ?? null) ? (float)$arguments['value'] : 0.0;
         $formatted = number_format($value, 2, ',', '.');
-        if ($action === 'create_diet_plan') {
-            $message = 'Revise o cardápio antes de aprovar. Nenhum plano foi alterado ainda.';
-            $data = $previewData ?? ['plan'=>$arguments];
-        } elseif ($action === 'create_workout_program') {
-            $message = 'Revise o programa antes de aprovar. Nenhuma ficha foi alterada ainda.';
-            $data = $previewData ?? $arguments;
-        } elseif ($action === 'create_workout') {
-            $message = 'Revise a ficha antes de aprovar. Nenhum treino foi alterado ainda.';
-            $data = $previewData ?? ['workout'=>$arguments];
-        } elseif ($action === 'add_transfer') {
-            $message = 'Confirme a transferência de R$ ' . $formatted . ' antes de alterar os saldos.';
-            $data = [
-                'value'=>$value, 'from'=>(string)($arguments['from'] ?? ''),
-                'to'=>(string)($arguments['to'] ?? ''), 'date'=>(string)($arguments['date'] ?? ''),
-            ];
-        } else {
-            $message = 'Confirme a despesa de R$ ' . $formatted . ' antes de registrá-la.';
-            $data = [
-                'value'=>$value, 'description'=>(string)($arguments['description'] ?? ''),
-                'category'=>(string)($arguments['category'] ?? ''), 'account'=>(string)($arguments['account'] ?? ''),
-                'date'=>(string)($arguments['date'] ?? ''),
-            ];
-        }
+        [$message, $data] = match ($action) {
+            'create_diet_plan' => [
+                'Revise o cardápio antes de aprovar. Nenhum plano foi alterado ainda.',
+                $previewData ?? ['plan' => $arguments],
+            ],
+            'create_workout_program' => [
+                'Revise o programa antes de aprovar. Nenhuma ficha foi alterada ainda.',
+                $previewData ?? $arguments,
+            ],
+            'create_workout' => [
+                'Revise a ficha antes de aprovar. Nenhum treino foi alterado ainda.',
+                $previewData ?? ['workout' => $arguments],
+            ],
+            'add_expense' => [
+                'Confirme a despesa de R$ ' . $formatted . ' antes de registrá-la.',
+                [
+                    'value'=>$value, 'description'=>(string)($arguments['description'] ?? ''),
+                    'category'=>(string)($arguments['category'] ?? ''), 'account'=>(string)($arguments['account'] ?? ''),
+                    'date'=>(string)($arguments['date'] ?? ''),
+                ],
+            ],
+            'add_income' => [
+                'Confirme a renda de R$ ' . $formatted . ' antes de registrá-la.',
+                [
+                    'value'=>$value, 'type'=>(string)($arguments['type'] ?? ''),
+                    'account'=>(string)($arguments['account'] ?? ''), 'date'=>(string)($arguments['date'] ?? ''),
+                ],
+            ],
+            'add_transfer' => [
+                'Confirme a transferência de R$ ' . $formatted . ' antes de alterar os saldos.',
+                [
+                    'value'=>$value, 'from'=>(string)($arguments['from'] ?? ''),
+                    'to'=>(string)($arguments['to'] ?? ''), 'date'=>(string)($arguments['date'] ?? ''),
+                ],
+            ],
+            'add_task' => [
+                'Confirme a nova tarefa antes de adicioná-la à rotina.',
+                ['task' => [
+                    'title'=>(string)($arguments['title'] ?? ''), 'date'=>(string)($arguments['date'] ?? ''),
+                    'time'=>(string)($arguments['time'] ?? ''),
+                ]],
+            ],
+            'log_measurement' => [
+                'Confirme a medida antes de registrar sua evolução corporal.',
+                ['measurement' => $arguments],
+            ],
+            'log_workout_session' => [
+                'Confirme a sessão antes de registrá-la no histórico de treinos.',
+                ['session' => [
+                    'name'=>'Sessão de treino', 'workoutId'=>$arguments['workoutId'] ?? null,
+                    'exercises'=>$arguments['exercises'] ?? [],
+                ]],
+            ],
+            'log_cardio' => [
+                'Confirme o cardio antes de registrá-lo no histórico.',
+                ['session' => [
+                    'name'=>(string)($arguments['modality'] ?? 'Cardio'),
+                    'distanceKm'=>$arguments['distanceKm'] ?? null,
+                    'durationSec'=>$arguments['durationSec'] ?? null,
+                ]],
+            ],
+            default => throw new AssistantRouteException('Ação sem fluxo de confirmação.'),
+        };
         return [
             'ok'=>true, 'status'=>'confirmation', 'action'=>$action, 'message'=>$message,
             'module'=>self::responseModule($module), 'undoAvailable'=>false,
@@ -543,14 +630,36 @@ final class AssistantService {
         return in_array($module, ['financeiro', 'agenda', 'treinos', 'alimentacao'], true) ? (string)$module : 'geral';
     }
 
+    /** @param list<string> $fields @param array<string,mixed>|null $previous @return array<string,mixed> */
+    private static function clarificationMemory(
+        ?string $module,
+        string $displayText,
+        array $fields,
+        ?string $action,
+        ?array $previous,
+    ): array {
+        $memory = is_array($previous) ? $previous : [];
+        return [
+            'version' => 1,
+            'agent' => self::agentKey($module),
+            'action' => $action ?? (is_string($memory['action'] ?? null) ? $memory['action'] : null),
+            'originalRequest' => is_string($memory['originalRequest'] ?? null)
+                ? mb_substr((string)$memory['originalRequest'], 0, 1200)
+                : mb_substr($displayText, 0, 1200),
+            'missingFields' => array_slice(array_values(array_unique(array_filter($fields, 'is_string'))), 0, 12),
+            'fieldValues' => is_array($memory['fieldValues'] ?? null) ? $memory['fieldValues'] : [],
+            'answers' => array_slice(is_array($memory['answers'] ?? null) ? $memory['answers'] : [], -6),
+        ];
+    }
+
+    private static function elapsedMs(int $startedAt): int {
+        return max(0, (int)round((hrtime(true) - $startedAt) / 1000000));
+    }
+
     private static function scopeMessage(?string $module): string {
-        return match ($module) {
-            'financeiro' => 'O Assessor Fin ajuda apenas com suas finanças no Level OS.',
-            'agenda' => 'A Secretária Nina ajuda apenas com rotina, agenda, tarefas e produtividade.',
-            'treinos' => 'O Personal Léo ajuda apenas com treinos, cardio e medidas corporais.',
-            'alimentacao' => 'A Chef Rita ajuda apenas com alimentação, receitas, cardápios e planos alimentares.',
-            default => 'Posso ajudar apenas com finanças, rotina, treinos, alimentação e consultas dos seus dados no Level OS.',
-        };
+        return AssistantAgentPolicy::isModule($module)
+            ? (string)AssistantAgentPolicy::forModule((string)$module)['refusal']
+            : 'Escolha Finanças, Rotina, Treinos ou Alimentação para continuar.';
     }
 
     private static function responseModule(mixed $module): ?string {

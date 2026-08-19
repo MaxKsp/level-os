@@ -17,6 +17,7 @@ interface Value {
   openFor: (module: AssistantModule) => void
   moduleContext: AssistantModule | null
   loading: boolean
+  phase: "analyzing" | "consulting" | null
   error: string | null
   result: AssistantResponse | null
   paidAccess: boolean
@@ -32,6 +33,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   const [open, setOpenState] = useState(false)
   const [moduleContext, setModuleContext] = useState<AssistantModule | null>(null)
   const [loading, setLoading] = useState(false)
+  const [phase, setPhase] = useState<Value["phase"]>(null)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<AssistantResponse | null>(null)
   const { refresh: refreshFinance } = useFinance()
@@ -73,14 +75,17 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       setError("O Agente de IA é uma funcionalidade exclusiva do plano pago.")
       return
     }
-    setLoading(true); setError(null)
+    setLoading(true); setPhase("analyzing"); setError(null)
+    const phaseTimer = window.setTimeout(() => setPhase("consulting"), 550)
     try {
       const response = await sendAssistantCommand(text, moduleContext)
       setResult(response)
-      await refresh(response.module)
+      if (response.status === "applied") await refresh(response.module)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Agente de IA indisponível.")
     } finally {
+      window.clearTimeout(phaseTimer)
+      setPhase(null)
       setLoading(false)
     }
   }, [moduleContext, paidAccess, refresh])
@@ -124,9 +129,9 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
 
   const dismiss = useCallback(() => { setResult(null); setError(null) }, [])
   const value = useMemo<Value>(() => ({
-    open, setOpen, openFor, moduleContext, loading, error, result, paidAccess,
+    open, setOpen, openFor, moduleContext, loading, phase, error, result, paidAccess,
     planReady, submit, undo, resolveConfirmation, dismiss,
-  }), [dismiss, error, loading, moduleContext, open, openFor, paidAccess, planReady, resolveConfirmation, result, setOpen, submit, undo])
+  }), [dismiss, error, loading, moduleContext, open, openFor, paidAccess, phase, planReady, resolveConfirmation, result, setOpen, submit, undo])
 
   return (
     <Ctx.Provider value={value}>

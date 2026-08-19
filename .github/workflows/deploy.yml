@@ -56,6 +56,7 @@ jobs:
             **/CLAUDE.md
             **/README.md
             **/ROADMAP.md
+            **/config.php
             **/config.example.php
             automation/**
             config/**

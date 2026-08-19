@@ -88,6 +88,20 @@ function assistant_action_names_for_module(?string $module): array {
     };
 }
 
+/** Retorna true somente para uma acao pertencente ao especialista informado. */
+function assistant_action_allowed_for_module(string $action, ?string $module): bool {
+    return in_array($module, ['financeiro', 'agenda', 'treinos', 'alimentacao'], true)
+        && in_array($action, assistant_action_names_for_module($module), true);
+}
+
+/**
+ * Consultas sao somente leitura. Toda outra ferramenta altera dados e deve
+ * passar pelo fluxo de confirmacao explicita antes de chegar ao executor.
+ */
+function assistant_action_requires_confirmation(string $action): bool {
+    return $action !== 'query' && array_key_exists($action, assistant_action_schemas());
+}
+
 /**
  * OpenAI/Gemini strict tools require every declared object property in
  * `required`; nullable properties remain optional in meaning by accepting

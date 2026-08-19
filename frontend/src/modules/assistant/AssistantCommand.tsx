@@ -4,13 +4,14 @@ import * as m from "motion/react-m"
 import { ArrowLeftRight, BarChart3, Bot, ChefHat, Command, Dumbbell, Gauge, GraduationCap, ListTodo, LoaderCircle, LockKeyhole, Ruler, Scale, SendHorizonal, Trash2, TrendingDown, TrendingUp, Undo2, X } from "lucide-react"
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react"
 import { cn } from "../../lib/cn"
-import type { AssistantResponse } from "./contracts"
+import type { AssistantInsight, AssistantQualitySummary, AssistantResponse } from "./contracts"
 import { AssistantAvatar } from "./AssistantAvatar"
 import { personaFor, personaFullName } from "./personas"
 import { useAssistant, type AssistantModule } from "./store"
 import { AssistantResultCard } from "./AssistantResultCard"
 import { agentHistoryKey, appendAgentHistory, createEmptyAgentHistory, type AgentHistoryKey } from "./agentHistory"
-import { clearAssistantHistory, getAssistantHistory, type AssistantApproval } from "./api"
+import { clearAssistantHistory, getAssistantHistory, getAssistantInsights, getAssistantQuality, type AssistantApproval } from "./api"
+import { TypewriterText } from "./TypewriterText"
 
 interface Suggestion { icon: ReactNode; label: string; description: string; prefix: string; module: AssistantModule; template?: string; openWorkoutForm?: boolean; openDietForm?: boolean }
 
@@ -34,7 +35,7 @@ const DIET_GOAL_OPTIONS = [["emagrecimento", "Emagrecimento"], ["hipertrofia", "
 
 type ChatMessage =
   | { id: number; role: "user"; text: string }
-  | { id: number; role: "assistant"; response: AssistantResponse }
+  | { id: number; role: "assistant"; response: AssistantResponse; animate?: boolean }
   | { id: number; role: "error"; text: string }
 
 let messageId = 0
@@ -97,6 +98,12 @@ export function AssistantCommand() {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [clearingHistory, setClearingHistory] = useState(false)
+  const [insights, setInsights] = useState<AssistantInsight[]>([])
+  const [insightsLoading, setInsightsLoading] = useState(false)
+  const [showQuality, setShowQuality] = useState(false)
+  const [quality, setQuality] = useState<AssistantQualitySummary | null>(null)
+  const [qualityLoading, setQualityLoading] = useState(false)
+  const [qualityLoaded, setQualityLoaded] = useState(false)
   const [showPalette, setShowPalette] = useState(false)
   const [active, setActive] = useState(-1)
   const [workoutForm, setWorkoutForm] = useState<{ focus: string; days: number; location: "casa" | "academia" } | null>(null)
@@ -111,10 +118,36 @@ export function AssistantCommand() {
   const lastResult = useRef<AssistantResponse | null>(null)
   const lastError = useRef<string | null>(null)
   const pendingHistoryKey = useRef<AgentHistoryKey | null>(null)
+  const pendingMessageId = useRef<number | null>(null)
 
   const appendMessage = useCallback((key: AgentHistoryKey, message: ChatMessage) => {
     setMessagesByAgent((current) => appendAgentHistory(current, key, message))
   }, [])
+
+  useEffect(() => {
+    if (!assistant.open || !assistant.paidAccess || !assistant.moduleContext) {
+      setInsights([])
+      return
+    }
+    let cancelled = false
+    setInsightsLoading(true)
+    void getAssistantInsights(assistant.moduleContext)
+      .then((items) => { if (!cancelled) setInsights(items.slice(0, 3)) })
+      .catch(() => { if (!cancelled) setInsights([]) })
+      .finally(() => { if (!cancelled) setInsightsLoading(false) })
+    return () => { cancelled = true }
+  }, [assistant.moduleContext, assistant.open, assistant.paidAccess, assistant.result])
+
+  useEffect(() => {
+    if (!showQuality || qualityLoaded || qualityLoading) return
+    let cancelled = false
+    setQualityLoading(true)
+    void getAssistantQuality(7)
+      .then((summary) => { if (!cancelled) setQuality(summary) })
+      .catch(() => { if (!cancelled) setQuality(null) })
+      .finally(() => { if (!cancelled) { setQualityLoading(false); setQualityLoaded(true) } })
+    return () => { cancelled = true }
+  }, [qualityLoaded, qualityLoading, showQuality])
 
   useEffect(() => {
     if (!assistant.open || !assistant.paidAccess || historyLoaded[activeHistoryKey]) return
@@ -134,7 +167,7 @@ export function AssistantCommand() {
           }
           return [
             { id: nextId(), role: "user", text: item.userText },
-            { id: nextId(), role: "assistant", response },
+            { id: nextId(), role: "assistant", response, animate: false },
           ]
         })
         setMessagesByAgent((current) => current[activeHistoryKey].length > 0 ? current : { ...current, [activeHistoryKey]: restored })
@@ -194,17 +227,19 @@ export function AssistantCommand() {
   useEffect(() => {
     if (assistant.result && assistant.result !== lastResult.current) {
       lastResult.current = assistant.result
-      const key = pendingHistoryKey.current ?? activeHistoryKey
-      appendMessage(key, { id: nextId(), role: "assistant", response: assistant.result as AssistantResponse })
+      const pendingKey = pendingHistoryKey.current ?? activeHistoryKey
+      appendMessage(pendingKey, { id: nextId(), role: "assistant", response: assistant.result as AssistantResponse, animate: !reduce })
       pendingHistoryKey.current = null
+      pendingMessageId.current = null
     }
-  }, [activeHistoryKey, appendMessage, assistant.result])
+  }, [activeHistoryKey, appendMessage, assistant.result, reduce])
   useEffect(() => {
     if (assistant.error && assistant.error !== lastError.current) {
       lastError.current = assistant.error
       const key = pendingHistoryKey.current ?? activeHistoryKey
       appendMessage(key, { id: nextId(), role: "error", text: assistant.error as string })
       pendingHistoryKey.current = null
+      pendingMessageId.current = null
     }
     if (!assistant.error) lastError.current = null
   }, [activeHistoryKey, appendMessage, assistant.error])
@@ -239,7 +274,9 @@ export function AssistantCommand() {
     const value = text.trim()
     if (!value || assistant.loading) return
     pendingHistoryKey.current = activeHistoryKey
-    appendMessage(activeHistoryKey, { id: nextId(), role: "user", text: value })
+    const id = nextId()
+    pendingMessageId.current = id
+    appendMessage(activeHistoryKey, { id, role: "user", text: value })
     setText("")
     adjust(true)
     void assistant.submit(value)
@@ -257,7 +294,9 @@ export function AssistantCommand() {
     const prompt = `Monte um programa de treino como professor de educação física: foco em ${workoutForm.focus.toLowerCase()}, ${workoutForm.days} dia(s) por semana, treinos serão feitos em ${workoutForm.location}.${note}`
     const label = `Programa · ${workoutForm.focus} · ${workoutForm.days}x/semana · ${workoutForm.location === "casa" ? "Em casa" : "Na academia"}`
     pendingHistoryKey.current = activeHistoryKey
-    appendMessage(activeHistoryKey, { id: nextId(), role: "user", text: text.trim() ? `${label}\n${text.trim()}` : label })
+    const id = nextId()
+    pendingMessageId.current = id
+    appendMessage(activeHistoryKey, { id, role: "user", text: text.trim() ? `${label}\n${text.trim()}` : label })
     setWorkoutForm(null)
     setText("")
     adjust(true)
@@ -273,7 +312,9 @@ export function AssistantCommand() {
     const prompt = `Monte um plano alimentar como nutricionista: objetivo ${dietForm.goal}, período de ${dietForm.periodDays} dias, orçamento total de R$ ${budget.toFixed(2)} para o período.${note}`
     const label = `Dieta · ${goalLabel} · ${dietForm.periodDays} dias · até R$ ${budget.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
     pendingHistoryKey.current = activeHistoryKey
-    appendMessage(activeHistoryKey, { id: nextId(), role: "user", text: text.trim() ? `${label}\n${text.trim()}` : label })
+    const id = nextId()
+    pendingMessageId.current = id
+    appendMessage(activeHistoryKey, { id, role: "user", text: text.trim() ? `${label}\n${text.trim()}` : label })
     setDietForm(null)
     setText("")
     adjust(true)
@@ -381,6 +422,16 @@ export function AssistantCommand() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setShowQuality((value) => !value); if (showQuality) { setQuality(null); setQualityLoaded(false) } }}
+                      className={cn("grid size-10 place-items-center rounded-lg text-muted hover:bg-surface-container-high hover:text-on-surface", showQuality && "bg-primary/10 text-primary")}
+                      aria-label="Abrir painel de qualidade dos agentes"
+                      aria-pressed={showQuality}
+                      title="Qualidade dos agentes"
+                    >
+                      <BarChart3 className="size-4" />
+                    </button>
                     {!empty ? (
                       <button
                         type="button"
@@ -403,6 +454,26 @@ export function AssistantCommand() {
                 <div ref={scrollRef} className="relative flex-1 overflow-y-auto px-5 py-6">
                   {historyError ? <p role="alert" className="mb-3 rounded-lg border border-error/20 bg-error/5 px-3 py-2 text-xs text-error">{historyError}</p> : null}
                   {historyLoading ? <p role="status" className="mb-3 flex items-center gap-2 text-xs text-muted"><LoaderCircle className="size-3.5 animate-spin" />Carregando histórico…</p> : null}
+                  {showQuality ? (
+                    <section className="mb-4 rounded-xl border border-outline-variant bg-surface-container p-4" aria-label="Qualidade dos agentes nos últimos 7 dias">
+                      <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-on-surface">Qualidade dos agentes</p><p className="mt-0.5 text-[10px] text-muted">Métricas internas dos últimos 7 dias</p></div>{qualityLoading ? <LoaderCircle className="size-4 animate-spin text-primary" /> : null}</div>
+                      {quality ? <>
+                        <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                          <div><dt className="text-[10px] text-muted">Solicitações</dt><dd className="numeric-value text-lg font-semibold">{quality.totals.requests.toLocaleString("pt-BR")}</dd></div>
+                          <div><dt className="text-[10px] text-muted">Tempo médio</dt><dd className="numeric-value text-lg font-semibold">{quality.totals.averageLatencyMs.toLocaleString("pt-BR")} ms</dd></div>
+                          <div><dt className="text-[10px] text-muted">Esclarecimentos</dt><dd className="numeric-value text-lg font-semibold">{quality.totals.clarifications.toLocaleString("pt-BR")}</dd></div>
+                          <div><dt className="text-[10px] text-muted">Falhas</dt><dd className={cn("numeric-value text-lg font-semibold", quality.totals.failures > 0 && "text-error")}>{quality.totals.failures.toLocaleString("pt-BR")}</dd></div>
+                        </dl>
+                        <p className="mt-3 border-t border-outline-variant pt-2 text-[10px] text-muted">{quality.totals.tokens.toLocaleString("pt-BR")} tokens · custo estimado {quality.totals.estimatedCostUsd.toLocaleString("pt-BR", { style: "currency", currency: "USD", minimumFractionDigits: 4, maximumFractionDigits: 6 })}</p>
+                      </> : !qualityLoading ? <p className="mt-3 text-xs text-muted">Sem métricas registradas neste período.</p> : null}
+                    </section>
+                  ) : null}
+                  {assistant.moduleContext && (insightsLoading || insights.length > 0) ? (
+                    <section className="mb-4" aria-label="Insights locais do módulo">
+                      <div className="mb-2 flex items-center justify-between"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Observado no Level OS</p>{insightsLoading ? <LoaderCircle className="size-3 animate-spin text-primary" /> : <span className="text-[9px] text-muted">sem custo de IA</span>}</div>
+                      <div className="grid gap-2 sm:grid-cols-2">{insights.map((insight) => <button key={insight.id} type="button" onClick={() => viewModule(insight.module)} className={cn("rounded-xl border px-3 py-2.5 text-left transition-colors hover:bg-surface-container-high", insight.severity === "danger" ? "border-error/25" : insight.severity === "warning" ? "border-warning/25" : "border-outline-variant")}><p className="text-xs font-semibold text-on-surface">{insight.title}</p><p className="mt-1 text-[11px] leading-4 text-muted">{insight.message}</p></button>)}</div>
+                    </section>
+                  ) : null}
                   {empty ? (
                     <div className="flex h-full flex-col items-center justify-center gap-8">
                       <m.div initial={{ opacity: 0, y: reduce ? 0 : 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.5 }} className="text-center">
@@ -462,11 +533,20 @@ export function AssistantCommand() {
                                       : "border-outline-variant bg-surface-container text-on-surface",
                                   )}
                                 >
-                                  <p>{message.role === "error" ? message.text : message.response.status === "undone" ? "Ação desfeita." : message.response.message}</p>
+                                  <p>{message.role === "error"
+                                    ? message.text
+                                    : message.response.status === "undone"
+                                      ? "Ação desfeita."
+                                      : <TypewriterText text={message.response.message} animate={message.animate === true && !reduce} />}</p>
                                   {message.role === "assistant" && message.response.status !== "undone" ? (
                                     <AssistantResultCard
                                       response={message.response}
                                       onView={viewModule}
+                                      onRoute={(module, suggestedPrompt) => {
+                                        assistant.openFor(module)
+                                        if (suggestedPrompt) setText(suggestedPrompt)
+                                        requestAnimationFrame(() => { adjust(); input.current?.focus() })
+                                      }}
                                       approval={message.response.actionToken ? approvalByToken[message.response.actionToken] : undefined}
                                       onApprovalChange={message.response.actionToken ? (approval) => setApprovalByToken((current) => ({ ...current, [message.response.actionToken as string]: approval })) : undefined}
                                     />
@@ -561,7 +641,7 @@ export function AssistantCommand() {
                           >
                             <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary/10 text-primary"><AssistantAvatar module={assistant.moduleContext} className="size-3.5" /></span>
                             <span className="flex items-center gap-2 rounded-2xl rounded-bl-md border border-outline-variant bg-surface-container px-4 py-2.5 text-sm text-on-surface-variant">
-                              Pensando<TypingDots />
+                              {assistant.phase === "consulting" ? "Consultando seus dados" : "Analisando sua solicitação"}<TypingDots />
                             </span>
                           </m.div>
                         ) : null}

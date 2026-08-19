@@ -497,6 +497,27 @@ CREATE TABLE IF NOT EXISTS assistant_usage_daily (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS assistant_quality_daily (
+  user_id INT UNSIGNED NOT NULL,
+  metric_date DATE NOT NULL,
+  agent_key VARCHAR(16) NOT NULL,
+  provider_key VARCHAR(64) NOT NULL DEFAULT 'local',
+  request_count INT UNSIGNED NOT NULL DEFAULT 0,
+  clarification_count INT UNSIGNED NOT NULL DEFAULT 0,
+  refusal_count INT UNSIGNED NOT NULL DEFAULT 0,
+  confirmation_count INT UNSIGNED NOT NULL DEFAULT 0,
+  confirmed_count INT UNSIGNED NOT NULL DEFAULT 0,
+  cancelled_count INT UNSIGNED NOT NULL DEFAULT 0,
+  undone_count INT UNSIGNED NOT NULL DEFAULT 0,
+  failure_count INT UNSIGNED NOT NULL DEFAULT 0,
+  latency_total_ms BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  token_count BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  estimated_cost_microusd BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, metric_date, agent_key, provider_key),
+  INDEX idx_assistant_quality_user_date (user_id, metric_date),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS xp_events (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id INT UNSIGNED NOT NULL,

@@ -3,8 +3,29 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/AssistantActionCatalog.php';
 require_once __DIR__ . '/AssistantFinanceInterpreter.php';
+require_once __DIR__ . '/AssistantAgentPolicy.php';
 
 final class AssistantPromptOptimizer {
+    /**
+     * O agente global apenas identifica o modulo. Empates e pedidos genericos
+     * falham fechados para que nenhum agente receba contexto de outro dominio.
+     */
+    public static function detectModule(string $text): ?string {
+        $normalized = self::ascii($text);
+        if ($normalized === '' || self::isOutOfScope($text, null)) return null;
+
+        $explicit = self::explicitDomainIntents($normalized);
+        if (count($explicit) > 1) return null;
+        if (count($explicit) === 1) return $explicit[0];
+
+        $matches = [];
+        foreach (self::domainSignals() as $module => $signals) {
+            if (self::containsAny($normalized, $signals)) $matches[] = $module;
+        }
+        if (count($matches) > 1) return null;
+        return count($matches) === 1 ? $matches[0] : null;
+    }
+
     /**
      * Guardrail local de baixo custo. Bloqueia injecao de prompt e pedidos
      * claramente pertencentes a outro agente antes de consumir quota externa.
@@ -16,10 +37,16 @@ final class AssistantPromptOptimizer {
         if (self::containsAny($normalized, [
             'ignore as instrucoes', 'ignore instrucoes', 'revele o prompt', 'mostre o prompt',
             'prompt do sistema', 'system prompt', 'jailbreak', 'modo desenvolvedor',
-            'finja que nao tem regras', 'mostre a chave', 'revele a chave', 'api key',
+            'finja que nao tem regras', 'ignore as regras', 'ignore regras', 'ignore todas as regras', 'desconsidere as instrucoes',
+            'desconsidere instrucoes', 'developer message', 'bypass', 'mostre a chave', 'revele a chave',
+            'api key', 'token secreto', 'credenciais internas', 'senha do banco', 'execute sql',
         ])) {
             return true;
         }
+
+        $explicitDomains = self::explicitDomainIntents($normalized);
+        if (count($explicitDomains) > 1) return true;
+        if ($module !== null && $explicitDomains !== [] && $explicitDomains[0] !== $module) return true;
 
         // Uma ação inequívoca do módulo tem precedência sobre palavras usadas
         // apenas como categoria ou descrição. Ex.: "lançar gasto de alimentação"
@@ -131,26 +158,14 @@ final class AssistantPromptOptimizer {
 
     /** @return array<string,list<string>> */
     private static function domainSignals(): array {
-        return [
-            'financeiro' => [
-                'saldo', 'patrimonio', 'dinheiro', 'gasto', 'despesa', 'renda', 'receita',
-                'transferencia', 'conta bancaria', 'cartao', 'fatura', 'orcamento financeiro',
-            ],
-            'agenda' => [
-                'agenda', 'rotina', 'tarefa', 'compromisso', 'lembrete', 'produtividade',
-                'calendario', 'horario', 'prazo',
-            ],
-            'treinos' => [
-                'treino', 'exercicio', 'academia', 'cardio', 'corrida', 'musculacao',
-                'hipertrofia', 'peso corporal', 'medida corporal', 'serie', 'repeticao',
-            ],
-            'alimentacao' => [
-                'alimentacao', 'dieta', 'plano alimentar', 'cardapio', 'refeicao', 'receita',
-                'comida', 'alimento', 'caloria', 'proteina', 'carboidrato', 'gordura',
-                'emagrecimento', 'nutricao', 'nutricional', 'cafe da manha', 'almoco',
-                'jantar', 'lanche', 'frango', 'arroz', 'feijao', 'legume', 'fruta',
-            ],
-        ];
+        $signals = [];
+        foreach (AssistantAgentPolicy::all() as $module => $policy) {
+            $signals[$module] = array_values(array_map(
+                static fn(string $signal): string => self::ascii($signal),
+                $policy['signals'],
+            ));
+        }
+        return $signals;
     }
 
     /**
@@ -159,15 +174,23 @@ final class AssistantPromptOptimizer {
      * uma tarefa) façam um agente responder pelo domínio errado.
      */
     private static function explicitDomainIntent(string $normalized): ?string {
+        return self::explicitDomainIntents($normalized)[0] ?? null;
+    }
+
+    /** @return list<string> */
+    private static function explicitDomainIntents(string $normalized): array {
         $patterns = [
             'financeiro' => [
                 '/\b(?:quanto|onde|como).{0,32}\b(?:gastei|gasto|despesa|saldo|fatura|patrimonio)\b/',
                 '/\b(?:saldo|patrimonio|fatura|conta bancaria|cartao de credito)\b/',
                 '/\b(?:lancar|registrar|adicionar)\b.{0,24}\b(?:despesa|gasto|renda|receita)\b/',
-                '/\b(?:transferir|transferencia)\b.{0,32}\b(?:conta|banco|reais|r\$)\b/',
+                '/\b(?:lancar|registrar|adicionar)\b.{0,32}(?:r\$|\b\d+(?:[.,]\d{1,2})?\s*reais?\b)/',
+                '/\b(?:ganhei|recebi)\b.{0,32}\b(?:reais|r\$|conta|renda|receita)\b/',
+                '/\b(?:transferir|transfira|transfiro|transferi|transferencia)\b.{0,32}\b(?:conta|banco|reais|r\$)\b/',
             ],
             'agenda' => [
                 '/\b(?:criar|adicionar|registrar|concluir)\b.{0,24}\b(?:tarefa|compromisso|lembrete)\b/',
+                '/\b(?:minhas|mostrar|mostre|ver|quais)\b.{0,24}\b(?:tarefas|compromissos|lembretes)\b/',
                 '/\b(?:agenda|tarefas pendentes|produtividade|compromissos|calendario)\b/',
             ],
             'alimentacao' => [
@@ -179,12 +202,16 @@ final class AssistantPromptOptimizer {
                 '/\b(?:treino|exercicio|academia|cardio|musculacao|series|repeticoes|medida corporal|peso corporal)\b/',
             ],
         ];
+        $matches = [];
         foreach ($patterns as $domain => $domainPatterns) {
             foreach ($domainPatterns as $pattern) {
-                if (preg_match($pattern, $normalized) === 1) return $domain;
+                if (preg_match($pattern, $normalized) === 1) {
+                    $matches[] = $domain;
+                    break;
+                }
             }
         }
-        return null;
+        return $matches;
     }
 
     private static function ascii(string $value): string {

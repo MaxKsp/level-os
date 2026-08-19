@@ -38,9 +38,13 @@ try {
     $known = in_array($e->getMessage(), ['confirmation_unavailable','confirmation_expired','confirmation_conflict'], true)
         ? $e->getMessage() : 'confirmation_failed';
     http_response_code($known === 'confirmation_expired' ? 410 : ($known === 'confirmation_conflict' ? 409 : 422));
-    echo json_encode(['error'=>$known, 'message'=>$known === 'confirmation_expired'
-        ? 'Esta confirmação expirou. Envie o pedido novamente.'
-        : 'Não foi possível confirmar esta ação.'], JSON_UNESCAPED_UNICODE);
+    $message = match ($known) {
+        'confirmation_expired' => 'Esta confirmação expirou. Envie o pedido novamente.',
+        'confirmation_conflict' => 'Os dados mudaram enquanto você confirmava. Envie o pedido novamente.',
+        'confirmation_unavailable' => 'Esta confirmação não está mais disponível.',
+        default => 'Não foi possível confirmar esta ação.',
+    };
+    echo json_encode(['error'=>$known, 'message'=>$message], JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {
     error_log('assistant confirmation failed (' . get_class($e) . ').');
     http_response_code(500); echo json_encode(['error'=>'confirmation_failed']);

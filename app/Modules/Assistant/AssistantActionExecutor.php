@@ -9,6 +9,8 @@ require_once dirname(__DIR__) . '/Nutrition/NutritionPlanService.php';
 require_once dirname(__DIR__) . '/Progress/ProgressService.php';
 require_once __DIR__ . '/DietPlanCostCalculator.php';
 require_once __DIR__ . '/AssistantFinanceInterpreter.php';
+require_once __DIR__ . '/AssistantLocalInsights.php';
+require_once __DIR__ . '/AssistantAgentPolicy.php';
 
 final class AssistantActionExecutor {
     public function __construct(private readonly PDO $db) {
@@ -55,6 +57,14 @@ final class AssistantActionExecutor {
 
     /** @param array{action:string,arguments:array<string,mixed>} $route @return array{response:array<string,mixed>,undo:?array<string,mixed>,summary:string,module:string} */
     public function execute(int $userId, array $route, array $approval = [], ?string $module = null): array {
+        if (!AssistantAgentPolicy::isModule($module) && (string)($route['action'] ?? '') !== 'query') {
+            throw new AssistantRouteException('Toda execucao deve pertencer a um agente especialista.');
+        }
+        $route = assistant_validate_route(
+            (string)($route['action'] ?? ''),
+            is_array($route['arguments'] ?? null) ? $route['arguments'] : [],
+        );
+        if ($module !== null) AssistantAgentPolicy::assertActionAllowed($module, (string)$route['action']);
         $action = $route['action'];
         $args = $route['arguments'];
         return match ($action) {
@@ -77,6 +87,18 @@ final class AssistantActionExecutor {
     public function preview(int $userId, array $route): array {
         $action = (string)($route['action'] ?? '');
         $args = is_array($route['arguments'] ?? null) ? $route['arguments'] : [];
+        if (in_array($action, ['add_expense', 'add_income', 'add_transfer'], true)) {
+            $accounts = finance_load_set($this->db, $userId, 'accounts');
+            return $args + [
+                'stateHash'=>hash('sha256', json_encode($accounts, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)),
+            ];
+        }
+        if ($action === 'log_workout_session') {
+            $workouts = training_snapshot($this->db, $userId)['workouts'];
+            return $args + [
+                'stateHash'=>hash('sha256', json_encode($workouts, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)),
+            ];
+        }
         if ($action === 'create_diet_plan') {
             $active = nutrition_active_plan($this->db, $userId);
             return ['plan'=>$this->dietPlanDraft($args), 'hasActivePlan'=>$active !== null,
@@ -420,19 +442,33 @@ final class AssistantActionExecutor {
 
     private function query(int $uid, array $args, ?string $module = null): array {
         $question = mb_strtolower($this->text($args['question'] ?? null, 500), 'UTF-8');
+        $card = [
+            'source'=>'platform', 'sourceLabel'=>'Dados do Level OS', 'scope'=>'current_user',
+            'module'=>$module, 'asOf'=>level_clock_now()->format(DATE_ATOM),
+            'title'=>'Consulta do Level OS', 'period'=>['label'=>'Agora'],
+            'destination'=>['module'=>$module, 'path'=>$this->modulePath($module), 'label'=>'Abrir módulo'],
+        ];
         if (($module === null || $module === 'financeiro') && (str_contains($question, 'gastando')
             || str_contains($question, 'gastei')
             || str_contains($question, 'despesa')
             || str_contains($question, 'dren')
             || (str_contains($question, 'gasto') && (str_contains($question, 'maior') || str_contains($question, 'categoria') || str_contains($question, 'mais')))
         )) {
-            $message = $this->spendingAnalysis($uid);
+            $spending = $this->spendingAnalysisData($uid);
+            $message = $spending['message'];
+            $card['title'] = 'Despesas por categoria';
+            $card['period'] = ['label'=>'Mês atual', 'start'=>$spending['start']];
+            $card['primaryMetric'] = ['label'=>'Total no período', 'value'=>$spending['total'] / 100, 'format'=>'currency'];
+            $card['chart'] = ['type'=>'bar', 'items'=>$spending['items']];
         } elseif (($module === null || $module === 'financeiro') && (str_contains($question, 'saldo') || str_contains($question, 'patrim'))) {
             $accounts = finance_load_set($this->db, $uid, 'accounts');
             $balanceCents = 0;
             foreach ($accounts as $account) {
                 $balanceCents += fin_money_to_cents($account['saldo'] ?? 0) - fin_money_to_cents($account['fatura'] ?? 0);
             }
+            $card['title'] = 'Saldo líquido';
+            $card['primaryMetric'] = ['label'=>'Patrimônio líquido resumido', 'value'=>fin_cents_to_number($balanceCents), 'format'=>'currency'];
+            $card['details'] = [['label'=>'Contas consideradas', 'value'=>count($accounts), 'format'=>'number']];
             $message = 'Saldo líquido resumido: ' . number_format(fin_cents_to_number($balanceCents), 2, ',', '.') . ' BRL em ' . count($accounts) . ' conta(s).';
         } elseif (($module === null || $module === 'agenda') && str_contains($question, 'produtividade')) {
             $stmt = $this->db->prepare("SELECT COUNT(*) FROM xp_events WHERE user_id = ? AND type = 'rotina' AND created_at >= ?");
@@ -440,14 +476,24 @@ final class AssistantActionExecutor {
             $completedWeek = (int)$stmt->fetchColumn();
             $tasks = routine_load_tasks($this->db, $uid);
             $pending = count(array_filter($tasks, static fn(array $task): bool => !($task['completed'] ?? false)));
+            $card['title'] = 'Produtividade semanal';
+            $card['period'] = ['label'=>'Últimos 7 dias'];
+            $card['primaryMetric'] = ['label'=>'Tarefas concluídas', 'value'=>$completedWeek, 'format'=>'number'];
+            $card['details'] = [['label'=>'Pendentes', 'value'=>$pending, 'format'=>'number'], ['label'=>'Total', 'value'=>count($tasks), 'format'=>'number']];
             $message = 'Produtividade dos últimos 7 dias: ' . $completedWeek . ' tarefa(s) concluída(s). Hoje: '
                 . $pending . ' pendente(s) de ' . count($tasks) . ' no total.';
         } elseif (($module === null || $module === 'agenda') && (str_contains($question, 'tarefa') || str_contains($question, 'rotina'))) {
             $tasks = routine_load_tasks($this->db, $uid);
             $pending = count(array_filter($tasks, static fn(array $task): bool => !($task['completed'] ?? false)));
+            $card['title'] = 'Tarefas da rotina';
+            $card['primaryMetric'] = ['label'=>'Pendentes', 'value'=>$pending, 'format'=>'number'];
+            $card['details'] = [['label'=>'Total de tarefas', 'value'=>count($tasks), 'format'=>'number']];
             $message = $pending . ' tarefa(s) pendente(s) de ' . count($tasks) . ' no total.';
         } elseif (($module === null || $module === 'treinos') && (str_contains($question, 'treino') || str_contains($question, 'cardio'))) {
             $training = training_snapshot($this->db, $uid);
+            $card['title'] = 'Resumo de treinos';
+            $card['primaryMetric'] = ['label'=>'Sessões registradas', 'value'=>count($training['sessions']), 'format'=>'number'];
+            $card['details'] = [['label'=>'Fichas de treino', 'value'=>count($training['workouts']), 'format'=>'number']];
             $message = count($training['workouts']) . ' treino(s) e ' . count($training['sessions']) . ' sessão(ões) registradas.';
         } elseif (($module === null || $module === 'treinos') && (str_contains($question, 'imc') || str_contains($question, 'peso') || str_contains($question, 'medida'))) {
             $latest = [];
@@ -457,6 +503,14 @@ final class AssistantActionExecutor {
             }
             $latest = array_values($latest);
             if ($latest === []) {
+                $card['title'] = 'Medidas corporais';
+                $card['empty'] = true;
+            } else {
+                $first = $latest[0];
+                $card['title'] = 'Últimas medidas';
+                $card['primaryMetric'] = ['label'=>(string)$first['type'], 'value'=>(float)$first['value'], 'format'=>'decimal'];
+            }
+            if ($latest === []) {
                 $message = 'Ainda não há medidas corporais registradas.';
             } else {
                 $message = 'Últimas medidas: ' . implode(', ', array_map(static fn(array $m): string => $m['type'] . ' ' . number_format((float)$m['value'], 2, ',', '.') . $m['unit'], array_slice($latest, 0, 5))) . '.';
@@ -465,17 +519,30 @@ final class AssistantActionExecutor {
                 if (isset($byType['peso'], $byType['altura']) && $byType['altura'] > 0) {
                     $heightM = $byType['altura'] / 100;
                     $bmi = $byType['peso'] / ($heightM * $heightM);
+                    $card['title'] = 'Composição corporal';
+                    $card['primaryMetric'] = ['label'=>'IMC', 'value'=>round($bmi, 1), 'format'=>'decimal'];
+                    $card['details'] = [['label'=>'Classificação', 'value'=>$this->bmiLabel($bmi), 'format'=>'text']];
                     $message .= ' IMC: ' . number_format($bmi, 1, ',', '.') . ' (' . $this->bmiLabel($bmi) . ').';
                 }
             }
         } elseif (($module === null || $module === 'alimentacao') && (str_contains($question, 'aliment') || str_contains($question, 'dieta')
             || str_contains($question, 'cardápio') || str_contains($question, 'cardapio') || str_contains($question, 'refeição'))) {
             $plan = $this->loadKvJson($uid, 'nutrition_plan_v1');
+            $card['title'] = 'Plano alimentar';
+            $card['empty'] = $plan === null;
             if ($plan === null) {
                 $message = 'Você ainda não possui um plano alimentar ativo. Posso montar um informando objetivo, período e orçamento.';
             } else {
                 $goalLabels = ['emagrecimento' => 'emagrecimento', 'hipertrofia' => 'hipertrofia', 'manutencao' => 'manutenção'];
                 $goal = $goalLabels[(string)($plan['goal'] ?? '')] ?? (string)($plan['goal'] ?? 'personalizado');
+                $card['empty'] = false;
+                $card['title'] = 'Plano alimentar ativo';
+                $card['primaryMetric'] = ['label'=>'Custo estimado', 'value'=>(float)($plan['estimatedCostBRL'] ?? 0), 'format'=>'currency'];
+                $card['details'] = [
+                    ['label'=>'Objetivo', 'value'=>$goal, 'format'=>'text'],
+                    ['label'=>'Período', 'value'=>(int)($plan['periodDays'] ?? 0), 'format'=>'days'],
+                    ['label'=>'Orçamento', 'value'=>(float)($plan['budgetBRL'] ?? 0), 'format'=>'currency'],
+                ];
                 $message = 'Seu plano de ' . $goal . ' cobre ' . (int)($plan['periodDays'] ?? 0)
                     . ' dia(s), com custo estimado de R$ ' . number_format((float)($plan['estimatedCostBRL'] ?? 0), 2, ',', '.')
                     . ' dentro do orçamento de R$ ' . number_format((float)($plan['budgetBRL'] ?? 0), 2, ',', '.') . '.';
@@ -489,8 +556,42 @@ final class AssistantActionExecutor {
                 default => 'Posso consultar saldos, análise de gastos, tarefas, produtividade, treinos, medidas, IMC e seu plano alimentar.',
             };
         }
-        return ['response'=>['ok'=>true,'status'=>'query','action'=>'query','message'=>$message,'module'=>$module,'undoAvailable'=>false],
+        if (is_string($module)) $card['insights'] = (new AssistantLocalInsights($this->db))->forModule($uid, $module);
+        return ['response'=>[
+                'ok'=>true,
+                'status'=>'query',
+                'action'=>'query',
+                'message'=>$message,
+                'module'=>$module,
+                'undoAvailable'=>false,
+                'data'=>$card,
+            ],
             'undo'=>null,'summary'=>'Consulta respondida.','module'=>$module ?? 'query'];
+    }
+
+    /** @return array{message:string,start:string,total:int,items:list<array{label:string,value:float}>} */
+    private function spendingAnalysisData(int $uid): array {
+        $monthStart = level_clock_today()->format('Y-m-01');
+        $stmt = $this->db->prepare("SELECT COALESCE(category, 'sem categoria') AS category, COALESCE(SUM(value_cents), 0) AS total
+            FROM transactions WHERE user_id = ? AND kind = 'expense' AND tx_date >= ?
+            GROUP BY category ORDER BY total DESC LIMIT 5");
+        $stmt->execute([$uid, $monthStart]);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        if ($rows === []) return ['message'=>'Nenhuma despesa registrada neste mês ainda.', 'start'=>$monthStart, 'total'=>0, 'items'=>[]];
+        $totalCents = array_sum(array_map(static fn(array $row): int => (int)$row['total'], $rows));
+        $parts = array_map(static function (array $row) use ($totalCents): string {
+            $cents = (int)$row['total'];
+            $percentage = $totalCents > 0 ? round($cents * 100 / $totalCents) : 0;
+            return $row['category'] . ' R$ ' . number_format($cents / 100, 2, ',', '.') . ' (' . $percentage . '%)';
+        }, array_slice($rows, 0, 3));
+        return [
+            'message'=>'Maiores gastos do mês: ' . implode(' · ', $parts) . '. Total do mês: R$ ' . number_format($totalCents / 100, 2, ',', '.') . '.',
+            'start'=>$monthStart,
+            'total'=>$totalCents,
+            'items'=>array_map(static fn(array $row): array => [
+                'label'=>(string)$row['category'], 'value'=>round((int)$row['total'] / 100, 2),
+            ], $rows),
+        ];
     }
 
     private function spendingAnalysis(int $uid): string {
@@ -518,6 +619,16 @@ final class AssistantActionExecutor {
             $bmi < 35 => 'obesidade grau I',
             $bmi < 40 => 'obesidade grau II',
             default => 'obesidade grau III',
+        };
+    }
+
+    private function modulePath(?string $module): string {
+        return match ($module) {
+            'financeiro' => '/financeiro',
+            'agenda' => '/agenda',
+            'treinos' => '/treinos',
+            'alimentacao' => '/alimentacao',
+            default => '/',
         };
     }
 
