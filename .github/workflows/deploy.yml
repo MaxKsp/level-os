@@ -137,7 +137,9 @@ jobs:
           protocol: ftps
           local-dir: frontend/dist/
           server-dir: ${{ secrets.FTP_SERVER_DIR }}
-          state-name: .ftp-deploy-sync-state-frontend.json
+          # Cada release recalcula o inventario remoto. Isso impede que um
+          # estado incremental obsoleto marque chunks ausentes como enviados.
+          state-name: .ftp-deploy-sync-state-frontend-${{ github.run_id }}.json
 
       - name: Repetir deploy do frontend após falha transitória
         id: frontend_retry
@@ -150,7 +152,7 @@ jobs:
           protocol: ftps
           local-dir: frontend/dist/
           server-dir: ${{ secrets.FTP_SERVER_DIR }}
-          state-name: .ftp-deploy-sync-state-frontend.json
+          state-name: .ftp-deploy-sync-state-frontend-${{ github.run_id }}.json
 
       - name: Confirmar resultado dos uploads
         if: always()
@@ -166,6 +168,21 @@ jobs:
           [[ "$PHP_PRIMARY" == "success" || "$PHP_RETRY" == "success" ]] && php_ok=true
           [[ "$FRONT_PRIMARY" == "success" || "$FRONT_RETRY" == "success" ]] && front_ok=true
           [[ "$php_ok" == "true" && "$front_ok" == "true" ]]
+
+      - name: Verificar todos os chunks publicados
+        shell: bash
+        run: |
+          failed=0
+          while IFS= read -r asset; do
+            relative="${asset#frontend/dist/}"
+            if ! curl --fail --silent --show-error \
+              --retry 3 --retry-delay 3 --retry-all-errors \
+              --max-time 20 -o /dev/null "https://lvlos.com/${relative}"; then
+              echo "Chunk ausente em producao: ${relative}"
+              failed=1
+            fi
+          done < <(find frontend/dist/frontend-assets -maxdepth 1 -type f \( -name '*.js' -o -name '*.css' \) | sort)
+          [[ "$failed" -eq 0 ]]
 
       - name: Health check com retry
         shell: bash

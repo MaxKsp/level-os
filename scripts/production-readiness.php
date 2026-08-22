@@ -18,7 +18,7 @@ function readiness_contains(string $path, string $needle): bool {
     return is_string($contents) && str_contains($contents, $needle);
 }
 
-$requiredExtensions = ['pdo', 'mbstring', 'json', 'curl', 'sodium'];
+$requiredExtensions = ['pdo', 'mbstring', 'json', 'curl', 'sodium', 'dom'];
 foreach ($requiredExtensions as $extension) {
     readiness_check(
         $checks,
@@ -99,6 +99,15 @@ foreach (['api/import.php', 'api/export.php', 'api/subscription-checkout.php', '
         'verified email gate: ' . $endpoint,
         readiness_contains($root . '/' . $endpoint, 'require_verified_email($uid)'),
         'sensitive endpoint must require a verified address'
+    );
+}
+
+foreach (['api/assistant-confirm.php', 'api/assistant-undo.php', 'api/assistant-history.php'] as $endpoint) {
+    readiness_check(
+        $checks,
+        'assistant verified email gate: ' . $endpoint,
+        readiness_contains($root . '/' . $endpoint, 'require_verified_email($uid)'),
+        'assistant mutations and destructive history operations must require a verified address'
     );
 }
 

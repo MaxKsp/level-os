@@ -29,7 +29,7 @@ export const PERSONAS: Record<AssistantModule, AssistantPersona> = {
     greeting: "Bora treinar. O que você precisa?",
   },
   alimentacao: {
-    title: "Cheff",
+    title: "Chef",
     name: "Rita",
     tagline: "Cardápios e receitas feitas especialmente para você.",
     greeting: "O que vamos preparar?",

@@ -96,7 +96,9 @@ final class AssistantAgentPolicy {
     }
 
     private static function validateSchema(string $xml): void {
-        if (!class_exists('DOMDocument')) return;
+        if (!class_exists('DOMDocument')) {
+            throw new RuntimeException('Extensao DOM obrigatoria para validar os contratos XML dos agentes.');
+        }
         $schema = __DIR__ . '/Prompts/assistant-agent.xsd';
         if (!is_file($schema)) throw new RuntimeException('Schema XML dos agentes indisponivel.');
 

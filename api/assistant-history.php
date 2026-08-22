@@ -21,7 +21,10 @@ $agent = is_string($_GET['agent'] ?? null) ? strtolower(trim((string)$_GET['agen
 if (!in_array($agent, ['geral', 'financeiro', 'agenda', 'treinos', 'alimentacao'], true)) {
     http_response_code(400); echo json_encode(['error'=>'invalid_agent']); exit;
 }
-if ($method === 'DELETE') require_csrf();
+if ($method === 'DELETE') {
+    require_verified_email($uid);
+    require_csrf();
+}
 session_write_close();
 
 try {

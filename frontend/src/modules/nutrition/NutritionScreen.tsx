@@ -52,7 +52,7 @@ export function NutritionScreen() {
         </div>
         <Button variant="primary" size="md" onClick={() => assistant.openFor("alimentacao")}>
           <AssistantAvatar module="alimentacao" className="size-4" />
-          Cheff Rita
+          Chef Rita
         </Button>
       </header>
 
@@ -66,9 +66,9 @@ export function NutritionScreen() {
         <SectionCard title="Seu plano alimentar" description="Nenhum plano ativo" bodyClassName="p-0">
           <EmptyState
             title="Nenhuma dieta montada"
-            description="Diga à Cheff Rita seu objetivo, o período e quanto pode gastar. Ela monta o cardápio e grava aqui."
+            description="Diga à Chef Rita seu objetivo, o período e quanto pode gastar. Ela monta o cardápio e grava aqui."
             icon="restaurant"
-            action={<Button variant="primary" size="sm" onClick={() => assistant.openFor("alimentacao")}><AssistantAvatar module="alimentacao" className="size-4" />Cheff Rita</Button>}
+            action={<Button variant="primary" size="sm" onClick={() => assistant.openFor("alimentacao")}><AssistantAvatar module="alimentacao" className="size-4" />Chef Rita</Button>}
           />
         </SectionCard>
       ) : (

@@ -35,6 +35,8 @@ return static function (): void {
         'api/calendar-connect.php',
         'api/calendar-disconnect.php',
         'api/assistant-confirm.php',
+        'api/assistant-undo.php',
+        'api/assistant-history.php',
     ] as $endpoint) {
         $source = (string)file_get_contents($root . '/' . $endpoint);
         test_assert_true(
