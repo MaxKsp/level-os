@@ -82,10 +82,7 @@ if ($method === 'DELETE') {
         } catch (Throwable) {
         }
     }
-    $_SESSION = [];
-    if (session_status() === PHP_SESSION_ACTIVE) {
-        session_destroy();
-    }
+    destroy_browser_session();
     echo json_encode(['status' => 'signed_out']);
     exit;
 }

@@ -197,5 +197,10 @@ return [
         'google_calendar_tokens' => ['kind' => 'ephemeral'],
         'google_calendar_events' => ['kind' => 'ephemeral'],
         'assistant_route_cache' => ['kind' => 'ephemeral'],
+        // Telemetria agregada e operacional e reconstruida no ambiente de destino.
+        // Nao pertence ao backup portatil dos dados pessoais do usuario.
+        'assistant_quality_daily' => ['kind' => 'ephemeral'],
+        'web_vitals_daily' => ['kind' => 'ephemeral'],
+        'marketing_events_daily' => ['kind' => 'ephemeral'],
     ],
 ];

@@ -8,6 +8,7 @@ require_once __DIR__ . '/../app/Modules/Calendar/GoogleCalendarBootstrap.php';
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: private, no-store');
 $uid = require_login();
+require_verified_email($uid);
 level_os_require_sodium_endpoint('calendar-disconnect');
 require_rate_limit('calendar-disconnect', 10, 600);
 if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {

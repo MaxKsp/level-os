@@ -10,12 +10,12 @@ própria e um PR separado.
       aplicado em todos os `api/*.php`: data 200/min, export 10/min,
       import 5/min, avatar 10/min, me/prefs 60/min, totp 20/min. HTTP 429
       + `Retry-After` ao estourar. SQL em `migrations/2026-07-06-rate-limit.sql`.
-- [ ] **Backup por e-mail cifrado** — o cron manda os dados financeiros em
-      JSON puro; cifrar o anexo antes de ligar o cron em produção.
+- [x] **Backup por e-mail cifrado** — container autenticado `.lvbk`, chave fora
+      do repositório e restauração transacional coberta por teste real.
 - [x] **Remover `X-Powered-By`** — removido em profundidade no `.htaccess` e
       `expose_php` desativado; confirmar o header no ambiente Hostinger.
-- [ ] **Expiração de sessão por inatividade** — hoje só morre no fechar do
-      navegador.
+- [x] **Expiração de sessão por inatividade** — timeout server-side renovado
+      por atividade e configurável por ambiente.
 
 ## 🗄️ Dados
 
@@ -39,7 +39,7 @@ própria e um PR separado.
 
 ## 🔴 Fundação (destrava o resto)
 
-- [ ] **Domínio próprio** — sair do subdomínio temporário da Hostinger.
+- [x] **Domínio próprio** — `lvlos.com` configurado como origem canônica.
       Destrava: e-mail confiável, recuperação de senha, URL estável pro
       Google OAuth e identidade de marca de verdade.
 - [x] **E-mail transacional confiável** — cliente Resend via API HTTPS,
@@ -48,9 +48,8 @@ própria e um PR separado.
 - [x] **Recuperação de senha por e-mail** — fluxo de "esqueci a senha" com
       token de uso único, hash no banco, expiração e rate limit implementado.
       A entrega confiável em produção ainda depende do domínio/SMTP acima.
-- [ ] **Supabase Auth (em ativação)** — bridge gerenciado, callback PKCE, sessão PHP,
-      vinculação segura de contas antigas e recuperação integrados por feature
-      flag. Falta criar/configurar o projeto externo e executar o smoke real.
+- [x] **Supabase Auth** — bridge gerenciado, callback PKCE, sessão PHP,
+      vinculação segura de contas antigas, Google e recuperação integrados.
 
 ## 🟠 Funcionalidade
 
@@ -114,19 +113,19 @@ própria e um PR separado.
       (rendas, despesas por categoria, saldo mês a mês, contas/cartões) numa
       página de impressão limpa via `window.print()` (Salvar como PDF). Sem
       lib no servidor; puro cliente com CSS `@media print`.
-- [ ] **Backup automático agendado por e-mail** — envio do JSON puro foi
-      desativado; só reativar com artefato cifrado e autenticado.
+- [x] **Backup automático agendado por e-mail** — artefato cifrado e autenticado;
+      restauração real validada antes da reativação do cron.
 - [x] **Tema claro** — terceira opção de fundo no Perfil.
-- [ ] **Testes automatizados** — PHPUnit pra auth/TOTP/rate-limit e um
-      smoke E2E do fluxo login → lançamento → backup.
+- [x] **Testes automatizados** — contratos de auth/TOTP/rate-limit, adapters
+      HTTP, recuperação real de backup e gates automáticos de produção.
 - [ ] **Trilha de auditoria** — persistência e eventos sensíveis já existem;
       falta registrar todos os métodos de login e mostrar a última atividade
       no Perfil.
 - [x] **Separar `index.php` em módulos** — `index.php` virou front controller;
       a compatibilidade legada está isolada em `app/Shared/Dashboard/` e o
       deploy continua usando o shell React gerado pelo Vite.
-- [ ] **Endurecer verificação de e-mail** — hoje é só um selo; tornar
-      obrigatória quando o e-mail for confiável.
+- [x] **Endurecer verificação de e-mail** — ações sensíveis exigem endereço
+      verificado no servidor.
 - [ ] **Testar o alarme de tarefas no dia a dia** — confirmar precisão do
       disparo após as mudanças de estrutura da Agenda.
 

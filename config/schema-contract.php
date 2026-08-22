@@ -535,6 +535,68 @@ return [
         'foreign_keys'=>[['column'=>'user_id','ref_table'=>'users','ref_column'=>'id','on_delete'=>'CASCADE']],
     ],
 
+    'assistant_quality_daily' => [
+        'columns' => [
+            'user_id' => ['type' => 'int', 'unsigned' => true, 'nullable' => false],
+            'metric_date' => ['type' => 'date', 'nullable' => false],
+            'agent_key' => ['type' => 'varchar', 'length' => 16, 'nullable' => false],
+            'provider_key' => ['type' => 'varchar', 'length' => 64, 'nullable' => false],
+            'request_count' => ['type' => 'int', 'unsigned' => true, 'nullable' => false],
+            'clarification_count' => ['type' => 'int', 'unsigned' => true, 'nullable' => false],
+            'refusal_count' => ['type' => 'int', 'unsigned' => true, 'nullable' => false],
+            'confirmation_count' => ['type' => 'int', 'unsigned' => true, 'nullable' => false],
+            'confirmed_count' => ['type' => 'int', 'unsigned' => true, 'nullable' => false],
+            'cancelled_count' => ['type' => 'int', 'unsigned' => true, 'nullable' => false],
+            'undone_count' => ['type' => 'int', 'unsigned' => true, 'nullable' => false],
+            'failure_count' => ['type' => 'int', 'unsigned' => true, 'nullable' => false],
+            'latency_total_ms' => ['type' => 'bigint', 'unsigned' => true, 'nullable' => false],
+            'token_count' => ['type' => 'bigint', 'unsigned' => true, 'nullable' => false],
+            'estimated_cost_microusd' => ['type' => 'bigint', 'unsigned' => true, 'nullable' => false],
+        ],
+        'primary_key' => ['user_id', 'metric_date', 'agent_key', 'provider_key'],
+        'indexes' => [
+            ['name' => 'idx_assistant_quality_user_date', 'columns' => ['user_id', 'metric_date'], 'unique' => false],
+        ],
+        'foreign_keys' => [
+            ['column' => 'user_id', 'ref_table' => 'users', 'ref_column' => 'id', 'on_delete' => 'CASCADE'],
+        ],
+    ],
+
+    'web_vitals_daily' => [
+        'columns' => [
+            'user_id' => ['type' => 'int', 'unsigned' => true, 'nullable' => false],
+            'metric_date' => ['type' => 'date', 'nullable' => false],
+            'metric_name' => ['type' => 'varchar', 'length' => 8, 'nullable' => false],
+            'route_path' => ['type' => 'varchar', 'length' => 191, 'nullable' => false],
+            'sample_count' => ['type' => 'int', 'unsigned' => true, 'nullable' => false],
+            'value_total' => ['type' => 'double', 'nullable' => false],
+            'value_max' => ['type' => 'double', 'nullable' => false],
+            'last_rating' => ['type' => 'varchar', 'length' => 16, 'nullable' => false],
+            'updated_at' => ['type' => 'timestamp', 'nullable' => false],
+        ],
+        'primary_key' => ['user_id', 'metric_date', 'metric_name', 'route_path'],
+        'indexes' => [
+            ['name' => 'idx_web_vitals_date_metric', 'columns' => ['metric_date', 'metric_name'], 'unique' => false],
+        ],
+        'foreign_keys' => [
+            ['column' => 'user_id', 'ref_table' => 'users', 'ref_column' => 'id', 'on_delete' => 'CASCADE'],
+        ],
+    ],
+
+    'marketing_events_daily' => [
+        'columns' => [
+            'event_date' => ['type' => 'date', 'nullable' => false],
+            'event_name' => ['type' => 'varchar', 'length' => 32, 'nullable' => false],
+            'source_path' => ['type' => 'varchar', 'length' => 160, 'nullable' => false],
+            'event_count' => ['type' => 'int', 'unsigned' => true, 'nullable' => false],
+        ],
+        'primary_key' => ['event_date', 'event_name', 'source_path'],
+        'indexes' => [
+            ['name' => 'idx_marketing_events_name_date', 'columns' => ['event_name', 'event_date'], 'unique' => false],
+        ],
+        'foreign_keys' => [],
+    ],
+
     'audit_events' => [
         'columns' => [
             'id' => ['type' => 'bigint', 'unsigned' => true, 'nullable' => false],

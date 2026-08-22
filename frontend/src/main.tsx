@@ -8,12 +8,14 @@ import './index.css';
 import { applyTheme, getStoredTheme } from './lib/theme';
 import { clearSensitiveBrowserCaches, clearUnscopedUserStorage } from './lib/userStorage';
 import { loadRuntimeConfigFromMeta } from './lib/runtimeConfig';
+import { startWebVitalsMonitoring } from './lib/webVitals';
 
 // Aplica o tema antes do render para não piscar (FOUC de tema).
 loadRuntimeConfigFromMeta();
 clearUnscopedUserStorage();
 clearSensitiveBrowserCaches();
 applyTheme(getStoredTheme());
+startWebVitalsMonitoring();
 
 if (window.LEVEL_OS_SENTRY_DSN) {
   // Erros muito iniciais ficam em uma fila pequena enquanto o SDK carrega

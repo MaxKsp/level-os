@@ -1,4 +1,4 @@
-import { Bell, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react"
+import { Bell, PanelLeftClose, PanelLeftOpen, Plus, Search } from "lucide-react"
 import * as m from "motion/react-m"
 import { lazy, Suspense, useLayoutEffect, useState } from "react"
 import { NavLink, useLocation, useNavigate } from "react-router-dom"
@@ -13,6 +13,7 @@ import { LevelMark } from "../ui/LevelMark"
 import { AssistantAvatar } from "../../modules/assistant/AssistantAvatar"
 import { useSearch } from "../../modules/search/store"
 import { prefetchRoute } from "../../app/routeLoaders"
+import { useApp } from "../../context/AppContext"
 
 const TaskNotificationCenter = lazy(() => import("../../modules/routine/TaskNotificationCenter").then((module) => ({ default: module.TaskNotificationCenter })))
 
@@ -27,6 +28,7 @@ export const TopNavBar = () => {
   const { setIsOpen: setIsSearchOpen } = useSearch()
   const { identity } = useIdentity()
   const assistant = useAssistant()
+  const app = useApp()
   const navigate = useNavigate()
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(storedSidebarState)
@@ -43,6 +45,15 @@ export const TopNavBar = () => {
 
   const toggleSidebar = () => setCollapsed((current) => !current)
   const avatar = (size: string) => <span className={cn("grid shrink-0 place-items-center overflow-hidden rounded-full bg-surface-container-high text-sm font-semibold text-primary", size)}>{avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : initials}</span>
+  const contextualAction = location.pathname === "/financeiro"
+    ? { label: "Nova movimentação", run: () => app.setIsExpenseModalOpen(true) }
+    : location.pathname === "/agenda"
+      ? { label: "Nova tarefa", run: () => app.setIsTaskModalOpen(true) }
+      : location.pathname === "/treinos"
+        ? { label: "Registrar treino", run: () => app.setIsWorkoutModalOpen(true) }
+        : location.pathname === "/alimentacao"
+          ? { label: "Criar cardápio", run: () => assistant.openFor("alimentacao" as const) }
+          : { label: "Adicionar", run: () => setIsSearchOpen(true) }
 
   return (
     <>
@@ -94,6 +105,10 @@ export const TopNavBar = () => {
 
         <div className="mt-auto space-y-2 border-t border-outline-variant pt-4">
           {!collapsed ? <><TrialChip /><LevelChip /></> : null}
+          <button type="button" aria-label={contextualAction.label} title={collapsed ? contextualAction.label : undefined} onClick={contextualAction.run} className={cn("flex min-h-11 w-full items-center rounded-md bg-primary text-left text-sm font-semibold text-on-primary transition-[background-color,transform] hover:bg-primary/90 active:scale-[.985] motion-reduce:transform-none", collapsed ? "justify-center px-0" : "gap-3 px-3")}>
+            <Plus className="size-5 shrink-0" aria-hidden="true" />
+            {!collapsed ? <span>{contextualAction.label}</span> : null}
+          </button>
           <button type="button" aria-label="Agente de IA" title={collapsed ? "Agente de IA" : undefined} onClick={() => assistant.setOpen(true)} className={cn("flex min-h-11 w-full items-center rounded-md border-l-2 border-transparent text-left text-sm font-medium text-muted transition-colors hover:bg-primary/[0.07] hover:text-on-surface", collapsed ? "justify-center px-0" : "gap-3 px-3")}>
             <AssistantAvatar className="size-5 shrink-0 text-primary" />
             {!collapsed ? <><span>Agente de IA</span><kbd className="ml-auto text-[10px] text-muted">Ctrl K</kbd></> : null}

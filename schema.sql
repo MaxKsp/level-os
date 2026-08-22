@@ -518,6 +518,30 @@ CREATE TABLE IF NOT EXISTS assistant_quality_daily (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS web_vitals_daily (
+  user_id INT UNSIGNED NOT NULL,
+  metric_date DATE NOT NULL,
+  metric_name VARCHAR(8) NOT NULL,
+  route_path VARCHAR(191) NOT NULL,
+  sample_count INT UNSIGNED NOT NULL DEFAULT 0,
+  value_total DOUBLE UNSIGNED NOT NULL DEFAULT 0,
+  value_max DOUBLE UNSIGNED NOT NULL DEFAULT 0,
+  last_rating VARCHAR(16) NOT NULL DEFAULT 'unknown',
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, metric_date, metric_name, route_path),
+  INDEX idx_web_vitals_date_metric (metric_date, metric_name),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS marketing_events_daily (
+  event_date DATE NOT NULL,
+  event_name VARCHAR(32) NOT NULL,
+  source_path VARCHAR(160) NOT NULL,
+  event_count INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (event_date, event_name, source_path),
+  INDEX idx_marketing_events_name_date (event_name, event_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS xp_events (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id INT UNSIGNED NOT NULL,

@@ -3,9 +3,12 @@ import { createRoot } from "react-dom/client"
 import { LazyMotion, MotionConfig } from "motion/react"
 import "@fontsource-variable/geist"
 import { LandingPage } from "./LandingPage"
+import { startMarketingAnalytics } from "./analytics"
 import "./marketing.css"
 
 const loadMotionFeatures = () => import("../app/motionFeatures").then((module) => module.default)
+
+startMarketingAnalytics()
 
 createRoot(document.getElementById("landing-root")!).render(
   <StrictMode>

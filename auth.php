@@ -34,7 +34,7 @@ session_start();
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
-const SESSION_IDLE_TIMEOUT_SECONDS = 43200; // 12h sem atividade encerra a sessão
+const SESSION_IDLE_TIMEOUT_SECONDS = 43200; // padrão: 12h sem atividade encerra a sessão
 const PENDING_2FA_TIMEOUT_SECONDS = 600; // 10 min para concluir o segundo fator
 const PASSWORD_RESET_TOKEN_BYTES = 32;
 const PASSWORD_RESET_TTL_MINUTES = 60;
@@ -61,6 +61,26 @@ function remember_returning_user(): void {
         'samesite' => 'Lax',
     ]);
     $_COOKIE[RETURNING_USER_COOKIE] = '1';
+}
+
+/** Encerra a sessão e remove o cookie de autenticação do navegador. */
+function destroy_browser_session(): void {
+    $_SESSION = [];
+    if (session_status() !== PHP_SESSION_ACTIVE) return;
+
+    if (ini_get('session.use_cookies')) {
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', [
+            'expires' => time() - 42000,
+            'path' => $params['path'] ?: '/',
+            'domain' => $params['domain'] ?? '',
+            'secure' => (bool)($params['secure'] ?? false),
+            'httponly' => (bool)($params['httponly'] ?? true),
+            'samesite' => $params['samesite'] ?? 'Lax',
+        ]);
+    }
+
+    session_destroy();
 }
 
 function current_user_id(): ?int {
@@ -92,7 +112,7 @@ function current_user_id(): ?int {
     // Expiração por inatividade: sem request ha mais de SESSION_IDLE_TIMEOUT_SECONDS,
     // a sessão morre mesmo com o navegador aberto (PWA instalada, aba esquecida).
     $lastActivity = $_SESSION['last_activity'] ?? null;
-    if (is_int($lastActivity) && (time() - $lastActivity) > SESSION_IDLE_TIMEOUT_SECONDS) {
+    if (is_int($lastActivity) && (time() - $lastActivity) > session_idle_timeout_seconds()) {
         unset(
             $_SESSION['user_id'],
             $_SESSION['session_version'],
@@ -128,6 +148,16 @@ function current_user_id(): ?int {
     return $userId;
 }
 
+/**
+ * Mantém um padrão seguro, mas permite reduzir a janela em produção sem
+ * alterar código. A faixa evita sessões quase infinitas e expiração acidental.
+ */
+function session_idle_timeout_seconds(): int {
+    $configured = filter_var(getenv('LEVELOS_SESSION_IDLE_SECONDS') ?: null, FILTER_VALIDATE_INT);
+    if (!is_int($configured)) return SESSION_IDLE_TIMEOUT_SECONDS;
+    return max(900, min(604800, $configured));
+}
+
 function require_login(): int {
     $uid = current_user_id();
     if ($uid === null) {
@@ -137,6 +167,34 @@ function require_login(): int {
         exit;
     }
     return $uid;
+}
+
+function user_email_is_verified(int $uid): bool {
+    static $cache = [];
+    if (array_key_exists($uid, $cache)) return $cache[$uid];
+
+    $stmt = get_db()->prepare('SELECT email, email_verified_at FROM users WHERE id = ? LIMIT 1');
+    $stmt->execute([$uid]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    $cache[$uid] = is_array($user)
+        && is_string($user['email'] ?? null)
+        && trim((string)$user['email']) !== ''
+        && $user['email_verified_at'] !== null;
+    return $cache[$uid];
+}
+
+/** Bloqueia exportação, restauração, pagamentos e credenciais sem e-mail confirmado. */
+function require_verified_email(int $uid): void {
+    if (user_email_is_verified($uid)) return;
+
+    http_response_code(403);
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, private');
+    echo json_encode([
+        'error' => 'email_verification_required',
+        'message' => 'Confirme seu e-mail antes de realizar esta ação.',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 function require_login_page(): int {

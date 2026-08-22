@@ -1,5 +1,21 @@
 # Checklist de producao
 
+## Verificacao automatizada
+
+Execute antes de cada release:
+
+```bash
+cd frontend && npm ci && npm run validate
+cd .. && php tests/run.php
+php scripts/critical-smoke.php
+php scripts/production-readiness.php --built
+```
+
+O workflow de testes executa os mesmos gates. O deploy faz dois ciclos de
+upload FTPS quando necessario, guarda o artefato por 30 dias e consulta
+`/api/health.php`. Para rollback, execute manualmente o workflow de deploy e
+informe no campo `ref` o commit ou tag anterior.
+
 ## Quality gate
 
 - branch protegida e PR revisado
@@ -23,6 +39,9 @@
 - migrations ensaiadas em copia do banco e aplicadas em ordem
 - `schema.sql` e contrato de schema conferidos
 - plano de rollback registrado antes de migrations destrutivas
+- aplicar `2026-08-09-assistant-quality.sql`, `2026-08-22-web-vitals.sql` e
+  `2026-08-22-marketing-events.sql` com o comando CLI allowlisted:
+  `php scripts/apply-migration.php NOME_DO_ARQUIVO`
 
 ## Integracoes
 
@@ -33,6 +52,8 @@
 - Agente de IA: chave de dados e pelo menos um provedor
 - Resend: dominio verificado, variaveis de ambiente e recuperacao de senha testados
 - cron habilitado somente quando o backup por e-mail estiver cifrado
+- timeout de inatividade configurado em `LEVELOS_SESSION_IDLE_SECONDS`
+  (padrao seguro: 43.200 segundos)
 
 ## Smoke test
 
@@ -43,3 +64,12 @@
 - trial, paywall, checkout e confirmacao por webhook
 - avatar, calendario, Agente de IA e desfazer
 - claro/escuro, mobile e PWA
+
+## Evidencias automatizadas
+
+- `tests/cases/backup_recovery_test.php`: backup real, restauracao em banco
+  isolado, arquivo adulterado, chave incorreta e rollback transacional
+- contratos de login, 2FA, Google/Supabase, financeiro e agentes em
+  `tests/cases/*_test.php`
+- orçamento de bundle em `frontend/scripts/check-bundle-budget.mjs`
+- LCP, INP e CLS agregados sem dados pessoais em `web_vitals_daily`

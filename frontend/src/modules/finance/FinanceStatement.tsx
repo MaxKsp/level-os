@@ -36,7 +36,7 @@ export function FinanceStatement() {
     </div>
     {rows.length ? <ul className="divide-y divide-outline-variant">{rows.map((row) => {
       const account = fin.accounts.find((item) => item.id === row.accountId)
-      return <li key={`${row.kind}-${row.id}`} className="flex items-center gap-3 px-4 py-3.5 hover:bg-surface-container/70">
+      return <li key={`${row.kind}-${row.id}`} className="flex items-center gap-3 px-4 py-3.5 hover:bg-surface-container/70 [content-visibility:auto] [contain-intrinsic-size:64px]">
         <BankLogo bank={account?.bank} size={36} />
         <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-on-surface">{row.label}</p><p className="truncate text-xs text-muted">{row.category}{account ? ` · ${account.label}` : ""}{row.date ? ` · ${row.date}` : ""}</p></div>
         <p className={cn("shrink-0 font-mono text-sm font-medium", row.kind === "entrada" ? "text-tertiary" : row.kind === "saida" ? "text-error" : "text-primary")}>{row.kind === "entrada" ? "+" : row.kind === "saida" ? "−" : "↔"} {formatCurrency(row.value)}</p>

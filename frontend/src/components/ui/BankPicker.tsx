@@ -118,7 +118,7 @@ export function BankPicker({ value, onChange, favorites, onToggleFavorite, class
               const favorite = favoriteSet.has(normalizeBankSearch(bank.name))
               const favoriteLimit = favorites.length >= 5 && !favorite
               return (
-                <li key={bank.id} role="presentation">
+                <li key={bank.id} role="presentation" className="[content-visibility:auto] [contain-intrinsic-size:52px]">
                   <div className={cn("group flex items-center gap-2 rounded-xl px-2 py-2 transition-colors", active === index ? "bg-primary/10" : "hover:bg-surface-container")} onMouseEnter={() => setActive(index)}>
                     <button id={`${id}-${bank.id}`} role="option" aria-selected={normalizeBankSearch(value) === normalizeBankSearch(bank.name)} type="button" onClick={() => select(bank)} className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
                       <BankLogo bank={bank.name} size={34} />

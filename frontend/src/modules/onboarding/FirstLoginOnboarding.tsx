@@ -1,57 +1,87 @@
-import { AnimatePresence, useReducedMotion } from "motion/react"
+import { useReducedMotion } from "motion/react"
 import * as m from "motion/react-m"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
 
 import { PixelCard } from "@/components/ui/pixel-card"
 import { Button } from "../../components/ui/button"
 import { Modal } from "../../components/ui/Modal"
+import { useApp } from "../../context/AppContext"
 import { Icon } from "../../design-system/Icon"
+import { useFinance } from "../finance/store"
+import { useNutrition } from "../nutrition/store"
 import { usePreferences } from "../preferences/store"
+import { useTraining } from "../training/store"
 
-const STEPS = [
-  {
-    eyebrow: "NÍVEL 01",
-    title: "Seu próximo nível começa agora.",
-    description: "O Level OS conecta dinheiro, rotina e treino para transformar progresso diário em uma visão simples da sua evolução.",
-    icon: "rocket_launch",
-  },
-  {
-    eyebrow: "VISÃO GERAL",
-    title: "Comece pelo que pede atenção hoje",
-    description: "A página inicial reúne saldo, compromissos, rotina e treino. Use os atalhos para aprofundar apenas quando precisar.",
-    icon: "grid_view",
-  },
-  {
-    eyebrow: "FINANÇAS",
-    title: "Construa sua base financeira",
-    description: "Cadastre contas e cartões, lance rendas e despesas e importe OFX. O dashboard passa a mostrar patrimônio e fluxo com dados reais.",
-    icon: "finance",
-  },
-  {
-    eyebrow: "ROTINA",
-    title: "Planeje o dia sem carregar a tela",
-    description: "Organize tarefas e agenda por período. Concluir o que importa também alimenta seu XP de consistência.",
-    icon: "calendar_month",
-  },
-  {
-    eyebrow: "TREINOS E XP",
-    title: "Evolução que você consegue enxergar",
-    description: "Registre treinos, cargas e medidas. Cada avanço desbloqueia XP e conquistas no seu perfil.",
-    icon: "trophy",
-  },
-] as const
-
+interface ActivationStep {
+  id: string
+  title: string
+  description: string
+  icon: string
+  complete: boolean
+  action: () => void
+  actionLabel: string
+}
 export function FirstLoginOnboarding() {
   const { onboarding_completed: completed, status, completeOnboarding } = usePreferences()
-  const [step, setStep] = useState(0)
+  const app = useApp()
+  const finance = useFinance()
+  const training = useTraining()
+  const nutrition = useNutrition()
+  const [intro, setIntro] = useState(true)
+  const [dismissed, setDismissed] = useState(false)
   const navigate = useNavigate()
   const reduceMotion = useReducedMotion()
 
-  if (status === "loading" || completed) return null
+  const leaveForAction = (path: string, action?: () => void) => {
+    setDismissed(true)
+    navigate(path)
+    action?.()
+  }
 
-  const current = STEPS[step]
-  const lastStep = step === STEPS.length - 1
+  const steps = useMemo<ActivationStep[]>(() => [
+    {
+      id: "account",
+      title: "Cadastre sua primeira conta",
+      description: "O saldo e o patrimônio começam por aqui.",
+      icon: "account_balance",
+      complete: finance.accounts.length > 0,
+      action: () => leaveForAction("/financeiro?tab=contas"),
+      actionLabel: "Cadastrar conta",
+    },
+    {
+      id: "transaction",
+      title: "Registre uma movimentação",
+      description: "Adicione uma despesa ou renda real para montar seu histórico.",
+      icon: "payments",
+      complete: finance.expenses.length + finance.income.length + finance.variableIncome.length > 0,
+      action: () => leaveForAction("/financeiro", () => app.setIsExpenseModalOpen(true)),
+      actionLabel: "Adicionar movimentação",
+    },
+    {
+      id: "routine",
+      title: "Crie uma tarefa recorrente",
+      description: "Transforme algo que se repete em uma rotina acompanhável.",
+      icon: "event_repeat",
+      complete: app.tasks.some((task) => task.repeat && task.repeat !== "none"),
+      action: () => leaveForAction("/agenda", () => app.setIsTaskModalOpen(true)),
+      actionLabel: "Criar tarefa",
+    },
+    {
+      id: "wellbeing",
+      title: "Monte um treino ou cardápio",
+      description: "Escolha a área que faz mais sentido para o seu momento.",
+      icon: "exercise",
+      complete: training.workouts.length > 0 || nutrition.plan !== null,
+      action: () => leaveForAction("/treinos", () => app.setIsWorkoutModalOpen(true)),
+      actionLabel: "Começar treino",
+    },
+  ], [app, finance.accounts.length, finance.expenses.length, finance.income.length, finance.variableIncome.length, nutrition.plan, training.workouts.length])
+
+  if (status === "loading" || completed || dismissed) return null
+
+  const completedCount = steps.filter((item) => item.complete).length
+  const progress = Math.round((completedCount / steps.length) * 100)
   const finish = () => {
     completeOnboarding()
     navigate("/", { replace: true })
@@ -62,82 +92,46 @@ export function FirstLoginOnboarding() {
       isOpen
       onClose={finish}
       title="Primeiros passos no Level OS"
-      description={`Etapa ${step + 1} de ${STEPS.length}. ${current.title}`}
+      description={intro ? "Uma configuração rápida para você perceber valor nos primeiros minutos." : `${completedCount} de ${steps.length} etapas concluídas.`}
       icon="rocket_launch"
       maxWidth="max-w-3xl"
     >
-      <div className="space-y-5">
-        <div className="flex items-center justify-between gap-4" aria-label={`Etapa ${step + 1} de ${STEPS.length}`}>
-          <div className="flex gap-1.5" aria-hidden="true">
-            {STEPS.map((item, index) => (
-              <span
-                key={item.eyebrow}
-                className={`h-1.5 rounded-full transition-[width,background-color] motion-reduce:transition-none ${index === step ? "w-8 bg-primary" : index < step ? "w-4 bg-primary/45" : "w-4 bg-outline"}`}
-              />
+      {intro ? (
+        <div className="space-y-5">
+          <PixelCard autoPlay className="min-h-[320px] sm:min-h-[360px]">
+            <div className="mx-auto flex max-w-xl flex-col items-center">
+              <span className="mb-5 grid size-12 place-items-center rounded-xl border border-primary/25 bg-background/75 text-primary"><Icon name="rocket_launch" className="text-2xl" /></span>
+              <p className="mb-3 font-mono text-[10px] font-semibold tracking-[0.2em] text-primary">NÍVEL 01</p>
+              <h2 className="max-w-lg text-balance text-center font-sans text-3xl font-bold tracking-[-0.045em] text-on-surface sm:text-4xl">Seu sistema começa com quatro ações reais.</h2>
+              <p className="mt-4 max-w-lg text-center text-sm leading-6 text-on-surface-variant">Nada de tour longo: vamos cadastrar a base que conecta finanças, rotina e bem-estar.</p>
+            </div>
+          </PixelCard>
+          <footer className="flex flex-col-reverse justify-between gap-3 sm:flex-row">
+            <Button type="button" variant="ghost" size="lg" onClick={finish}>Explorar sozinho</Button>
+            <Button type="button" size="lg" onClick={() => setIntro(false)}>Configurar meu Level OS <Icon name="arrow_forward" /></Button>
+          </footer>
+        </div>
+      ) : (
+        <m.div initial={reduceMotion ? false : { opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+          <div>
+            <div className="mb-2 flex items-center justify-between text-xs"><span className="text-on-surface-variant">Progresso da configuração</span><strong className="font-mono tabular-nums text-primary">{progress}%</strong></div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-surface-container-high" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}><span className="block h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none" style={{ width: `${progress}%` }} /></div>
+          </div>
+          <div className="divide-y divide-outline-variant border-y border-outline-variant">
+            {steps.map((item) => (
+              <section key={item.id} className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center">
+                <span className={`grid size-10 shrink-0 place-items-center rounded-lg ${item.complete ? "bg-primary/12 text-primary" : "bg-surface-container text-on-surface-variant"}`}><Icon name={item.complete ? "check" : item.icon} /></span>
+                <div className="min-w-0 flex-1"><h3 className="text-sm font-semibold text-on-surface">{item.title}</h3><p className="mt-1 text-xs leading-5 text-on-surface-variant">{item.description}</p></div>
+                {item.complete ? <span className="text-xs font-semibold text-primary">Concluído</span> : <Button type="button" variant="outline" size="sm" onClick={item.action}>{item.actionLabel}</Button>}
+              </section>
             ))}
           </div>
-          <span className="font-mono text-[11px] tabular-nums text-muted">{step + 1} / {STEPS.length}</span>
-        </div>
-
-        <AnimatePresence mode="wait" initial={false}>
-          <m.div
-            key={step}
-            initial={reduceMotion ? false : { opacity: 0, x: 14 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={reduceMotion ? undefined : { opacity: 0, x: -10 }}
-            transition={{ duration: reduceMotion ? 0 : 0.2 }}
-          >
-            {step === 0 ? (
-              <PixelCard autoPlay className="min-h-[320px] sm:min-h-[360px]">
-                <div className="mx-auto flex max-w-xl flex-col items-center">
-                  <span className="mb-5 grid size-12 place-items-center rounded-xl border border-primary/25 bg-background/75 text-primary">
-                    <Icon name={current.icon} className="text-2xl" />
-                  </span>
-                  <p className="mb-3 font-mono text-[10px] font-semibold tracking-[0.2em] text-primary">{current.eyebrow}</p>
-                  <h2 className="max-w-lg text-balance font-sans text-3xl font-bold tracking-[-0.045em] text-on-surface sm:text-4xl">
-                    {current.title}
-                  </h2>
-                  <p className="mt-4 max-w-lg text-sm leading-6 text-on-surface-variant">{current.description}</p>
-                </div>
-              </PixelCard>
-            ) : (
-              <section className="min-h-[320px] rounded-xl border border-outline-variant bg-surface-container-low px-6 py-8 sm:px-10 sm:py-10">
-                <div className="flex h-full flex-col justify-between gap-10">
-                  <div>
-                    <span className="grid size-11 place-items-center rounded-lg border border-primary/20 bg-primary/8 text-primary">
-                      <Icon name={current.icon} className="text-[22px]" />
-                    </span>
-                    <p className="mt-8 font-mono text-[10px] font-semibold tracking-[0.18em] text-primary">{current.eyebrow}</p>
-                    <h2 className="mt-3 max-w-xl text-balance font-sans text-2xl font-bold tracking-[-0.035em] text-on-surface sm:text-3xl">{current.title}</h2>
-                    <p className="mt-4 max-w-xl text-sm leading-6 text-on-surface-variant">{current.description}</p>
-                  </div>
-                  <p className="border-t border-outline-variant pt-5 text-xs leading-5 text-muted">
-                    Você poderá explorar cada área com calma e alterar suas preferências no Perfil.
-                  </p>
-                </div>
-              </section>
-            )}
-          </m.div>
-        </AnimatePresence>
-
-        <footer className="flex flex-col-reverse items-stretch justify-between gap-3 sm:flex-row sm:items-center">
-          {step === 0 ? (
-            <Button type="button" variant="ghost" size="lg" onClick={finish}>Pular introdução</Button>
-          ) : (
-            <Button type="button" variant="ghost" size="lg" onClick={() => setStep((value) => Math.max(0, value - 1))}>
-              <Icon name="chevron_left" /> Voltar
-            </Button>
-          )}
-          <Button
-            type="button"
-            size="lg"
-            onClick={() => { if (lastStep) finish(); else setStep((value) => value + 1) }}
-          >
-            {lastStep ? "Entrar no Level 1" : step === 0 ? "Começar agora" : "Continuar"}
-            <Icon name={lastStep ? "rocket_launch" : "arrow_forward"} />
-          </Button>
-        </footer>
-      </div>
+          <footer className="flex flex-col-reverse justify-between gap-3 sm:flex-row">
+            <Button type="button" variant="ghost" size="lg" onClick={() => setIntro(true)}>Voltar</Button>
+            <Button type="button" size="lg" onClick={finish}>{completedCount === steps.length ? "Ir para a Visão Geral" : "Continuar depois"}<Icon name="arrow_forward" /></Button>
+          </footer>
+        </m.div>
+      )}
     </Modal>
   )
 }

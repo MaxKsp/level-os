@@ -4,6 +4,11 @@ on:
   push:
     branches: [master]
   workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit, tag ou branch para deploy/rollback
+        required: false
+        default: master
 
 jobs:
   quality-gate:
@@ -20,6 +25,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Configurar Node.js
         uses: actions/setup-node@v4
@@ -34,9 +41,58 @@ jobs:
 
       - name: Gerar frontend para a raiz publica
         working-directory: frontend
-        run: npm run build
+        run: npm run build && npm run check:bundle
+
+      - name: Empacotar release para rollback auditável
+        shell: bash
+        run: tar --exclude='.git' --exclude='frontend/node_modules' --exclude='frontend/src' -czf level-os-release.tgz .
+
+      - name: Guardar artefato da release
+        uses: actions/upload-artifact@v4
+        with:
+          name: level-os-${{ github.sha }}
+          path: level-os-release.tgz
+          retention-days: 30
 
       - name: Deploy da aplicacao PHP via FTPS
+        id: php_deploy
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/.github/**
+            **/.agents/**
+            **/.claude/**
+            **/.codex/**
+            **/.serena/**
+            **/.vscode/**
+            **/CLAUDE.md
+            **/README.md
+            **/ROADMAP.md
+            **/config.php
+            **/config.example.php
+            automation/**
+            config/**
+            docs/**
+            frontend/**
+            mobile/**
+            migrations/**
+            scripts/**
+            tests/**
+            tmp/**
+            uploads/**
+            schema.sql
+
+      - name: Repetir deploy PHP após falha transitória
+        id: php_retry
+        if: steps.php_deploy.outcome == 'failure'
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -71,6 +127,8 @@ jobs:
             schema.sql
 
       - name: Deploy do frontend React na raiz via FTPS
+        id: frontend_deploy
+        continue-on-error: true
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
@@ -80,3 +138,38 @@ jobs:
           local-dir: frontend/dist/
           server-dir: ${{ secrets.FTP_SERVER_DIR }}
           state-name: .ftp-deploy-sync-state-frontend.json
+
+      - name: Repetir deploy do frontend após falha transitória
+        id: frontend_retry
+        if: steps.frontend_deploy.outcome == 'failure'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: frontend/dist/
+          server-dir: ${{ secrets.FTP_SERVER_DIR }}
+          state-name: .ftp-deploy-sync-state-frontend.json
+
+      - name: Confirmar resultado dos uploads
+        if: always()
+        shell: bash
+        env:
+          PHP_PRIMARY: ${{ steps.php_deploy.outcome }}
+          PHP_RETRY: ${{ steps.php_retry.outcome }}
+          FRONT_PRIMARY: ${{ steps.frontend_deploy.outcome }}
+          FRONT_RETRY: ${{ steps.frontend_retry.outcome }}
+        run: |
+          php_ok=false
+          front_ok=false
+          [[ "$PHP_PRIMARY" == "success" || "$PHP_RETRY" == "success" ]] && php_ok=true
+          [[ "$FRONT_PRIMARY" == "success" || "$FRONT_RETRY" == "success" ]] && front_ok=true
+          [[ "$php_ok" == "true" && "$front_ok" == "true" ]]
+
+      - name: Health check com retry
+        shell: bash
+        run: |
+          curl --fail --silent --show-error \
+            --retry 6 --retry-delay 10 --retry-all-errors \
+            --max-time 20 https://lvlos.com/api/health.php > /dev/null
