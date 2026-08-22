@@ -45,13 +45,13 @@ jobs:
 
       - name: Empacotar release para rollback auditável
         shell: bash
-        run: tar --exclude='.git' --exclude='frontend/node_modules' --exclude='frontend/src' -czf level-os-release.tgz .
+        run: tar --exclude='.git' --exclude='frontend/node_modules' --exclude='frontend/src' -czf "${RUNNER_TEMP}/level-os-release.tgz" .
 
       - name: Guardar artefato da release
         uses: actions/upload-artifact@v4
         with:
           name: level-os-${{ github.sha }}
-          path: level-os-release.tgz
+          path: ${{ runner.temp }}/level-os-release.tgz
           retention-days: 30
 
       - name: Deploy da aplicacao PHP via FTPS
