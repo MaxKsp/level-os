@@ -19,6 +19,7 @@ return static function (): void {
     test_assert_true(!str_contains((string)$builder, 'window.CSRF_TOKEN'), 'The React shell must use inert metadata instead of inline bootstrap code.');
     test_assert_true(str_contains((string)$builder, 'level-os-auth-config'), 'The production React shell must expose runtime configuration through metadata.');
     test_assert_true(str_contains((string)$htaccess, 'Header always set Content-Security-Policy'), 'Apache-compatible hosts must receive the complete CSP fallback.');
+    test_assert_true(str_contains((string)$htaccess, "RewriteRule (^|/)\\.(?!well-known(?:/|$)) - [F,L,NC]"), 'Apache-compatible hosts must deny hidden deploy metadata while preserving .well-known.');
     test_assert_true(str_contains((string)$authView, 'http-equiv="Content-Security-Policy"'), 'Authentication pages must enforce CSP even when the hosting provider rewrites response headers.');
     test_assert_true(str_contains((string)$frontendShell, 'http-equiv="Content-Security-Policy"'), 'The React shell must enforce CSP even when the hosting provider rewrites response headers.');
 };

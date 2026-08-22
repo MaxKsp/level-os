@@ -4,6 +4,10 @@ RewriteEngine On
 RewriteCond %{HTTPS} off
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
+# Bloqueia metadados e arquivos ocultos publicados pelo processo de deploy.
+# A excecao preserva desafios ACME e outros recursos padronizados em /.well-known/.
+RewriteRule (^|/)\.(?!well-known(?:/|$)) - [F,L,NC]
+
 # Defesa em profundidade: estes diretorios pertencem ao desenvolvimento e
 # nunca devem ser executados ou baixados pelo servidor web.
 RewriteRule ^(?:app|automation|config|docs|migrations|scripts|tests|tmp)(?:/|$) - [F,L,NC]

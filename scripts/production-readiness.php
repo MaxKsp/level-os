@@ -76,6 +76,12 @@ foreach (['app', 'automation', 'config', 'docs', 'migrations', 'scripts', 'tests
         '.htaccess must deny internal application directories'
     );
 }
+readiness_check(
+    $checks,
+    'public dotfiles denied',
+    readiness_contains($htaccess, "RewriteRule (^|/)\\.(?!well-known(?:/|$)) - [F,L,NC]"),
+    'deployment metadata and other hidden files must never be served'
+);
 
 $deploy = $root . '/.github/workflows/deploy.yml';
 foreach (['config/**', 'docs/**', 'migrations/**', 'scripts/**', 'tests/**', 'frontend/**'] as $exclude) {
