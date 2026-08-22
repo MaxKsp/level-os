@@ -4,9 +4,7 @@ import * as m from "motion/react-m"
 import {
   ArrowDown,
   ArrowRight,
-  CalendarDays,
   Check,
-  Dumbbell,
   LockKeyhole,
   Menu,
   Sparkles,
@@ -17,8 +15,6 @@ import { Icon } from "../design-system"
 import { AssistantAvatar } from "../modules/assistant/AssistantAvatar"
 import type { AssistantModule } from "../modules/assistant/store"
 import {
-  BeforeAfterSection,
-  CapabilitySection,
   FaqSection,
   PricingSection,
   ProductTourSection,
@@ -122,72 +118,44 @@ function Brand() {
 
 function DashboardPreview() {
   return (
-    <div className="marketing-product" aria-label="Prévia fiel da tela Visão Geral do Level OS">
-      <aside className="preview-sidebar" aria-hidden="true">
-        <LevelMark />
-        <span className="active"><Icon name="grid_view" /></span>
-        <span><Icon name="account_balance_wallet" /></span>
-        <span><Icon name="event" /></span>
-        <span><Icon name="exercise" /></span>
-        <span><Icon name="restaurant" /></span>
-      </aside>
-      <div className="preview-app">
-        <div className="marketing-product-bar">
-          <div><strong>Visão geral</strong><span>Level OS</span></div>
-          <div className="preview-user"><span>Max</span><i>MK</i></div>
-        </div>
-        <div className="preview-overview">
-          <header className="preview-overview-header">
-            <span>Quarta-feira, 19 de agosto</span>
-            <strong>Bom dia, Max.</strong>
-            <p>Você tem 3 tarefas pendentes e um treino disponível hoje.</p>
-          </header>
-
-          <section className="preview-today" aria-label="Prioridades de hoje">
-            <div className="preview-section-heading">
-              <div><small>Prioridades</small><strong>Hoje</strong></div>
-              <span>67% da semana concluída</span>
-            </div>
-            <div className="preview-week-progress"><i /></div>
-            <div className="preview-priorities">
-              <article><span><Icon name="schedule" /></span><div><small>Próxima tarefa</small><strong>19:00 · Planejamento semanal</strong><em>3 pendentes hoje</em></div><Icon name="arrow_forward" /></article>
-              <article><span><Icon name="fitness_center" /></span><div><small>Próximo treino</small><strong>Força · superiores</strong><em>45 minutos</em></div><Icon name="arrow_forward" /></article>
-              <article><span><Icon name="monitoring" /></span><div><small>Alerta financeiro</small><strong>Orçamento saudável</strong><em>Indicadores dentro do esperado</em></div><Icon name="arrow_forward" /></article>
-            </div>
-          </section>
-
-          <section className="preview-finance" aria-label="Resumo financeiro">
-            <div className="preview-finance-heading"><strong>Finanças</strong><span>Abrir financeiro</span></div>
-            <div className="preview-kpis">
-              <article><div><Icon name="paid" /><small>Saldo total</small></div><strong>R$ 9.840</strong><span>2 contas</span></article>
-              <article><div><Icon name="credit_card" /><small>Fatura total</small></div><strong>R$ 2.180</strong><span>1 cartão</span></article>
-              <article><div><Icon name="credit_score" /><small>Crédito disponível</small></div><strong>R$ 5.820</strong><span>Limite − fatura</span></article>
-            </div>
-            <div className="preview-finance-grid">
-              <article className="product-primary">
-                <div className="preview-chart-heading">
-                  <div><span className="product-label">Patrimônio líquido</span><strong>R$ 28.460</strong><small>Saldos + reservas − faturas</small></div>
-                  <span className="product-change">↗ +R$ 1.240 · 6 meses</span>
-                </div>
-                <svg viewBox="0 0 420 112" role="img" aria-label="Tendência do patrimônio líquido nos últimos seis meses">
-                  <path className="chart-guide" d="M0 89H420M0 53H420M0 17H420" />
-                  <path className="chart-area" d="M0 94C45 80 65 92 104 72s63-13 92-31 60 4 94-15 76-13 130-25V112H0Z" />
-                  <path className="chart-line" d="M0 94C45 80 65 92 104 72s63-13 92-31 60 4 94-15 76-13 130-25" />
-                </svg>
-                <div className="preview-finance-metrics"><span><small>Disponível</small><b>R$ 9.840</b></span><span><small>Reservas</small><b>R$ 20.800</b></span><span><small>Faturas</small><b>R$ 2.180</b></span></div>
-              </article>
-              <article className="preview-accounts">
-                <header><div><strong>Contas e cartões</strong><span>Saldos e faturas atuais</span></div><small>2 itens</small></header>
-                <div className="preview-account-row"><span className="preview-bank">N</span><div><strong>Nubank · CC</strong><small>Conta corrente · Principal</small></div><p><b>R$ 6.420</b><small>saldo</small></p></div>
-                <div className="preview-account-row"><span className="preview-bank">I</span><div><strong>Itaú · Crédito</strong><small>Cartão de crédito</small></div><p><b>R$ 2.180</b><small>fatura</small></p></div>
-              </article>
-            </div>
-          </section>
-          <div className="preview-continue"><span><i /> Rotina e treino continuam logo abaixo</span><b>Dados ilustrativos</b></div>
-        </div>
+    <figure className="marketing-product marketing-product-screenshot">
+      <div className="product-screenshot-label">
+        <span>VISÃO GERAL</span>
+        <span><i /> Captura real da plataforma</span>
       </div>
-    </div>
+      <picture><source srcSet="/marketing/screens/overview.avif" type="image/avif" /><source srcSet="/marketing/screens/overview.webp" type="image/webp" /><img src="/marketing/screens/overview.png" alt="Tela real da Visão Geral do Level OS com prioridades do dia, resumo financeiro e navegação lateral" width={1280} height={720} decoding="async" fetchPriority="high" /></picture>
+      <span className="hero-guide hero-guide-today"><i>1</i><b>Seu dia</b><small>Prioridades que pedem ação</small></span>
+      <span className="hero-guide hero-guide-money"><i>2</i><b>Seu dinheiro</b><small>Patrimônio e alertas no contexto</small></span>
+      <span className="hero-guide hero-guide-progress"><i>3</i><b>Sua evolução</b><small>Rotina, treino e XP conectados</small></span>
+      <figcaption>Interface real do produto · dados de demonstração</figcaption>
+    </figure>
   )
+}
+
+function useMarketingMotionGuard() {
+  useEffect(() => {
+    let lastY = window.scrollY
+    let lastTime = performance.now()
+    let clearTimer = 0
+    let frame = 0
+    const onScroll = () => {
+      if (frame) return
+      frame = window.requestAnimationFrame(() => {
+        const now = performance.now()
+        const speed = Math.abs(window.scrollY - lastY) / Math.max(1, now - lastTime)
+        if (speed > 1.45) {
+          document.documentElement.dataset.marketingScroll = "fast"
+          window.clearTimeout(clearTimer)
+          clearTimer = window.setTimeout(() => { delete document.documentElement.dataset.marketingScroll }, 180)
+        }
+        lastY = window.scrollY
+        lastTime = now
+        frame = 0
+      })
+    }
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => { window.removeEventListener("scroll", onScroll); window.cancelAnimationFrame(frame); window.clearTimeout(clearTimer); delete document.documentElement.dataset.marketingScroll }
+  }, [])
 }
 
 function MarketingTypewriter({ text, identity }: { text: string; identity: string }) {
@@ -243,8 +211,17 @@ function AgentChatPreview({ agent }: { agent: (typeof ASSISTANT_AGENTS)[number] 
 
 export function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [showStickyCta, setShowStickyCta] = useState(false)
   const [activeAgentId, setActiveAgentId] = useState<(typeof ASSISTANT_AGENTS)[number]["id"]>("financeiro")
   const activeAgent = ASSISTANT_AGENTS.find((agent) => agent.id === activeAgentId) ?? ASSISTANT_AGENTS[1]
+  useMarketingMotionGuard()
+  useEffect(() => {
+    const hero = document.getElementById("inicio")
+    if (!hero) return
+    const observer = new IntersectionObserver(([entry]) => setShowStickyCta(!entry.isIntersecting), { threshold: .12 })
+    observer.observe(hero)
+    return () => observer.disconnect()
+  }, [])
   return (
     <div className="marketing-shell">
       <PageProgress />
@@ -270,7 +247,7 @@ export function LandingPage() {
             <m.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.68, ease: [0.22, 1, 0.36, 1] }}>Comece pelo que<br /><span>importa hoje.</span></m.h1>
             <m.div className="hero-lower" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.62, delay: 0.12 }}>
               <p className="hero-description">Uma tela inicial que reúne seu dinheiro, compromissos, treino e progresso — com contexto suficiente para você agir, sem transformar sua vida em outra planilha.</p>
-              <div className="hero-module-pills" aria-label="Áreas conectadas"><span><Icon name="account_balance_wallet" /> Finanças</span><span><Icon name="event" /> Rotina</span><span><Icon name="exercise" /> Treinos</span><span><Icon name="restaurant" /> Alimentação</span></div>
+              <div className="hero-outcomes" aria-label="Resultados do Level OS"><span><b>01</b> Organizar o dia</span><span><b>02</b> Entender o dinheiro</span><span><b>03</b> Acompanhar a evolução</span></div>
               <div><div className="hero-actions"><a className="button" href="https://lvlos.com/register.php">Começar grátis <ArrowRight size={18} /></a><a className="button button-quiet" href="#sistema">Explorar o sistema</a></div><p className="hero-note"><Check size={14} /> 30 dias para experimentar · sem cartão</p></div>
             </m.div>
           </div>
@@ -284,41 +261,7 @@ export function LandingPage() {
 
         <section className="marketing-intro" id="sistema"><OrbitalJourney /></section>
 
-        <section className="product-principles" aria-labelledby="clarity-title">
-          <Reveal className="principles-heading">
-            <div><p className="marketing-eyebrow">CLAREZA ANTES DE COMPLEXIDADE</p><span className="principles-status"><i /> Seu contexto está pronto</span></div>
-            <div><h2 id="clarity-title">Abra. Entenda.<br />Continue.</h2><p>O Level OS não despeja tudo na tela. Ele organiza o que merece sua atenção agora e mantém o restante disponível quando você quiser aprofundar.</p></div>
-          </Reveal>
-          <div className="principles-experience">
-            <Reveal className="principle-day" delay={0.04}>
-              <div className="principle-day-header"><div><span>HOJE</span><strong>Quarta, 19 de agosto</strong></div><b>3 sinais importantes</b></div>
-              <div className="principle-action-list">
-                <article><span><CalendarDays /></span><div><small>19:00 · ROTINA</small><strong>Planejamento semanal</strong><p>Próxima ação do seu dia</p></div><ArrowRight /></article>
-                <article><span><Icon name="credit_card" /></span><div><small>FINANÇAS</small><strong>Fatura em 68% do limite</strong><p>Dentro do planejado para o período</p></div><ArrowRight /></article>
-                <article><span><Dumbbell /></span><div><small>TREINO · 45 MIN</small><strong>Força · superiores</strong><p>Sessão sugerida pelo seu histórico</p></div><ArrowRight /></article>
-              </div>
-              <div className="principle-day-footer"><Check /><span>Agenda, dinheiro e evolução no mesmo contexto</span></div>
-            </Reveal>
-            <div className="principles-outcomes">
-              <Reveal className="principle-outcome" delay={0.08}><span>01</span><div><h3>O próximo passo aparece primeiro.</h3><p>Prioridades reais ocupam a tela. O restante continua acessível, sem competir pela sua atenção.</p></div></Reveal>
-              <Reveal className="principle-outcome" delay={0.12}><span>02</span><div><h3>Nada perde o contexto.</h3><p>Uma decisão financeira, uma tarefa concluída ou um treino registrado continua ligado ao seu histórico.</p></div></Reveal>
-              <Reveal className="principle-outcome" delay={0.16}><span>03</span><div><h3>Você continua no controle.</h3><p>Use a IA quando fizer sentido, revise ações importantes e exporte seus dados sempre que precisar.</p></div></Reveal>
-            </div>
-          </div>
-        </section>
-
         <ProductTourSection />
-
-        <CapabilitySection />
-
-        <section className="how-section" id="como-funciona">
-          <Reveal className="section-heading compact"><p className="marketing-eyebrow">COMECE SEM CERIMÔNIA</p><h2>O sistema cresce junto com a sua rotina.</h2></Reveal>
-          <div className="steps-grid">
-            {[{ n: "01", title: "Traga o essencial", text: "Cadastre suas contas, compromissos e objetivos no seu ritmo." }, { n: "02", title: "Veja as conexões", text: "Registros dispersos se transformam em uma visão coerente do seu momento." }, { n: "03", title: "Evolua com contexto", text: "Acompanhe padrões, conquistas e próximos passos sem perder o histórico." }].map((step, index) => <Reveal className="step" key={step.n} delay={index * 0.06}><span>{step.n}</span><h3>{step.title}</h3><p>{step.text}</p></Reveal>)}
-          </div>
-        </section>
-
-        <BeforeAfterSection />
 
         <section className="agents-section deferred-section" id="agentes" aria-labelledby="agents-title">
           <Reveal className="agents-copy">
@@ -365,11 +308,9 @@ export function LandingPage() {
 
         <FaqSection />
 
-        <section className="closing-section">
-          <div className="closing-word" aria-hidden="true">LEVEL</div>
-          <Reveal><LevelMark className="closing-mark" /><p className="marketing-eyebrow">SEU PRÓXIMO NÍVEL COMEÇA AQUI</p><h2>Menos abas abertas.<br />Mais vida em movimento.</h2><p>Experimente o Level OS por 30 dias e construa seu sistema pessoal aos poucos.</p><div className="hero-actions centered"><a className="button" href="https://lvlos.com/register.php">Criar minha conta <ArrowRight size={18} /></a><a className="button button-quiet" href="https://lvlos.com/login.php">Já tenho uma conta</a></div></Reveal>
-        </section>
       </main>
+
+      <AnimatePresence>{showStickyCta ? <m.aside className="sticky-marketing-cta" initial={{ opacity: 0, y: 22 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 18 }} aria-label="Começar no Level OS"><span><LevelMark /><b>30 dias grátis</b><small>Sem cartão no cadastro</small></span><a className="button button-small" href="https://lvlos.com/register.php">Começar <ArrowRight /></a></m.aside> : null}</AnimatePresence>
 
       <footer className="marketing-footer"><Brand /><p>© {new Date().getFullYear()} Level OS. Sistema operacional pessoal.</p><div><a href="https://lvlos.com/login.php">Entrar</a><a href="https://lvlos.com/register.php">Criar conta</a></div></footer>
     </div>

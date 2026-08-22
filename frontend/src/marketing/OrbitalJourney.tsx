@@ -85,11 +85,11 @@ function OrbitalNode({ world, index, progress, reduceMotion }: { world: World; i
   )
   const scale = useTransform(progress, [scaleStart, scalePeak, scaleEnd], [0.78, 1.18, 0.86])
   return (
-    <m.div className={`orbit-node orbit-node-${world.id}`} style={reduceMotion ? undefined : { opacity, scale }} aria-hidden="true">
+    <m.a className={`orbit-node orbit-node-${world.id}`} style={reduceMotion ? undefined : { opacity, scale }} href={`#${world.id}`} aria-label={`Ir diretamente para ${world.eyebrow}`}>
       <span className="orbit-node-radar" />
       <span className="orbit-node-disc"><Icon name={world.icon} /></span>
       <span className="orbit-node-label">{world.number} / {world.eyebrow}</span>
-    </m.div>
+    </m.a>
   )
 }
 
@@ -151,15 +151,15 @@ function JourneyHud({ progress, reduceMotion }: { progress: MotionValue<number>;
   const progressScale = useTransform(progress, [0.08, 0.985], [0, 1])
 
   return (
-    <div className="journey-hud" aria-hidden="true">
-      <div className="journey-route-stack">
+    <div className="journey-hud">
+      <div className="journey-route-stack" aria-hidden="true">
         {routePhases.map((phase) => <RoutePhaseStatus phase={phase} progress={progress} reduceMotion={reduceMotion} key={`${phase.from}-${phase.to}`} />)}
       </div>
       <div className="journey-rail">
         <span className="journey-rail-track"><m.i style={reduceMotion ? { scaleX: 1 } : { scaleX: progressScale }} /></span>
-        <div className="journey-rail-labels">
-          {worlds.map((world, index) => <span key={world.id}><b>{world.number}</b>{world.eyebrow}</span>)}
-        </div>
+        <nav className="journey-rail-labels" aria-label="Estações da viagem pelo Level OS">
+          {worlds.map((world) => <a href={`#${world.id}`} key={world.id}><b>{world.number}</b>{world.eyebrow}</a>)}
+        </nav>
       </div>
     </div>
   )
@@ -213,7 +213,7 @@ export function OrbitalJourney() {
 
   return (
     <div className="orbital-journey" ref={journeyRef}>
-      <div className="orbital-stage" aria-hidden="true">
+      <div className="orbital-stage">
         <m.div className="orbital-stars" style={reduceMotion ? undefined : { y: starsY, scale: starsScale }} />
         <OrbitalMap progress={progress} reduceMotion={reduceMotion} />
         <JourneyHud progress={progress} reduceMotion={reduceMotion} />
