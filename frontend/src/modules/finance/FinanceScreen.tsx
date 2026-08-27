@@ -30,7 +30,6 @@ import {
   financeSummary,
   isCard,
   isIncomeActive,
-  totalLimit,
 } from "./selectors";
 import { useFinance } from "./store";
 import { AccountFormModal } from "./AccountFormModal";
@@ -41,6 +40,7 @@ import { AnnualTaxReport } from "./AnnualTaxReport";
 import { FinanceActionCenter } from "./FinanceActionCenter";
 import { FinanceExpenses } from "./FinanceExpenses";
 import { FinanceInstallments } from "./FinanceInstallments";
+import { FinanceCards } from "./FinanceCards";
 import { FinancePanelSkeleton, FinanceSummarySkeleton } from "./FinanceSkeleton";
 
 type Tab = "contas" | "extrato" | "gastos" | "parcelamentos" | "dash" | "ir";
@@ -68,8 +68,6 @@ export function FinanceScreen() {
   const summary = useMemo(() => financeSummary(fin.bootstrap), [fin.bootstrap]);
   const incomeTrend = useMemo(() => incomeTimeline(fin.bootstrap, resolveFinancePeriod("6m", "", "", new Date())), [fin.bootstrap]);
   const accounts = useMemo(() => fin.accounts.filter((a) => !isCard(a)), [fin.accounts]);
-  const cards = useMemo(() => fin.accounts.filter(isCard), [fin.accounts]);
-  const cardsLimit = useMemo(() => totalLimit(fin.accounts), [fin.accounts]);
   const [params, setParams] = useSearchParams();
   const requested = params.get("tab");
   const [tab, setTab] = useState<Tab>(
@@ -138,9 +136,17 @@ export function FinanceScreen() {
                 : fin.syncStatus === "syncing"
                   ? "Salvando alterações…"
                   : fin.syncStatus === "error"
-                    ? `Falha na sincronização${fin.syncError ? `: ${fin.syncError}` : ""}`
+                    ? (fin.syncError ?? "Não foi possível salvar agora. Tente novamente.")
                     : "Dados sincronizados"}
           </p>
+          {fin.syncStatus === "error" && fin.syncRequiresUpgrade ? (
+            <p className="mt-1 text-[11px] text-on-surface-variant">
+              A movimentação não foi salva.{" "}
+              <a href="/perfil" className="text-primary underline underline-offset-2">
+                {fin.syncErrorAction ?? "Conhecer o plano"}
+              </a>
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" onClick={() => assistant.openFor("financeiro")}>
@@ -153,7 +159,7 @@ export function FinanceScreen() {
         </div>
       </header>
 
-      {fin.syncStatus === "loading" ? <FinanceSummarySkeleton /> : <FinanceSummaryRow summary={summary} accountCount={accounts.length} cardCount={cards.length} />}
+      {fin.syncStatus === "loading" ? <FinanceSummarySkeleton /> : <FinanceSummaryRow summary={summary} accountCount={accounts.length} cardCount={summary.cardsCount} />}
 
       <div className="flex min-w-0 items-center gap-2">
         <Tabs
@@ -268,50 +274,12 @@ export function FinanceScreen() {
             )}
           </PersistentCollapsibleSection>
 
-          <PersistentCollapsibleSection
-            storageKey="level-os:finance:cards-open"
-            title="Cartões de crédito"
-            description={`${cards.length} cadastrados · usado ${formatCurrency(summary.totalInvoice)} de ${formatCurrency(cardsLimit)}`}
-            defaultOpen={false}
-            bodyClassName="p-0"
-          >
-            {cards.length === 0 ? (
-              <EmptyState title="Nenhum cartão cadastrado" description="Adicione um cartão para acompanhar limite, fechamento e fatura." icon="credit_card" action={<Button size="sm" onClick={() => setAccModal({ open: true, edit: null })}>Adicionar cartão</Button>} />
-            ) : (
-              <ul className="divide-y divide-outline-variant">
-                {cards.map((c) => (
-                  <li
-                    key={c.id}
-                    className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 px-3 py-3.5 hover:bg-surface-container sm:flex sm:px-5"
-                  >
-                    <BankLogo bank={c.bank} size={38} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-on-surface">
-                        {c.label}
-                      </p>
-                      <p className="truncate text-xs text-muted">
-                        Cartão · fecha dia {c.fechamento ?? "—"} · vence dia{" "}
-                        {c.vencimento ?? "—"}
-                      </p>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="font-mono text-sm text-on-surface">
-                        {formatCurrency(c.fatura)}
-                      </p>
-                      <p className="text-[11px] text-muted">
-                        livre {formatCurrency(Math.max(0, c.limite - c.fatura))}
-                      </p>
-                    </div>
-                    <RowActions
-                      entityLabel={c.label}
-                      onEdit={() => setAccModal({ open: true, edit: c })}
-                      onDelete={() => fin.removeAccount(c.id)}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </PersistentCollapsibleSection>
+          <FinanceCards
+            data={fin.bootstrap}
+            onAdd={() => setAccModal({ open: true, edit: null })}
+            onEdit={(card) => setAccModal({ open: true, edit: card })}
+            onDelete={fin.removeAccount}
+          />
 
           {incomeTrend.some((point) => point.total > 0) ? (
             <SectionCard title="Evolução das rendas" description="Ocorrências recorrentes + variáveis nos últimos 6 meses">

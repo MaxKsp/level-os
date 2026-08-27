@@ -1,11 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import { hasFinanceBackend, loadFinanceBootstrap, saveFinanceAuxiliary, saveFinanceSet, type FinanceAuxKey, type FinanceSetKey } from "./api"
+import { hasFinanceBackend, loadFinanceBootstrap, saveFinanceAuxiliary, saveFinanceSets, type FinanceAuxKey, type FinanceSetKey } from "./api"
 import type { AccountV2, ExpenseLineV4, FinanceBootstrap, IfoodEntry, IncomeLine, Transfer } from "./contracts"
 import type { SalaryInput } from "./salary"
 import { financeBootstrapMock } from "./mock"
 import { useProgress } from "../progress/store"
 import { addMoney, subtractMoney } from "../../lib/money"
 import { userStorageKey } from "../../lib/userStorage"
+import { apiErrorCode, describeApiError, type ApiErrorCode } from "../../lib/apiErrors"
 import { incomeStartIso } from "./incomeValidity"
 
 const STORAGE_KEY = "level-os:finance:v1"
@@ -55,22 +56,28 @@ interface FinanceContextValue extends FinanceState {
   bootstrap: FinanceBootstrap
   syncStatus: FinanceSyncStatus
   syncError: string | null
+  /** Código classificado da última falha, para decidir CTA sem expor texto interno. */
+  syncErrorCode: ApiErrorCode | null
+  /** Rótulo da ação sugerida para a última falha, quando existir. */
+  syncErrorAction: string | null
+  /** true quando a última falha foi recusa de plano e o item otimista foi descartado. */
+  syncRequiresUpgrade: boolean
   refresh: () => Promise<void>
-  addAccount: (account: AccountV2) => void
-  updateAccount: (account: AccountV2) => void
+  addAccount: (account: AccountV2) => Promise<void>
+  updateAccount: (account: AccountV2) => Promise<void>
   removeAccount: (id: string) => void
   setPrincipal: (id: string) => void
-  addIncome: (income: IncomeLine) => void
-  updateIncome: (income: IncomeLine) => void
+  addIncome: (income: IncomeLine) => Promise<void>
+  updateIncome: (income: IncomeLine) => Promise<void>
   /** Encerra a faixa atual e abre uma nova a partir de `effectiveMonth` (YYYY-MM), preservando o histórico. */
-  versionIncome: (id: string, value: number, effectiveMonth: string, salaryDetails?: SalaryInput | null) => void
+  versionIncome: (id: string, value: number, effectiveMonth: string, salaryDetails?: SalaryInput | null) => Promise<void>
   removeIncome: (id: string) => void
-  addExpense: (expense: ExpenseLineV4) => void
+  addExpense: (expense: ExpenseLineV4) => Promise<void>
   undoableExpense: ExpenseLineV4 | null
   undoLastExpense: () => void
   dismissUndo: () => void
   addExpenses: (expenses: ExpenseLineV4[]) => void
-  addVariableIncome: (income: IfoodEntry) => void
+  addVariableIncome: (income: IfoodEntry) => Promise<void>
   addVariableIncomes: (income: IfoodEntry[]) => void
   removeVariableIncome: (id: string) => void
   toggleBankFavorite: (bank: string) => void
@@ -126,6 +133,17 @@ function setSnapshots(state: FinanceState): Record<FinanceSetKey, string> {
   }
 }
 
+function mergeFinanceSets(current: FinanceState, next: FinanceState, keys: FinanceSetKey[]): FinanceState {
+  const merged = { ...current }
+  for (const key of keys) {
+    if (key === "accounts_v2") merged.accounts = next.accounts
+    else if (key === "income_lines") merged.income = next.income
+    else if (key === "expense_lines_v4") merged.expenses = next.expenses
+    else merged.variableIncome = next.variableIncome
+  }
+  return merged
+}
+
 function auxiliarySnapshots(state: FinanceState): Record<FinanceAuxKey, string> {
   return {
     bank_favorites: JSON.stringify(state.bankFavorites),
@@ -138,8 +156,11 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const remote = hasFinanceBackend()
   // Produção começa vazia/skeleton e aguarda a API; mocks ficam só no preview local.
   const [state, setState] = useState<FinanceState>(() => remote ? fromBootstrap(EMPTY_FINANCE) : loadLocal())
+  const stateRef = useRef(state)
   const [syncStatus, setSyncStatus] = useState<FinanceSyncStatus>(remote ? "loading" : "local")
   const [syncError, setSyncError] = useState<string | null>(null)
+  const [syncErrorCode, setSyncErrorCode] = useState<ApiErrorCode | null>(null)
+  const [syncErrorAction, setSyncErrorAction] = useState<string | null>(null)
   const [remoteReady, setRemoteReady] = useState(false)
   const [undoableExpense, setUndoableExpense] = useState<ExpenseLineV4 | null>(null)
   const undoTimer = useRef<number | null>(null)
@@ -147,7 +168,6 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
   const persistedAuxiliary = useRef<Record<FinanceAuxKey, string>>({ bank_favorites: "", transfers: "" })
   const saveQueue = useRef<Promise<unknown>>(Promise.resolve())
   const auxiliaryQueue = useRef<Promise<unknown>>(Promise.resolve())
-  const revision = useRef(0)
 
   useEffect(() => () => {
     if (undoTimer.current) window.clearTimeout(undoTimer.current)
@@ -162,60 +182,85 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(key, JSON.stringify({ version: 3, ...state }))
   }, [remote, state])
 
+  const clearSyncError = useCallback(() => {
+    setSyncError(null)
+    setSyncErrorCode(null)
+    setSyncErrorAction(null)
+  }, [])
+
+  const reportSyncError = useCallback((cause: unknown) => {
+    const copy = describeApiError(cause)
+    setSyncStatus("error")
+    setSyncError(copy.message)
+    setSyncErrorCode(apiErrorCode(cause))
+    setSyncErrorAction(copy.action ?? null)
+  }, [])
+
   const refresh = useCallback(async () => {
     if (!remote) return
     try {
       const next = fromBootstrap(await loadFinanceBootstrap())
       persistedSets.current = setSnapshots(next)
       persistedAuxiliary.current = auxiliarySnapshots(next)
+      stateRef.current = next
       setState(next)
       setRemoteReady(true)
       setSyncStatus("synced")
-      setSyncError(null)
+      clearSyncError()
     } catch (cause) {
       setRemoteReady(false)
-      setSyncStatus("error")
-      setSyncError(cause instanceof Error ? cause.message : "Não foi possível carregar os dados financeiros.")
+      reportSyncError(cause)
       throw cause
     }
-  }, [remote])
+  }, [clearSyncError, remote, reportSyncError])
+
+  const commitMutation = useCallback(async (keys: FinanceSetKey[], mutate: (current: FinanceState) => FinanceState): Promise<void> => {
+    if (!remote) {
+      const next = mutate(stateRef.current)
+      stateRef.current = next
+      setState(next)
+      return
+    }
+
+    const operation = saveQueue.current
+      .catch(() => undefined)
+      .then(async () => {
+        const next = mutate(stateRef.current)
+        if (next === stateRef.current) return
+        const values: Record<FinanceSetKey, unknown[]> = {
+          accounts_v2: next.accounts,
+          income_lines: next.income,
+          expense_lines_v4: next.expenses,
+          "ifood-entries": next.variableIncome,
+        }
+        const snapshots = setSnapshots(next)
+        const sets = Object.fromEntries(keys.map((key) => [key, values[key]])) as Partial<Record<FinanceSetKey, unknown[]>>
+        setSyncStatus("syncing")
+        try {
+          await saveFinanceSets(sets)
+          keys.forEach((key) => { persistedSets.current[key] = snapshots[key] })
+          // A próxima operação da fila precisa enxergar esta confirmação antes
+          // de a Promise resolver; o updater React pode ser adiado/batcheado.
+          const merged = mergeFinanceSets(stateRef.current, next, keys)
+          stateRef.current = merged
+          setState((current) => {
+            const latest = mergeFinanceSets(current, next, keys)
+            stateRef.current = latest
+            return latest
+          })
+          if (keys.some((key) => key !== "accounts_v2")) void refreshProgress()
+          setSyncStatus("synced")
+          clearSyncError()
+        } catch (cause) {
+          reportSyncError(cause)
+          throw cause
+        }
+      })
+    saveQueue.current = operation.catch(() => undefined)
+    await operation
+  }, [clearSyncError, refreshProgress, remote, reportSyncError])
 
   useEffect(() => { void refresh().catch(() => undefined) }, [refresh])
-
-  useEffect(() => {
-    if (!remoteReady) return
-    const values: Record<FinanceSetKey, unknown[]> = {
-      accounts_v2: state.accounts,
-      income_lines: state.income,
-      expense_lines_v4: state.expenses,
-      "ifood-entries": state.variableIncome,
-    }
-    const snapshots = setSnapshots(state)
-    const changed = (Object.keys(values) as FinanceSetKey[]).filter((key) => snapshots[key] !== persistedSets.current[key])
-    if (!changed.length) return
-    const currentRevision = ++revision.current
-    setSyncStatus("syncing")
-    const timer = window.setTimeout(() => {
-      saveQueue.current = saveQueue.current
-        .catch(() => undefined)
-        .then(() => Promise.all(changed.map((key) => saveFinanceSet(key, values[key]))))
-        .then(() => {
-          changed.forEach((key) => { persistedSets.current[key] = snapshots[key] })
-          if (changed.some((key) => key !== "accounts_v2")) void refreshProgress()
-          if (revision.current === currentRevision) {
-            setSyncStatus("synced")
-            setSyncError(null)
-          }
-        })
-        .catch((cause) => {
-          if (revision.current === currentRevision) {
-            setSyncStatus("error")
-            setSyncError(cause instanceof Error ? cause.message : "Não foi possível salvar as alterações.")
-          }
-        })
-    }, 500)
-    return () => window.clearTimeout(timer)
-  }, [remoteReady, refreshProgress, state.accounts, state.income, state.expenses, state.variableIncome])
 
   useEffect(() => {
     if (!remoteReady) return
@@ -231,15 +276,12 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
         .then(() => {
           changed.forEach((key) => { persistedAuxiliary.current[key] = snapshots[key] })
           setSyncStatus("synced")
-          setSyncError(null)
+          clearSyncError()
         })
-        .catch((cause) => {
-          setSyncStatus("error")
-          setSyncError(cause instanceof Error ? cause.message : "Não foi possível salvar os dados auxiliares.")
-        })
+        .catch((cause) => reportSyncError(cause))
     }, 350)
     return () => window.clearTimeout(timer)
-  }, [remoteReady, state.bankFavorites, state.transfers])
+  }, [clearSyncError, remoteReady, reportSyncError, state.bankFavorites, state.transfers])
 
   const bootstrap = useMemo<FinanceBootstrap>(() => ({
     accounts_v2: state.accounts,
@@ -263,19 +305,32 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
     setUndoableExpense(null)
   }, [])
 
+  const runMutation = useCallback((keys: FinanceSetKey[], mutate: (current: FinanceState) => FinanceState, afterCommit?: () => void) => {
+    void commitMutation(keys, mutate).then(afterCommit).catch(() => undefined)
+  }, [commitMutation])
+
+  const updateClientState = useCallback((mutate: (current: FinanceState) => FinanceState) => {
+    const next = mutate(stateRef.current)
+    stateRef.current = next
+    setState(next)
+  }, [])
+
   const value = useMemo<FinanceContextValue>(() => ({
     ...state,
     bootstrap,
     syncStatus,
     syncError,
+    syncErrorCode,
+    syncErrorAction,
+    syncRequiresUpgrade: syncErrorCode === "plan_required",
     refresh,
-    addAccount: (account) => setState((current) => ({ ...current, accounts: [...current.accounts, account] })),
-    updateAccount: (account) => setState((current) => ({ ...current, accounts: current.accounts.map((item) => item.id === account.id ? account : item) })),
-    removeAccount: (id) => setState((current) => ({ ...current, accounts: current.accounts.filter((item) => item.id !== id) })),
-    setPrincipal: (id) => setState((current) => ({ ...current, accounts: current.accounts.map((account) => ({ ...account, principal: account.id === id })) })),
-    addIncome: (income) => setState((current) => ({ ...current, income: [...current.income, income] })),
-    updateIncome: (income) => setState((current) => ({ ...current, income: current.income.map((item) => item.id === income.id ? income : item) })),
-    versionIncome: (id, value, effectiveMonth, salaryDetails) => setState((current) => {
+    addAccount: (account) => commitMutation(["accounts_v2"], (current) => ({ ...current, accounts: [...current.accounts, account] })),
+    updateAccount: (account) => commitMutation(["accounts_v2"], (current) => ({ ...current, accounts: current.accounts.map((item) => item.id === account.id ? account : item) })),
+    removeAccount: (id) => runMutation(["accounts_v2"], (current) => ({ ...current, accounts: current.accounts.filter((item) => item.id !== id) })),
+    setPrincipal: (id) => runMutation(["accounts_v2"], (current) => ({ ...current, accounts: current.accounts.map((account) => ({ ...account, principal: account.id === id })) })),
+    addIncome: (income) => commitMutation(["income_lines"], (current) => ({ ...current, income: [...current.income, income] })),
+    updateIncome: (income) => commitMutation(["income_lines"], (current) => ({ ...current, income: current.income.map((item) => item.id === income.id ? income : item) })),
+    versionIncome: (id, value, effectiveMonth, salaryDetails) => commitMutation(["income_lines"], (current) => {
       const old = current.income.find((item) => item.id === id)
       if (
         !old
@@ -303,29 +358,30 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
       }
       return { ...current, income: current.income.map((item) => item.id === id ? closed : item).concat(next) }
     }),
-    removeIncome: (id) => setState((current) => ({ ...current, income: current.income.filter((item) => item.id !== id) })),
-    addExpense: (expense) => {
-      setState((current) => ({ ...current, expenses: [...current.expenses, expense], accounts: applyExpenseToAccount(current.accounts, expense) }))
+    removeIncome: (id) => runMutation(["income_lines"], (current) => ({ ...current, income: current.income.filter((item) => item.id !== id) })),
+    addExpense: async (expense) => {
+      await commitMutation(["expense_lines_v4", "accounts_v2"], (current) => ({ ...current, expenses: [...current.expenses, expense], accounts: applyExpenseToAccount(current.accounts, expense) }))
       rememberUndo(expense)
     },
     undoableExpense,
     undoLastExpense: () => {
       if (!undoableExpense) return
-      setState((current) => ({
+      runMutation(["expense_lines_v4", "accounts_v2"], (current) => ({
         ...current,
         expenses: current.expenses.filter((item) => item.id !== undoableExpense.id),
         accounts: revertExpenseFromAccount(current.accounts, undoableExpense),
-      }))
-      dismissUndo()
+      }), dismissUndo)
     },
     dismissUndo,
-    addExpenses: (expenses) => setState((current) => ({ ...current, expenses: [...current.expenses, ...expenses], accounts: expenses.reduce(applyExpenseToAccount, current.accounts) })),
-    addVariableIncome: (income) => setState((current) => ({ ...current, variableIncome: [...current.variableIncome, income] })),
-    addVariableIncomes: (income) => setState((current) => ({ ...current, variableIncome: [...current.variableIncome, ...income] })),
-    removeVariableIncome: (id) => setState((current) => ({ ...current, variableIncome: current.variableIncome.filter((entry, index) => (entry.id ?? `variable-${index}`) !== id) })),
-    toggleBankFavorite: (bank) => setState((current) => ({ ...current, bankFavorites: toggleFavoriteBank(current.bankFavorites, bank) })),
-    addTransfer: (transfer) => setState((current) => ({ ...current, transfers: [...current.transfers, transfer], accounts: applyTransferToAccounts(current.accounts, transfer) })),
-  }), [bootstrap, dismissUndo, refresh, rememberUndo, state, syncError, syncStatus, undoableExpense])
+    addExpenses: (expenses) => runMutation(["expense_lines_v4", "accounts_v2"], (current) => ({ ...current, expenses: [...current.expenses, ...expenses], accounts: expenses.reduce(applyExpenseToAccount, current.accounts) })),
+    addVariableIncome: (income) => commitMutation(["ifood-entries"], (current) => ({ ...current, variableIncome: [...current.variableIncome, income] })),
+    addVariableIncomes: (income) => runMutation(["ifood-entries"], (current) => ({ ...current, variableIncome: [...current.variableIncome, ...income] })),
+    removeVariableIncome: (id) => runMutation(["ifood-entries"], (current) => ({ ...current, variableIncome: current.variableIncome.filter((entry, index) => (entry.id ?? `variable-${index}`) !== id) })),
+    toggleBankFavorite: (bank) => updateClientState((current) => ({ ...current, bankFavorites: toggleFavoriteBank(current.bankFavorites, bank) })),
+    addTransfer: (transfer) => runMutation(["accounts_v2"], (current) => ({ ...current, accounts: applyTransferToAccounts(current.accounts, transfer) }), () => {
+      updateClientState((current) => ({ ...current, transfers: [...current.transfers, transfer] }))
+    }),
+  }), [bootstrap, commitMutation, dismissUndo, refresh, rememberUndo, runMutation, state, syncError, syncErrorAction, syncErrorCode, syncStatus, undoableExpense, updateClientState])
 
   return <FinanceContext.Provider value={value}>{children}</FinanceContext.Provider>
 }
@@ -333,20 +389,18 @@ export function FinanceProvider({ children }: { children: ReactNode }) {
 function applyExpenseToAccount(accounts: AccountV2[], expense: ExpenseLineV4): AccountV2[] {
   if (!expense.accountId) return accounts
   return accounts.map((account) => {
-    if (account.id !== expense.accountId) return account
-    return account.tipo === "cartao"
-      ? { ...account, fatura: addMoney(account.fatura, expense.value) }
-      : { ...account, saldo: subtractMoney(account.saldo, expense.value) }
+    if (account.id !== expense.accountId || account.tipo === "cartao") return account
+    // A fatura do cartão é um fato informado manualmente. Lançamentos ficam
+    // separados nas estimativas e não contaminam esse valor confirmado.
+    return { ...account, saldo: subtractMoney(account.saldo, expense.value) }
   })
 }
 
 function revertExpenseFromAccount(accounts: AccountV2[], expense: ExpenseLineV4): AccountV2[] {
   if (!expense.accountId) return accounts
   return accounts.map((account) => {
-    if (account.id !== expense.accountId) return account
-    return account.tipo === "cartao"
-      ? { ...account, fatura: subtractMoney(account.fatura, expense.value) }
-      : { ...account, saldo: addMoney(account.saldo, expense.value) }
+    if (account.id !== expense.accountId || account.tipo === "cartao") return account
+    return { ...account, saldo: addMoney(account.saldo, expense.value) }
   })
 }
 

@@ -21,7 +21,7 @@ import {
   WalletCards,
   X,
 } from "lucide-react"
-import { AnimatePresence, useInView, useReducedMotion } from "motion/react"
+import { AnimatePresence, useReducedMotion } from "motion/react"
 import * as m from "motion/react-m"
 import { Icon } from "../design-system"
 
@@ -147,17 +147,13 @@ const FAQ_ITEMS = [
 type ProductArea = (typeof PRODUCT_AREAS)[number]
 
 function MarketingReveal({ children, className, delay = 0 }: { children: ReactNode; className?: string; delay?: number }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const isInView = useInView(ref, { once: true, margin: "-50px" })
   const reduceMotion = useReducedMotion()
-  const hidden = { opacity: 0, y: 8, filter: "blur(6px)" }
 
   return (
     <m.div
-      ref={ref}
       className={className}
-      initial={reduceMotion ? false : hidden}
-      animate={reduceMotion || isInView ? { opacity: 1, y: 0, filter: "blur(0px)" } : hidden}
+      initial={reduceMotion ? false : { y: 8 }}
+      animate={reduceMotion ? undefined : { y: 0 }}
       transition={{ duration: .42, delay, ease: "easeOut" }}
     >
       {children}
@@ -257,7 +253,7 @@ export function ProductTourSection() {
         </div>
       </div>
       <div className="tour-stage" id="product-tour-panel" role="tabpanel" aria-labelledby={`product-tab-${active.id}`} tabIndex={0}>
-        <AnimatePresence mode="wait" initial={false}>
+        <AnimatePresence mode="sync" initial={false}>
           <m.div className="tour-copy" key={`${active.id}-copy`} initial={reduceMotion ? false : { opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} exit={reduceMotion ? undefined : { opacity: 0, x: 10 }} transition={{ duration: .28 }}>
             <span className="tour-module-index">{active.index} / {active.name}</span><p className="marketing-eyebrow">{active.kicker}</p><h3>{active.title}</h3><p>{active.description}</p><ul>{active.features.map((feature) => <li key={feature}><Check /> {feature}</li>)}</ul><ProductDemo area={active} /><a className="tour-contextual-cta" href="https://lvlos.com/register.php">{active.cta} <ArrowRight /></a>
           </m.div>
@@ -271,11 +267,12 @@ export function ProductTourSection() {
 
 export function CapabilitySection() {
   const [expanded, setExpanded] = useState(false)
+  const reduceMotion = useReducedMotion()
   const visible = expanded ? CAPABILITIES : CAPABILITIES.slice(0, 6)
   return (
     <section className="capabilities-section deferred-section" aria-labelledby="capabilities-title">
       <MarketingReveal className="capabilities-heading"><div><p className="marketing-eyebrow">PROFUNDIDADE SOB DEMANDA</p><h2 id="capabilities-title">Recursos para usar.<br />Não para decorar a tela.</h2></div><p>O essencial aparece primeiro. As ferramentas mais específicas continuam prontas quando você precisar aprofundar.</p></MarketingReveal>
-      <div className="capabilities-grid">{visible.map(({ icon: CapabilityIcon, title, text }, index) => <m.article key={title} initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-50px" }} transition={{ duration: .36, delay: Math.min(index, 5) * .035 }}><span><CapabilityIcon /></span><div><h3>{title}</h3><p>{text}</p></div></m.article>)}</div>
+      <div className="capabilities-grid">{visible.map(({ icon: CapabilityIcon, title, text }, index) => <m.article key={title} initial={reduceMotion ? false : { y: 12 }} animate={reduceMotion ? undefined : { y: 0 }} transition={{ duration: .36, delay: Math.min(index, 5) * .035 }}><span><CapabilityIcon /></span><div><h3>{title}</h3><p>{text}</p></div></m.article>)}</div>
       <button className="capabilities-toggle" type="button" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>{expanded ? "Mostrar somente o essencial" : `Ver todos os ${CAPABILITIES.length} recursos`} <ChevronDown className={expanded ? "is-open" : ""} /></button>
     </section>
   )

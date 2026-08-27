@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { TrendingUp } from "lucide-react"
 import { Modal } from "../../components/ui/Modal"
 import { Button } from "../../components/ui/button"
+import { describeApiError } from "../../lib/apiErrors"
 import { formatCurrency } from "../../lib/format"
 import type { AccountV2, IfoodEntry, IncomeLine } from "./contracts"
 import { IncomeForm } from "./IncomeForm"
@@ -13,10 +14,10 @@ interface Props {
   initial?: IncomeLine | null
   accounts: AccountV2[]
   onClose: () => void
-  onSave: (income: IncomeLine) => void
-  onSaveVariable?: (entry: IfoodEntry) => void
+  onSave: (income: IncomeLine) => Promise<void>
+  onSaveVariable?: (entry: IfoodEntry) => Promise<void>
   /** Reajuste com vigência: encerra a faixa atual e abre outra a partir do mês, sem reescrever o histórico. */
-  onVersion?: (id: string, value: number, effectiveMonth: string, salaryDetails?: SalaryInput | null) => void
+  onVersion?: (id: string, value: number, effectiveMonth: string, salaryDetails?: SalaryInput | null) => Promise<void>
 }
 
 function currentMonth(): string {
@@ -42,6 +43,7 @@ export function IncomeFormModal({ open, initial, accounts, onClose, onSave, onSa
   const [raiseValue, setRaiseValue] = useState("")
   const [raiseMonth, setRaiseMonth] = useState(currentMonth)
   const [raiseError, setRaiseError] = useState("")
+  const [isApplyingRaise, setIsApplyingRaise] = useState(false)
 
   const raiseNumeric = Number(raiseValue)
   const revisedSalary = useMemo<SalaryInput | null>(() => {
@@ -58,8 +60,8 @@ export function IncomeFormModal({ open, initial, accounts, onClose, onSave, onSa
     setRaiseError("")
   }, [initial, open])
 
-  const applyRaise = () => {
-    if (!initial || !onVersion) return
+  const applyRaise = async () => {
+    if (!initial || !onVersion || isApplyingRaise) return
     if (!Number.isFinite(raiseNumeric) || raiseNumeric <= 0) {
       setRaiseError("Informe um valor maior que zero.")
       return
@@ -73,11 +75,18 @@ export function IncomeFormModal({ open, initial, accounts, onClose, onSave, onSa
       setRaiseError("A nova vigência deve ser posterior ao início da faixa atual.")
       return
     }
-    onVersion(initial.id, revisedNet, raiseMonth, revisedSalary)
-    setRaiseOpen(false)
-    setRaiseValue("")
+    setIsApplyingRaise(true)
     setRaiseError("")
-    onClose()
+    try {
+      await onVersion(initial.id, revisedNet, raiseMonth, revisedSalary)
+      setRaiseOpen(false)
+      setRaiseValue("")
+      onClose()
+    } catch (cause) {
+      setRaiseError(describeApiError(cause).message)
+    } finally {
+      setIsApplyingRaise(false)
+    }
   }
 
   return (
@@ -114,8 +123,8 @@ export function IncomeFormModal({ open, initial, accounts, onClose, onSave, onSa
                   className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
                 />
               </label>
-              <Button type="button" variant="primary" size="md" onClick={applyRaise} disabled={!(raiseNumeric > 0)}>
-                Aplicar
+              <Button type="button" variant="primary" size="md" onClick={applyRaise} disabled={!(raiseNumeric > 0) || isApplyingRaise}>
+                {isApplyingRaise ? "Aplicando…" : "Aplicar"}
               </Button>
               {revisedSalary ? (
                 <p className="text-xs text-on-surface-variant sm:col-span-3">

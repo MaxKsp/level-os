@@ -169,12 +169,11 @@ function WorldChapter({ world, reduceMotion }: { world: World; reduceMotion: boo
   const chapterRef = useRef<HTMLElement>(null)
   const { scrollYProgress } = useScroll({ target: chapterRef, offset: ["start end", "end start"] })
   const chapterProgress = useSpring(scrollYProgress, { stiffness: 110, damping: 34, mass: 0.2 })
-  const opacity = useTransform(chapterProgress, [0.06, 0.22, 0.72, 0.94], [0, 1, 1, 0])
   const y = useTransform(chapterProgress, [0.06, 0.28, 0.72, 0.94], [42, 0, 0, -30])
   const scale = useTransform(chapterProgress, [0.06, 0.3, 0.72, 0.94], [0.975, 1, 1, 0.985])
   return (
     <article ref={chapterRef} className="orbit-chapter chapter-right" id={world.id}>
-      <m.div className="orbit-copy" style={reduceMotion ? undefined : { opacity, y, scale }}>
+      <m.div className="orbit-copy" style={reduceMotion ? undefined : { y, scale }}>
         <div className="orbit-card-header">
           <span className="orbit-module-symbol"><Icon name={world.icon} /></span>
           <span><small>ESTAÇÃO {world.number} / 05</small><strong>{world.eyebrow}</strong></span>

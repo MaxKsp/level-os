@@ -89,9 +89,8 @@ function Reveal({ children, className = "", delay = 0 }: { children: ReactNode; 
   return (
     <m.div
       className={className}
-      initial={reduceMotion ? false : { opacity: 0, y: 24, filter: "blur(7px)" }}
-      whileInView={reduceMotion ? undefined : { opacity: 1, y: 0, filter: "blur(0px)" }}
-      viewport={{ once: true, margin: "-72px" }}
+      initial={reduceMotion ? false : { y: 16 }}
+      animate={reduceMotion ? undefined : { y: 0 }}
       transition={{ duration: 0.52, delay, ease: [0.22, 1, 0.36, 1] }}
     >
       {children}
@@ -217,8 +216,8 @@ export function LandingPage() {
   useMarketingMotionGuard()
   useEffect(() => {
     const hero = document.getElementById("inicio")
-    if (!hero) return
-    const observer = new IntersectionObserver(([entry]) => setShowStickyCta(!entry.isIntersecting), { threshold: .12 })
+    if (!hero || typeof window.IntersectionObserver !== "function") return
+    const observer = new window.IntersectionObserver(([entry]) => setShowStickyCta(!entry.isIntersecting), { threshold: .12 })
     observer.observe(hero)
     return () => observer.disconnect()
   }, [])
@@ -242,16 +241,16 @@ export function LandingPage() {
         <section className="marketing-hero" id="inicio">
           <div className="hero-grid" aria-hidden="true" />
           <div className="hero-copy">
-            <m.div className="hero-edition" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.45 }}><span>LEVEL OS / SUA VISÃO GERAL</span><i>ONLINE</i></m.div>
-            <m.p className="marketing-eyebrow" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.45 }}>SEU SISTEMA OPERACIONAL PESSOAL</m.p>
-            <m.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.68, ease: [0.22, 1, 0.36, 1] }}>Comece pelo que<br /><span>importa hoje.</span></m.h1>
-            <m.div className="hero-lower" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.62, delay: 0.12 }}>
+            <m.div className="hero-edition" initial={{ y: 6 }} animate={{ y: 0 }} transition={{ duration: 0.45 }}><span>LEVEL OS / SUA VISÃO GERAL</span><i>ONLINE</i></m.div>
+            <m.p className="marketing-eyebrow" initial={{ y: 6 }} animate={{ y: 0 }} transition={{ duration: 0.45 }}>SEU SISTEMA OPERACIONAL PESSOAL</m.p>
+            <m.h1 initial={{ y: 20 }} animate={{ y: 0 }} transition={{ duration: 0.68, ease: [0.22, 1, 0.36, 1] }}>Comece pelo que<br /><span>importa hoje.</span></m.h1>
+            <m.div className="hero-lower" initial={{ y: 16 }} animate={{ y: 0 }} transition={{ duration: 0.62, delay: 0.12 }}>
               <p className="hero-description">Uma tela inicial que reúne seu dinheiro, compromissos, treino e progresso — com contexto suficiente para você agir, sem transformar sua vida em outra planilha.</p>
               <div className="hero-outcomes" aria-label="Resultados do Level OS"><span><b>01</b> Organizar o dia</span><span><b>02</b> Entender o dinheiro</span><span><b>03</b> Acompanhar a evolução</span></div>
               <div><div className="hero-actions"><a className="button" href="https://lvlos.com/register.php">Começar grátis <ArrowRight size={18} /></a><a className="button button-quiet" href="#sistema">Explorar o sistema</a></div><p className="hero-note"><Check size={14} /> 30 dias para experimentar · sem cartão</p></div>
             </m.div>
           </div>
-          <m.div className="hero-product" initial={{ opacity: 0, y: 30, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.8, delay: 0.14, ease: [0.22, 1, 0.36, 1] }}><DashboardPreview /></m.div>
+          <m.div className="hero-product" initial={{ y: 30, scale: 0.985 }} animate={{ y: 0, scale: 1 }} transition={{ duration: 0.8, delay: 0.14, ease: [0.22, 1, 0.36, 1] }}><DashboardPreview /></m.div>
           <a className="hero-scroll" href="#sistema"><span>Conheça o sistema</span><ArrowDown size={15} /></a>
         </section>
 

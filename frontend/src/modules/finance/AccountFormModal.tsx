@@ -3,6 +3,7 @@ import { Modal } from "../../components/ui/Modal"
 import { Button } from "../../components/ui/button"
 import { BankLogo } from "../../components/ui/BankLogo"
 import { BankPicker } from "../../components/ui/BankPicker"
+import { describeApiError } from "../../lib/apiErrors"
 import type { AccountV2 } from "./contracts"
 import { genId, useFinance } from "./store"
 import { suggestAccountLabel, updateAccountIdentity } from "./accountLabel"
@@ -27,7 +28,7 @@ interface Props {
   open: boolean
   initial?: AccountV2 | null
   onClose: () => void
-  onSave: (a: AccountV2) => void
+  onSave: (a: AccountV2) => Promise<void>
 }
 
 export function AccountFormModal({ open, initial, onClose, onSave }: Props) {
@@ -38,10 +39,11 @@ export function AccountFormModal({ open, initial, onClose, onSave }: Props) {
   )
 }
 
-export function AccountForm({ initial, resetKey, onCancel, onSave }: { initial?: AccountV2 | null; resetKey?: string | number | boolean; onCancel: () => void; onSave: (account: AccountV2) => void }) {
+export function AccountForm({ initial, resetKey, onCancel, onSave }: { initial?: AccountV2 | null; resetKey?: string | number | boolean; onCancel: () => void; onSave: (account: AccountV2) => Promise<void> }) {
   const { bankFavorites, toggleBankFavorite } = useFinance()
   const [a, setA] = useState<AccountV2>(EMPTY)
   const [err, setErr] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [autoLabel, setAutoLabel] = useState(true)
 
   useEffect(() => {
@@ -58,10 +60,19 @@ export function AccountForm({ initial, resetKey, onCancel, onSave }: { initial?:
     setA((current) => updateAccountIdentity(current, patch, autoLabel))
   }
 
-  const submit = () => {
+  const submit = async () => {
+    if (isSubmitting) return
     if (!a.label.trim()) { setErr("Dê um nome à conta."); return }
-    onSave({ ...a, id: a.id || genId(isCard ? "card" : "acc"), bank: bankName, createdAt: a.createdAt ?? Date.now() })
-    onCancel()
+    setIsSubmitting(true)
+    setErr("")
+    try {
+      await onSave({ ...a, id: a.id || genId(isCard ? "card" : "acc"), bank: bankName, createdAt: a.createdAt ?? Date.now() })
+      onCancel()
+    } catch (cause) {
+      setErr(describeApiError(cause).message)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -101,8 +112,8 @@ export function AccountForm({ initial, resetKey, onCancel, onSave }: { initial?:
 
         {isCard ? (
           <div className="grid grid-cols-2 gap-3">
-            <div><label className={lbl}>Limite (R$)</label><input type="number" className={field} value={a.limite || ""} onChange={(e) => set({ limite: Number(e.target.value) })} /></div>
-            <div><label className={lbl}>Fatura atual (R$)</label><input type="number" className={field} value={a.fatura || ""} onChange={(e) => set({ fatura: Number(e.target.value) })} /></div>
+            <div><label className={lbl}>Limite informado (R$)</label><input type="number" min={0} className={field} value={a.limite || ""} onChange={(e) => set({ limite: Number(e.target.value) })} /></div>
+            <div><label className={lbl}>Fatura atual informada (R$)</label><input type="number" min={0} className={field} value={a.fatura || ""} onChange={(e) => set({ fatura: Number(e.target.value) })} /></div>
             <div><label className={lbl}>Dia de fechamento</label><input type="number" min={1} max={31} className={field} value={a.fechamento ?? ""} onChange={(e) => set({ fechamento: e.target.value ? Number(e.target.value) : null })} /></div>
             <div><label className={lbl}>Dia de vencimento</label><input type="number" min={1} max={31} className={field} value={a.vencimento ?? ""} onChange={(e) => set({ vencimento: e.target.value ? Number(e.target.value) : null })} /></div>
           </div>
@@ -121,8 +132,8 @@ export function AccountForm({ initial, resetKey, onCancel, onSave }: { initial?:
         {err ? <p className="text-sm text-error">{err}</p> : null}
 
         <div className="flex justify-end gap-2 pt-1">
-          <Button variant="ghost" size="md" onClick={onCancel}>Cancelar</Button>
-          <Button variant="primary" size="md" onClick={submit}>{initial ? "Salvar" : "Criar conta"}</Button>
+          <Button variant="ghost" size="md" onClick={onCancel} disabled={isSubmitting}>Cancelar</Button>
+          <Button variant="primary" size="md" onClick={submit} disabled={isSubmitting}>{isSubmitting ? "Salvando…" : initial ? "Salvar" : "Criar conta"}</Button>
         </div>
       </div>
   )
