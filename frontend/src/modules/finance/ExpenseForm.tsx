@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Button } from "../../components/ui/button"
 import { CurrencyInput } from "../../components/ui/CurrencyInput"
+import { describeApiError } from "../../lib/apiErrors"
 import { userStorageKey } from "../../lib/userStorage"
 import type { AccountV2, ExpenseLineV4 } from "./contracts"
 import { CATEGORY_LABEL } from "./categories"
@@ -13,7 +14,7 @@ const label = "mb-1.5 block text-xs font-medium text-on-surface-variant"
 const DRAFT_KEY = "level-os:expense-draft:v1"
 const RECENT_ACCOUNT_KEY = "level-os:expense-recent-account:v1"
 
-export function ExpenseForm({ accounts, resetKey, onCancel, onSave }: { accounts: AccountV2[]; resetKey?: string | number | boolean; onCancel: () => void; onSave: (expense: ExpenseLineV4) => void }) {
+export function ExpenseForm({ accounts, resetKey, onCancel, onSave }: { accounts: AccountV2[]; resetKey?: string | number | boolean; onCancel: () => void; onSave: (expense: ExpenseLineV4) => Promise<void> }) {
   const [description, setDescription] = useState("")
   const [amount, setAmount] = useState("")
   const [date, setDate] = useState("")
@@ -24,6 +25,7 @@ export function ExpenseForm({ accounts, resetKey, onCancel, onSave }: { accounts
   const [method, setMethod] = useState("")
   const [installments, setInstallments] = useState("")
   const [error, setError] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [categoryTouched, setCategoryTouched] = useState(false)
 
   useEffect(() => {
@@ -75,23 +77,32 @@ export function ExpenseForm({ accounts, resetKey, onCancel, onSave }: { accounts
     }
   }
 
-  const submit = () => {
+  const submit = async () => {
+    if (isSubmitting) return
     const value = Number(amount)
     if (!account) return setError("Selecione uma conta ou cartão.")
     if (!description.trim()) return setError("Descreva a despesa.")
     if (!date || !Number.isFinite(value) || value <= 0) return setError("Informe data e valor maior que zero.")
-    onSave({
-      id: genId("exp"), label: description.trim(), value, date, time: time || null,
-      recorrencia: recurrence, categoria: category, method: method || (isCard(account) ? "credito" : "debito"),
-      bank: account.bank, accountId: account.id,
-      parcelas: Number.isInteger(installmentCount) && installmentCount >= 2 ? installmentCount : null,
-      createdAt: Math.floor(Date.now() / 1000),
-    })
+    setIsSubmitting(true)
+    setError("")
     try {
-      sessionStorage.setItem(userStorageKey(RECENT_ACCOUNT_KEY), account.id)
-      sessionStorage.removeItem(userStorageKey(DRAFT_KEY))
-    } catch { /* Preferências de conveniência não bloqueiam o lançamento. */ }
-    onCancel()
+      await onSave({
+        id: genId("exp"), label: description.trim(), value, date, time: time || null,
+        recorrencia: recurrence, categoria: category, method: method || (isCard(account) ? "credito" : "debito"),
+        bank: account.bank, accountId: account.id,
+        parcelas: Number.isInteger(installmentCount) && installmentCount >= 2 ? installmentCount : null,
+        createdAt: Math.floor(Date.now() / 1000),
+      })
+      try {
+        sessionStorage.setItem(userStorageKey(RECENT_ACCOUNT_KEY), account.id)
+        sessionStorage.removeItem(userStorageKey(DRAFT_KEY))
+      } catch { /* Preferências de conveniência não bloqueiam o lançamento. */ }
+      onCancel()
+    } catch (cause) {
+      setError(describeApiError(cause).message)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -110,7 +121,7 @@ export function ExpenseForm({ accounts, resetKey, onCancel, onSave }: { accounts
         </div>
       )}
       {error ? <p role="alert" className="text-sm text-error">{error}</p> : null}
-      <div className="flex justify-end gap-2 border-t border-outline-variant pt-4"><Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button><Button type="button" disabled={!accounts.length} onClick={submit}>Lançar despesa</Button></div>
+      <div className="flex justify-end gap-2 border-t border-outline-variant pt-4"><Button type="button" variant="ghost" onClick={onCancel} disabled={isSubmitting}>Cancelar</Button><Button type="button" disabled={!accounts.length || isSubmitting} onClick={submit}>{isSubmitting ? "Salvando…" : "Lançar despesa"}</Button></div>
     </div>
   )
 }

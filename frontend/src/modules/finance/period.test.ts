@@ -8,7 +8,7 @@ describe("finance period", () => {
   it("resolves rolling periods and the current month", () => {
     expect(resolveFinancePeriod("7d", "", "", reference)).toMatchObject({ start: "2026-07-11", end: "2026-07-17" })
     expect(resolveFinancePeriod("30d", "", "", reference)).toMatchObject({ start: "2026-06-18", end: "2026-07-17" })
-    expect(resolveFinancePeriod("month", "", "", reference)).toMatchObject({ start: "2026-07-01", end: "2026-07-31" })
+    expect(resolveFinancePeriod("month", "", "", reference)).toMatchObject({ start: "2026-07-01", end: "2026-07-17" })
     expect(resolveFinancePeriod("previous-month", "", "", reference)).toMatchObject({ start: "2026-06-01", end: "2026-06-30" })
     expect(resolveFinancePeriod("6m", "", "", reference)).toMatchObject({ start: "2026-02-01", end: "2026-07-17" })
   })

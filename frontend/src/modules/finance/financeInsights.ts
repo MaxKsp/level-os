@@ -2,6 +2,8 @@ import type { ExpenseLineV4, FinanceBootstrap } from "./contracts"
 import { CATEGORY_LABEL } from "./categories"
 import { formatCurrency } from "../../lib/format"
 import { fromMoneyCents, toMoneyCents } from "../../lib/money"
+import { resolveFinancePeriod } from "./period"
+import { buildPeriodComparison, formatDeltaPercentage } from "./periodComparison"
 
 export interface FinanceInsight {
   id: string
@@ -104,6 +106,20 @@ export function financeInsights(data: FinanceBootstrap, now: Date = new Date()):
       icon: "credit_card",
       title: `Fatura consumiu ${Math.round(mostUsedCard.pct)}% do limite`,
       detail: `${mostUsedCard.account.label}: ${formatCurrency(mostUsedCard.account.fatura)} de ${formatCurrency(mostUsedCard.account.limite)}.`,
+    })
+  }
+
+  // 5. Comparação com o intervalo anterior equivalente — cálculo local, sem IA.
+  const monthRange = resolveFinancePeriod("month", "", "", now)
+  const comparison = buildPeriodComparison(data, monthRange)
+  if (comparison.expenses.direction === "increased" || comparison.expenses.direction === "decreased") {
+    const increased = comparison.expenses.direction === "increased"
+    insights.push({
+      id: "period-comparison",
+      tone: increased ? "warning" : "positive",
+      icon: increased ? "trending_up" : "trending_down",
+      title: `Despesas ${increased ? "acima" : "abaixo"} do período anterior equivalente`,
+      detail: `${formatCurrency(comparison.expenses.current)} em ${comparison.current.label} contra ${formatCurrency(comparison.expenses.previous)} em ${comparison.previous.label} (${formatDeltaPercentage(comparison.expenses)}).`,
     })
   }
 

@@ -7,6 +7,7 @@ import { formatCurrency, formatSignedCurrency } from "../../lib/format"
 import { CATEGORY_LABEL } from "./categories"
 import type { FinanceBootstrap } from "./contracts"
 import { FinancePeriodFilter } from "./FinancePeriodFilter"
+import { FinancePeriodComparison } from "./FinancePeriodComparison"
 import { financeTotalsForPeriod, financeTrendForPeriod, resolveFinancePeriod, toLocalIso, type FinancePeriodPreset } from "./period"
 import { expensesByCategory, financeSummary, isCard } from "./selectors"
 import { buildInstallmentSummary } from "./installments"
@@ -64,6 +65,10 @@ export function FinanceDashboard({ data }: { data: FinanceBootstrap }) {
           onCustomStartChange={setCustomStart}
           onCustomEndChange={setCustomEnd}
         />
+      </div>
+
+      <div className="lg:col-span-6">
+        <FinancePeriodComparison data={data} range={period} />
       </div>
 
       {insights.length > 0 ? (

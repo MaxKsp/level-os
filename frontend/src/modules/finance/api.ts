@@ -1,3 +1,4 @@
+import { ApiError, normalizeApiErrorCode } from "../../lib/apiErrors"
 import type { FinanceBootstrap } from "./contracts"
 import type { OfxPreviewRow } from "./ofx"
 
@@ -15,11 +16,19 @@ export function hasFinanceBackend(): boolean {
   return typeof window !== "undefined" && Boolean(window.CSRF_TOKEN)
 }
 
+function errorField(body: unknown, field: "code" | "error" | "required_plan"): string | null {
+  if (!body || typeof body !== "object" || !(field in body)) return null
+  const value = (body as Record<string, unknown>)[field]
+  return typeof value === "string" && value.trim() ? value : null
+}
+
 async function readJson(response: Response): Promise<unknown> {
   const body = await response.json().catch(() => null)
   if (!response.ok) {
-    const message = body && typeof body === "object" && "error" in body ? String(body.error) : `Erro HTTP ${response.status}`
-    throw new Error(message)
+    // O código interno nunca vira mensagem de tela: ele é classificado aqui e
+    // traduzido pelo mapa central de erros.
+    const raw = errorField(body, "code") ?? errorField(body, "error")
+    throw new ApiError(normalizeApiErrorCode(raw, response.status), response.status, errorField(body, "required_plan"))
   }
   return body
 }
@@ -42,14 +51,18 @@ export async function loadFinanceBootstrap(): Promise<FinanceBootstrap> {
   }
 }
 
-export async function saveFinanceSet(key: FinanceSetKey, value: unknown[]): Promise<void> {
+export async function saveFinanceSets(sets: Partial<Record<FinanceSetKey, unknown[]>>): Promise<void> {
   const response = await fetch("/api/finance.php", {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json", "X-CSRF-Token": window.CSRF_TOKEN ?? "" },
-    body: JSON.stringify({ key, value }),
+    body: JSON.stringify({ sets }),
   })
   await readJson(response)
+}
+
+export async function saveFinanceSet(key: FinanceSetKey, value: unknown[]): Promise<void> {
+  await saveFinanceSets({ [key]: value })
 }
 
 export async function saveFinanceAuxiliary(key: FinanceAuxKey, value: unknown): Promise<void> {

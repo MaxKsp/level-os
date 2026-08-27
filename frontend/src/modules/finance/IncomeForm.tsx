@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "../../components/ui/button"
 import { CurrencyInput } from "../../components/ui/CurrencyInput"
 import { Icon } from "../../design-system"
+import { describeApiError } from "../../lib/apiErrors"
 import { formatCurrency } from "../../lib/format"
 import type { AccountV2, IfoodEntry, IncomeLine } from "./contracts"
 import { calculateSalary, EMPTY_SALARY_INPUT, type SalaryInput } from "./salary"
@@ -25,8 +26,8 @@ interface IncomeFormProps {
   initial?: IncomeLine | null
   resetKey?: string | number | boolean
   onCancel: () => void
-  onSaveIncome: (income: IncomeLine) => void
-  onSaveVariable?: (entry: IfoodEntry) => void
+  onSaveIncome: (income: IncomeLine) => Promise<void>
+  onSaveVariable?: (entry: IfoodEntry) => Promise<void>
 }
 
 function modeFromIncome(initial?: IncomeLine | null): IncomeMode {
@@ -47,6 +48,8 @@ export function IncomeForm({ accounts, initial, resetKey, onCancel, onSaveIncome
   const [km, setKm] = useState("")
   const [salary, setSalary] = useState<SalaryInput>(EMPTY_SALARY_INPUT)
   const [error, setError] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const submitting = useRef(false)
 
   useEffect(() => {
     const defaultAccount = accounts.find((account) => account.principal && account.tipo !== "cartao")
@@ -62,6 +65,7 @@ export function IncomeForm({ accounts, initial, resetKey, onCancel, onSaveIncome
     setKm("")
     setSalary(initial?.salaryDetails ?? { ...EMPTY_SALARY_INPUT, grossSalary: initial?.value ?? 0 })
     setError("")
+    submitting.current = false
   }, [accounts, initial, resetKey])
 
   const estimate = useMemo(() => calculateSalary(salary), [salary])
@@ -74,41 +78,56 @@ export function IncomeForm({ accounts, initial, resetKey, onCancel, onSaveIncome
     if (next === "clt" && !labelValue.trim()) setLabelValue("Salário CLT")
   }
 
-  const submit = () => {
-    const cleanLabel = labelValue.trim()
-    if (!cleanLabel) return setError("Descreva a renda.")
-    if (!accountId && accounts.some((account) => account.tipo !== "cartao")) return setError("Selecione a conta de recebimento.")
-
-    if (mode === "avulsa") {
-      const value = Number(amount)
-      if (!date || !Number.isFinite(value) || value <= 0) return setError("Informe data e valor maior que zero.")
-      onSaveVariable?.({
-        id: genId("var"), label: cleanLabel, valor: value, date, km: km ? Number(km) : null,
-        accountId: accountId || null, source: "manual",
-      })
-      onCancel()
-      return
+  const submit = async () => {
+    if (submitting.current) return
+    submitting.current = true
+    setIsSubmitting(true)
+    const release = () => { submitting.current = false; setIsSubmitting(false) }
+    const fail = (message: string) => {
+      release()
+      setError(message)
     }
 
-    const value = mode === "clt" ? estimate.netSalary : Number(amount)
-    if (!Number.isFinite(value) || value <= 0) return setError(mode === "clt" ? "Informe um salário bruto válido." : "Informe um valor maior que zero.")
-    if (mode === "temporaria" && !endDate) return setError("Informe o último recebimento.")
-    const paydayValue = Number(payday)
-    if (!Number.isInteger(paydayValue) || paydayValue < 1 || paydayValue > 31) return setError("O dia de pagamento deve ficar entre 1 e 31.")
+    const cleanLabel = labelValue.trim()
+    if (!cleanLabel) return fail("Descreva a renda.")
+    if (!accountId && accounts.some((account) => account.tipo !== "cartao")) return fail("Selecione a conta de recebimento.")
 
-    onSaveIncome({
-      id: initial?.id || genId("inc"),
-      label: cleanLabel,
-      value,
-      type: mode === "clt" ? "fixa" : mode,
-      date: initial ? (initial.date ?? null) : date,
-      endDate: mode === "temporaria" ? endDate : null,
-      payday: paydayValue,
-      accountId: accountId || null,
-      createdAt: initial?.createdAt ?? Math.floor(Date.now() / 1000),
-      salaryDetails: mode === "clt" ? salary : null,
-    })
-    onCancel()
+    try {
+      if (mode === "avulsa") {
+        const value = Number(amount)
+        if (!date || !Number.isFinite(value) || value <= 0) return fail("Informe data e valor maior que zero.")
+        await onSaveVariable?.({
+          id: genId("var"), label: cleanLabel, valor: value, date, km: km ? Number(km) : null,
+          accountId: accountId || null, source: "manual",
+        })
+        onCancel()
+        return
+      }
+
+      const value = mode === "clt" ? estimate.netSalary : Number(amount)
+      if (!Number.isFinite(value) || value <= 0) return fail(mode === "clt" ? "Informe um salário bruto válido." : "Informe um valor maior que zero.")
+      if (mode === "temporaria" && !endDate) return fail("Informe o último recebimento.")
+      const paydayValue = Number(payday)
+      if (!Number.isInteger(paydayValue) || paydayValue < 1 || paydayValue > 31) return fail("O dia de pagamento deve ficar entre 1 e 31.")
+
+      await onSaveIncome({
+        id: initial?.id || genId("inc"),
+        label: cleanLabel,
+        value,
+        type: mode === "clt" ? "fixa" : mode,
+        date: initial ? (initial.date ?? null) : date,
+        endDate: mode === "temporaria" ? endDate : null,
+        payday: paydayValue,
+        accountId: accountId || null,
+        createdAt: initial?.createdAt ?? Math.floor(Date.now() / 1000),
+        salaryDetails: mode === "clt" ? salary : null,
+      })
+      onCancel()
+    } catch (cause) {
+      setError(describeApiError(cause).message)
+    } finally {
+      release()
+    }
   }
 
   return (
@@ -174,8 +193,8 @@ export function IncomeForm({ accounts, initial, resetKey, onCancel, onSaveIncome
       {error ? <p role="alert" className="text-sm text-error">{error}</p> : null}
 
       <div className="flex justify-end gap-2 border-t border-outline-variant pt-4">
-        <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
-        <Button type="button" onClick={submit}>{initial ? "Salvar renda" : "Adicionar renda"}</Button>
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={isSubmitting}>Cancelar</Button>
+        <Button type="button" onClick={submit} disabled={isSubmitting}>{isSubmitting ? "Salvando…" : initial ? "Salvar renda" : "Adicionar renda"}</Button>
       </div>
     </div>
   )
