@@ -18,7 +18,7 @@ function finance_data_bootstrap(PDO $db, int $uid): array {
     try {
         finance_migrate_if_needed($db, $uid);
     } catch (Throwable $e) {
-        error_log('migrate: ' . $e->getMessage());
+        security_log_exception('finance.migration', $e);
     }
 
     return finance_load_all_sets($db, $uid);

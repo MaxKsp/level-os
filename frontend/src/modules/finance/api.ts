@@ -101,7 +101,7 @@ export async function previewOfxServer(file: File): Promise<OfxPreviewRow[]> {
     if (!Number.isFinite(value) || value <= 0 || typeof row.date !== "string") return []
     const fitid = typeof row.fitid === "string" && row.fitid ? row.fitid : null
     return [{
-      id: fitid ?? `ofx-server-${row.date}-${index}`,
+      id: `ofx-server-${fitid ?? row.date}-${index}`,
       date: row.date,
       value,
       kind: row.kind === "income" ? "entrada" as const : "saida" as const,

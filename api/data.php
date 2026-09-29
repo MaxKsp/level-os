@@ -38,7 +38,7 @@ if ($method === 'GET') {
             http_response_code(413);
             echo json_encode(['error' => 'data_too_large']);
         } catch (Throwable $e) {
-            error_log('data bootstrap failed: ' . $e->getMessage());
+            security_log_exception('data.bootstrap', $e);
             http_response_code(500);
             echo json_encode(['error' => 'data_unavailable']);
         }

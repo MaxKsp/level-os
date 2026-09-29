@@ -219,16 +219,12 @@ final class GeminiNativeProvider implements LlmProvider {
 
     /** @param array<string,mixed>|null $decoded */
     private static function logProviderError(?array $decoded, string $provider, int $status): void {
-        $error = is_array($decoded['error'] ?? null) ? $decoded['error'] : [];
-        $code = is_string($error['status'] ?? null) ? (string)$error['status'] : 'unknown';
-        $message = is_string($error['message'] ?? null) ? (string)$error['message'] : '';
-        $message = preg_replace('/[\x00-\x1F\x7F]+/', ' ', $message) ?? '';
+        // Corpo, código e mensagem externos podem refletir prompt/PII; registre
+        // apenas a categoria estável necessária para operação.
         error_log(sprintf(
-            'gemini provider rejected request: provider=%s http=%d code=%s detail=%s',
-            $provider,
+            'gemini provider rejected request: http=%d kind=%s',
             $status,
-            mb_substr($code, 0, 64),
-            mb_substr($message, 0, 320),
+            self::failureKind($status),
         ));
     }
 }
