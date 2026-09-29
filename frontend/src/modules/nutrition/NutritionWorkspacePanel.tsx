@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react"
-import { BookOpen, CalendarDays, Heart, Package, Plus, ScanLine, ShoppingCart, Trash2, Users, WandSparkles } from "lucide-react"
+import { BookOpen, CalendarDays, Heart, LayoutDashboard, Package, Plus, ScanLine, ShoppingCart, Trash2, Users, WandSparkles } from "lucide-react"
 import { SectionCard } from "../../design-system"
 import { Button } from "../../components/ui/button"
 import { LevelSelect } from "../../components/ui/LevelSelect"
 import { LevelDateInput } from "../../components/ui/LevelDateInput"
+import { NutritionActionCenter } from "./NutritionActionCenter"
 import type { DietPlan, ShoppingCategory } from "./store"
 import { newWorkspaceId, type NutritionWorkspace, type PantryItem, type RecipeItem, type DiaryItem, type PurchaseItem, type FamilyItem, type NutritionPreferences } from "./nutritionWorkspace"
 
@@ -14,6 +15,7 @@ const categories: ShoppingCategory[] = ["hortifruti", "proteina", "mercearia", "
 const inputClass = "min-h-10 w-full rounded-lg border border-outline-variant bg-surface px-3 text-sm text-on-surface outline-none focus:border-primary"
 const labelClass = "mb-1 block text-xs font-semibold text-on-surface-variant"
 const tabs = [
+  ["overview", "Prioridades", LayoutDashboard],
   ["diary", "Meu dia", CalendarDays], ["pantry", "Despensa", Package], ["recipes", "Receitas", BookOpen],
   ["purchases", "Compras", ShoppingCart], ["family", "Família", Users], ["preferences", "Memória", Heart], ["barcode", "Código de barras", ScanLine],
 ] as const
@@ -24,7 +26,7 @@ interface Props {
   askRita: (text: string) => void
 }
 export function NutritionWorkspacePanel({ plan, workspace, loading, error, save, refresh, askRita }: Props) {
-  const [tab, setTab] = useState<(typeof tabs)[number][0]>("diary")
+  const [tab, setTab] = useState<(typeof tabs)[number][0]>("overview")
   const [pending, setPending] = useState(false)
   const [notice, setNotice] = useState("")
   const [mealForm, setMealForm] = useState({ date: today(), title: "", portion: "", note: "" })
@@ -45,9 +47,9 @@ export function NutritionWorkspacePanel({ plan, workspace, loading, error, save,
   const spent = useMemo(() => workspace?.purchases.reduce((total, item) => total + item.amountBRL, 0) ?? 0, [workspace?.purchases])
   const familyFactor = Math.max(1, workspace?.family.reduce((total, item) => total + item.portionFactor, 0) ?? 1)
   const itemsAtHome = useMemo(() => plan?.shoppingList?.filter((item) =>
-    workspace?.pantry.some((stock) => stock.quantity > 0 && (fold(stock.name).includes(fold(item.item)) || fold(item.item).includes(fold(stock.name))))) ?? [],
+    workspace?.pantry.some((stock) => stock.quantity > 0 && (!stock.expiresOn || stock.expiresOn > today()) && (fold(stock.name).includes(fold(item.item)) || fold(item.item).includes(fold(stock.name))))) ?? [],
   [plan, workspace?.pantry])
-  const soon = workspace?.pantry.filter((i) => i.expiresOn && i.expiresOn <= new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10)) ?? []
+  const soon = workspace?.pantry.filter((i) => i.quantity > 0 && i.expiresOn && i.expiresOn <= new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10)) ?? []
   const commit = async (op: string, changes: Record<string, unknown>): Promise<boolean> => {
     setPending(true); setNotice("")
     try { await save(op, changes); setNotice("Registros sincronizados com sua conta."); return true }
@@ -138,6 +140,7 @@ export function NutritionWorkspacePanel({ plan, workspace, loading, error, save,
         <Icon className="size-4" />{label}</button>)}
     </div>
     {!workspace ? <SectionCard title="Registros indisponíveis">Entre na sua conta para utilizar os recursos sincronizados.</SectionCard> : null}
+    {workspace && tab === "overview" ? <NutritionActionCenter workspace={workspace} plan={plan} onNavigate={setTab} askRita={askRita} /> : null}
     {workspace && tab === "diary" ? <SectionCard title="Diário alimentar" description="Registros voluntários: não estimamos calorias a partir de descrições vagas.">
       <form onSubmit={(e) => void addDiary(e)} className="grid gap-3 sm:grid-cols-2">
         <label className={labelClass}>Data<LevelDateInput required value={mealForm.date} onChange={(e) => setMealForm({ ...mealForm, date: e.target.value })} /></label>

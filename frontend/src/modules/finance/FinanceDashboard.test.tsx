@@ -19,8 +19,10 @@ describe("FinanceDashboard period filter", () => {
     expect(screen.getAllByText("−R$ 922,85").length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByRole("button", { name: "Personalizado" }))
-    fireEvent.change(screen.getByLabelText("Data inicial"), { target: { value: "2026-07-05" } })
-    fireEvent.change(screen.getByLabelText("Data final"), { target: { value: "2026-07-12" } })
+    fireEvent.click(screen.getByRole("button", { name: "Data inicial" }))
+    fireEvent.click(screen.getByRole("gridcell", { name: "5 de julho de 2026" }))
+    fireEvent.click(screen.getByRole("button", { name: "Data final" }))
+    fireEvent.click(screen.getByRole("gridcell", { name: "12 de julho de 2026" }))
 
     expect(screen.getAllByText("05 de jul. – 12 de jul.").length).toBeGreaterThan(0)
     expect(screen.getAllByText("R$ 7.292,50").length).toBeGreaterThan(0)

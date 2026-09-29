@@ -5,7 +5,7 @@ import { LevelSelect } from "../components/ui/LevelSelect"
 import { LevelDateInput } from "../components/ui/LevelDateInput"
 
 describe("Controles padronizados do Level OS", () => {
-  it("exibe seleção, permite escolher outra opção sem submeter o formulário", () => {
+  it("seleciona outra opção sem submeter o formulário", () => {
     const onChange = vi.fn()
     const submit = vi.fn((event: FormEvent) => event.preventDefault())
     render(<form onSubmit={submit}>
@@ -19,7 +19,7 @@ describe("Controles padronizados do Level OS", () => {
     expect(onChange).toHaveBeenCalledWith("b")
     expect(submit).not.toHaveBeenCalled()
   })
-  it("permite navegação por teclado e escape", () => {
+  it("permite navegação por teclado e Escape na lista", () => {
     const onChange = vi.fn()
     render(<LevelSelect aria-label="Prioridade" value="low" onChange={onChange}
       options={[{ value: "low", label: "Baixa" }, { value: "high", label: "Alta" }]} />)
@@ -32,14 +32,49 @@ describe("Controles padronizados do Level OS", () => {
     fireEvent.keyDown(control, { key: "Escape" })
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument()
   })
-  it("mantém semântica e limites nativos de data", () => {
+  it("abre o calendário Level OS e respeita datas mínimas e máximas", () => {
     const onChange = vi.fn()
-    render(<LevelDateInput aria-label="Data da compra" value="2026-09-29" min="2026-09-01" max="2026-09-30" onChange={onChange} />)
-    const input = screen.getByLabelText("Data da compra") as HTMLInputElement
-    expect(input.type).toBe("date")
-    expect(input.min).toBe("2026-09-01")
-    expect(input.max).toBe("2026-09-30")
-    fireEvent.change(input, { target: { value: "2026-09-25" } })
-    expect(onChange).toHaveBeenCalled()
+    render(<LevelDateInput aria-label="Data da compra" value="2026-09-29"
+      min="2026-09-20" max="2026-09-30" onChange={onChange} />)
+    fireEvent.click(screen.getByRole("button", { name: "Data da compra" }))
+    expect(screen.getByRole("dialog", { name: "Selecionar data" })).toBeInTheDocument()
+    expect(screen.getByRole("grid", { name: /Dias de setembro de 2026/i })).toBeInTheDocument()
+    expect(screen.getByRole("gridcell", { name: "19 de setembro de 2026" })).toBeDisabled()
+    fireEvent.click(screen.getByRole("gridcell", { name: "25 de setembro de 2026" }))
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange.mock.calls[0][0].target.value).toBe("2026-09-25")
+    expect(screen.queryByRole("dialog", { name: "Selecionar data" })).not.toBeInTheDocument()
+  })
+  it("navega entre meses e permite informar o ano diretamente", () => {
+    const onChange = vi.fn()
+    render(<LevelDateInput value="1998-07-02" aria-label="Nascimento" onChange={onChange} />)
+    fireEvent.click(screen.getByRole("button", { name: "Nascimento" }))
+    expect(screen.getByRole("grid", { name: /Dias de julho de 1998/i })).toBeInTheDocument()
+    fireEvent.change(screen.getByRole("textbox", { name: "Ano do calendário" }), { target: { value: "2000" } })
+    expect(screen.getByRole("grid", { name: /Dias de julho de 2000/i })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Próximo mês" }))
+    expect(screen.getByRole("grid", { name: /Dias de agosto de 2000/i })).toBeInTheDocument()
+  })
+  it("tem horário próprio, sem abrir controles nativos do sistema", () => {
+    const onChange = vi.fn()
+    render(<LevelDateInput type="time" aria-label="Hora da tarefa" value="08:30" onChange={onChange} />)
+    fireEvent.click(screen.getByRole("button", { name: "Hora da tarefa" }))
+    expect(screen.getByRole("dialog", { name: "Selecionar horário" })).toBeInTheDocument()
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Hora" }), { target: { value: "14" } })
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Minuto" }), { target: { value: "45" } })
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }))
+    expect(onChange.mock.calls[0][0].target.value).toBe("14:45")
+  })
+  it("bloqueia confirmação fora dos limites ao editar data e horário", () => {
+    const onChange = vi.fn()
+    render(<LevelDateInput type="datetime-local" aria-label="Agendamento" value="2026-09-29T09:00"
+      min="2026-09-29T08:00" max="2026-09-29T17:00" onChange={onChange} />)
+    fireEvent.click(screen.getByRole("button", { name: "Agendamento" }))
+    expect(screen.getByRole("dialog", { name: "Selecionar data e horário" })).toBeInTheDocument()
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Hora" }), { target: { value: "20" } })
+    expect(screen.getByRole("button", { name: "Confirmar" })).toBeDisabled()
+    fireEvent.change(screen.getByRole("spinbutton", { name: "Hora" }), { target: { value: "12" } })
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar" }))
+    expect(onChange.mock.calls[0][0].target.value).toBe("2026-09-29T12:00")
   })
 })
