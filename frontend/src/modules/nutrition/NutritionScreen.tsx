@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react"
-import { Check, History, RotateCcw, ShoppingCart, Trash2, UtensilsCrossed } from "lucide-react"
+import { Check, History, Pencil, Plus, RotateCcw, ShoppingCart, Trash2, UtensilsCrossed } from "lucide-react"
+import { NutritionManualEditor } from "./NutritionManualEditor"
+import type { DietPlan } from "./store"
 import { Button } from "../../components/ui/button"
 import { ConfirmIconAction } from "../../components/ui/IconAction"
 import { EmptyState, SectionCard } from "../../design-system"
@@ -31,7 +33,11 @@ export function NutritionScreen() {
   const nutrition = useNutrition()
   const assistant = useAssistant()
   const [openDay, setOpenDay] = useState(1)
+  const [manualEdit, setManualEdit] = useState<{ initial: DietPlan | null; hasActivePlan: boolean; expectedActivePlanId: string | null } | null>(null)
   const plan = nutrition.plan
+  const openManual = (edit: boolean) => setManualEdit({
+    initial: edit ? plan : null, hasActivePlan: Boolean(plan), expectedActivePlanId: plan?.id ?? null,
+  })
 
   useEffect(() => {
     void nutrition.refresh()
@@ -50,10 +56,14 @@ export function NutritionScreen() {
           <h1 className="level-page-title text-3xl font-semibold tracking-tight text-on-surface">Alimentação</h1>
           <p className="mt-3 text-on-surface-variant">Plano alimentar por objetivo, período e orçamento.</p>
         </div>
-        <Button variant="primary" size="md" onClick={() => assistant.openFor("alimentacao")}>
-          <AssistantAvatar module="alimentacao" className="size-4" />
-          Chef Rita
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="md" onClick={() => openManual(false)}>
+            <Plus className="size-4" /> Criar manualmente
+          </Button>
+          <Button variant="primary" size="md" onClick={() => assistant.openFor("alimentacao")}>
+            <AssistantAvatar module="alimentacao" className="size-4" />Chef Rita
+          </Button>
+        </div>
       </header>
 
       {nutrition.status === "error" ? (
@@ -66,13 +76,17 @@ export function NutritionScreen() {
         <SectionCard title="Seu plano alimentar" description="Nenhum plano ativo" bodyClassName="p-0">
           <EmptyState
             title="Nenhuma dieta montada"
-            description="Diga à Chef Rita seu objetivo, o período e quanto pode gastar. Ela monta o cardápio e grava aqui."
+            description="Crie seu próprio cardápio com refeições e custos, ou conte com a Chef Rita para preparar uma sugestão."
             icon="restaurant"
-            action={<Button variant="primary" size="sm" onClick={() => assistant.openFor("alimentacao")}><AssistantAvatar module="alimentacao" className="size-4" />Chef Rita</Button>}
+            action={<div className="flex flex-wrap gap-2"><Button variant="secondary" size="sm" onClick={() => openManual(false)}><Plus className="size-4" />Criar manualmente</Button><Button variant="primary" size="sm" onClick={() => assistant.openFor("alimentacao")}><AssistantAvatar module="alimentacao" className="size-4" />Chef Rita</Button></div>}
           />
         </SectionCard>
       ) : (
         <div id="nutrition-plan" className="scroll-mt-24 space-y-6">
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted">
+            <span className="rounded-full border border-primary/25 bg-primary/5 px-3 py-1 font-semibold text-primary">{plan.source === "manual" ? "Criado manualmente" : "Criado com Chef Rita"}</span>
+            {plan.version ? <span>Versão {plan.version}</span> : null}
+          </div>
           <section className="grid border-y border-outline-variant sm:grid-cols-4" aria-label="Resumo do plano">
             {[
               { label: "Objetivo", value: GOAL_LABELS[plan.goal] ?? plan.goal },
@@ -91,9 +105,12 @@ export function NutritionScreen() {
             title="Cardápio"
             description={plan.days.length < plan.periodDays ? `${plan.days.length} dia(s) de cardápio — repita a sequência até completar o período` : `${plan.days.length} dia(s)`}
             action={
-              <ConfirmIconAction label="Excluir plano" title="Excluir plano alimentar?" description="O plano atual será removido. Você pode montar outro com a IA quando quiser." onConfirm={() => void nutrition.clear()}>
-                <Trash2 className="size-4" />
-              </ConfirmIconAction>
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" size="sm" onClick={() => openManual(true)}><Pencil className="size-3.5" />Editar manualmente</Button>
+                <ConfirmIconAction label="Excluir plano" title="Excluir plano alimentar?" description="O plano será arquivado e poderá ser restaurado pelo histórico." onConfirm={() => void nutrition.clear()}>
+                  <Trash2 className="size-4" />
+                </ConfirmIconAction>
+              </div>
             }
             bodyClassName="p-0"
           >
@@ -138,7 +155,7 @@ export function NutritionScreen() {
                 <div className="flex min-w-0 items-start gap-3">
                   <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><History className="size-4" /></span>
                   <div className="min-w-0">
-                    <p className="font-semibold text-on-surface">Versão {item.version ?? "anterior"} · {GOAL_LABELS[item.goal] ?? item.goal}</p>
+                    <p className="font-semibold text-on-surface">Versão {item.version ?? "anterior"} · {GOAL_LABELS[item.goal] ?? item.goal} · {item.source === "manual" ? "Manual" : "Chef Rita"}</p>
                     <p className="mt-1 text-xs text-muted">{item.periodDays} dias · {brl(item.estimatedCostBRL)} · {item.createdAt ? new Date(item.createdAt).toLocaleDateString("pt-BR") : "data indisponível"}</p>
                   </div>
                 </div>
@@ -148,6 +165,10 @@ export function NutritionScreen() {
           </ul>
         </SectionCard>
       ) : null}
+      {manualEdit ? <NutritionManualEditor key={manualEdit.initial?.id ?? "new"} initial={manualEdit.initial}
+        hasActivePlan={manualEdit.hasActivePlan} expectedActivePlanId={manualEdit.expectedActivePlanId}
+        onClose={() => setManualEdit(null)}
+        onSave={async (value) => { await nutrition.saveManual(value); setManualEdit(null); setOpenDay(1) }} /> : null}
     </main>
   )
 }
