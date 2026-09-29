@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { lazy, Suspense, useMemo, useState } from "react"
 import { AnimatedNumber } from "../../components/ui/AnimatedNumber"
 import { ParticipationDonut } from "../../components/ui/ParticipationDonut"
 import { Icon, SectionCard, Sparkline } from "../../design-system"
@@ -8,6 +8,7 @@ import { CATEGORY_LABEL } from "./categories"
 import type { FinanceBootstrap } from "./contracts"
 import { FinancePeriodFilter } from "./FinancePeriodFilter"
 import { FinancePeriodComparison } from "./FinancePeriodComparison"
+const FinanceControlCenter = lazy(() => import("./FinanceControlCenter").then((module) => ({ default: module.FinanceControlCenter })))
 import { financeTotalsForPeriod, financeTrendForPeriod, resolveFinancePeriod, toLocalIso, type FinancePeriodPreset } from "./period"
 import { expensesByCategory, financeSummary, isCard } from "./selectors"
 import { buildInstallmentSummary } from "./installments"
@@ -99,6 +100,9 @@ export function FinanceDashboard({ data }: { data: FinanceBootstrap }) {
         </div>
       ) : null}
 
+      <div className="lg:col-span-6">
+        <Suspense fallback={<div className="h-52 animate-pulse rounded-xl bg-surface-container motion-reduce:animate-none" aria-label="Carregando central financeira" />}><FinanceControlCenter data={data} today={toLocalIso(now)} /></Suspense>
+      </div>
       <div className="lg:col-span-6">
         <SectionCard
           title="Patrimônio em perspectiva"

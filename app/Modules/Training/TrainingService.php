@@ -96,6 +96,15 @@ function training_program_support_available(PDO $db): bool {
 }
 
 /** @return array<string,mixed> */
+function training_effort_supported(PDO $db): bool {
+    try {
+        $db->query('SELECT rpe, rir FROM training_session_entries WHERE 1 = 0');
+        return true;
+    } catch (PDOException) {
+        return false;
+    }
+}
+
 function training_snapshot(PDO $db, int $uid): array {
     $programSupport = training_program_support_available($db);
     $visibility = $programSupport
@@ -146,8 +155,9 @@ function training_snapshot(PDO $db, int $uid): array {
     $sessionStmt->execute([$uid]);
     $sessionRows = $sessionStmt->fetchAll(PDO::FETCH_ASSOC);
     if (count($sessionRows) > 500) throw new OverflowException('Limite de sessões excedido.');
+    $effortColumns = training_effort_supported($db) ? ', rpe, rir' : '';
     $entryStmt = $db->prepare('SELECT session_id, client_id, position, exercise_name, modality, sets_count,
-        reps_count, load_kg, rest_sec, distance_km, duration_sec, avg_hr, progression_level, assisted_kg, weighted_kg
+        reps_count, load_kg, rest_sec, distance_km, duration_sec, avg_hr, progression_level, assisted_kg, weighted_kg' . $effortColumns . '
         FROM training_session_entries WHERE user_id = ? ORDER BY session_id, position, id LIMIT 10001');
     $entryStmt->execute([$uid]);
     $entryRows = $entryStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -164,7 +174,8 @@ function training_snapshot(PDO $db, int $uid): array {
     $programs = $programSupport ? training_program_list($db, $uid, 'active', 10) : [];
     $programHistory = $programSupport ? training_program_list($db, $uid, 'archived', 20) : [];
     return ['workouts' => $workouts, 'measurements' => $measurements, 'sessions' => $sessions,
-        'programs' => $programs, 'programHistory' => $programHistory];
+        'programs' => $programs, 'programHistory' => $programHistory,
+        'capabilities' => ['effortMetrics' => training_effort_supported($db)]];
 }
 
 /** @return list<array<string,mixed>> */
@@ -353,9 +364,10 @@ function training_exercise_public(array $row, bool $template): array {
         : ['sets' => 'sets_count', 'reps' => 'reps_count', 'loadKg' => 'load_kg'];
     foreach ($map as $public => $column) $out[$public] = $row[$column] !== null ? ($public === 'loadKg' ? (float)$row[$column] : (int)$row[$column]) : null;
     foreach (['restSec' => 'rest_sec', 'distanceKm' => 'distance_km', 'durationSec' => 'duration_sec', 'avgHr' => 'avg_hr',
-                 'progressionLevel' => 'progression_level', 'assistedKg' => 'assisted_kg', 'weightedKg' => 'weighted_kg'] as $public => $column) {
+                 'progressionLevel' => 'progression_level', 'assistedKg' => 'assisted_kg', 'weightedKg' => 'weighted_kg',
+                 'rpe' => 'rpe', 'rir' => 'rir'] as $public => $column) {
         if (!array_key_exists($column, $row)) continue;
-        $out[$public] = $row[$column] === null ? null : (in_array($column, ['progression_level'], true) ? (string)$row[$column] : (float)$row[$column]);
+        $out[$public] = $row[$column] === null ? null : ($column === 'progression_level' ? (string)$row[$column] : ($column === 'rir' ? (int)$row[$column] : (float)$row[$column]));
     }
     return $out;
 }
@@ -419,6 +431,14 @@ function training_normalize_exercise(array $exercise, bool $template, int $posit
     $progression = training_text($exercise['progressionLevel'] ?? null, 64, false);
     $assisted = training_number($exercise['assistedKg'] ?? null, 0, 500);
     $weighted = training_number($exercise['weightedKg'] ?? null, 0, 500);
+    $rpe = training_number($exercise['rpe'] ?? null, 1, 10);
+    $rir = training_int($exercise['rir'] ?? null, 0, 10);
+    if ($rpe !== null && abs($rpe * 2 - round($rpe * 2)) > 0.00001) {
+        throw new InvalidArgumentException('RPE deve ter incrementos de 0,5.');
+    }
+    if ($template && ($rpe !== null || $rir !== null)) {
+        throw new InvalidArgumentException('RPE/RIR pertencem ao histórico realizado, não à ficha.');
+    }
     if ($modality === 'cardio' && !$template && ($distance === null || $duration === null)) throw new InvalidArgumentException('Cardio exige distância e duração.');
     if ($modality === 'mobilidade' && !$template && $duration === null) throw new InvalidArgumentException('Mobilidade exige duração.');
     if ($modality === 'forca' && !$template && ($sets === null || $reps === null)) throw new InvalidArgumentException('Força exige séries e repetições.');
@@ -427,6 +447,7 @@ function training_normalize_exercise(array $exercise, bool $template, int $posit
         'name' => $name, 'modality' => $modality, 'sets' => $sets, 'reps' => $reps, 'loadKg' => $load,
         'restSec' => $rest, 'distanceKm' => $distance, 'durationSec' => $duration, 'avgHr' => $avgHr,
         'progressionLevel' => $progression, 'assistedKg' => $assisted, 'weightedKg' => $weighted,
+        'rpe' => $rpe, 'rir' => $rir,
     ];
 }
 
@@ -485,6 +506,10 @@ function training_log_session(PDO $db, int $uid, array $input, string $source = 
         $duration = array_reduce($normalized, static fn(?int $carry, array $entry): ?int => max($carry ?? 0, (int)($entry['durationSec'] ?? 0)), null);
         if ($duration === 0) $duration = null;
     }
+    $effortSupported = training_effort_supported($db);
+    if (!$effortSupported && array_filter($normalized, static fn(array $entry): bool => $entry['rpe'] !== null || $entry['rir'] !== null)) {
+        throw new InvalidArgumentException('Registro RPE/RIR exige atualização do banco de dados.');
+    }
     $now = level_clock_utc_sql();
     $own = !$db->inTransaction();
     if ($own) $db->beginTransaction();
@@ -495,12 +520,14 @@ function training_log_session(PDO $db, int $uid, array $input, string $source = 
         $sessionId = (int)$db->lastInsertId();
         $entryStmt = $db->prepare('INSERT INTO training_session_entries
             (session_id, user_id, client_id, position, exercise_name, modality, sets_count, reps_count, load_kg, rest_sec,
-             distance_km, duration_sec, avg_hr, progression_level, assisted_kg, weighted_kg)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+             distance_km, duration_sec, avg_hr, progression_level, assisted_kg, weighted_kg' . ($effortSupported ? ', rpe, rir' : '') . ')
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?' . ($effortSupported ? ', ?, ?' : '') . ')');
         foreach ($normalized as $entry) {
-            $entryStmt->execute([$sessionId, $uid, $entry['id'], $entry['position'], $entry['name'], $entry['modality'],
+            $values = [$sessionId, $uid, $entry['id'], $entry['position'], $entry['name'], $entry['modality'],
                 $entry['sets'], $entry['reps'], $entry['loadKg'], $entry['restSec'], $entry['distanceKm'], $entry['durationSec'],
-                $entry['avgHr'], $entry['progressionLevel'], $entry['assistedKg'], $entry['weightedKg']]);
+                $entry['avgHr'], $entry['progressionLevel'], $entry['assistedKg'], $entry['weightedKg']];
+            if ($effortSupported) array_push($values, $entry['rpe'], $entry['rir']);
+            $entryStmt->execute($values);
         }
         if ($awardXp && function_exists('progress_award_event')) {
             progress_award_event($db, $uid, 'treino', 'treino:session:' . $clientId);
@@ -517,10 +544,19 @@ function training_log_session(PDO $db, int $uid, array $input, string $source = 
 
 function training_delete_session(PDO $db, int $uid, string $clientId, bool $revokeXp = true): bool {
     $safeId = training_client_id($clientId);
-    $stmt = $db->prepare('DELETE FROM training_sessions WHERE user_id = ? AND client_id = ?');
-    $stmt->execute([$uid, $safeId]);
-    if ($stmt->rowCount() === 1 && $revokeXp && function_exists('progress_revoke_event')) {
-        progress_revoke_event($db, $uid, 'treino:session:' . $safeId);
+    $own = !$db->inTransaction();
+    if ($own) $db->beginTransaction();
+    try {
+        $stmt = $db->prepare('DELETE FROM training_sessions WHERE user_id = ? AND client_id = ?');
+        $stmt->execute([$uid, $safeId]);
+        $deleted = $stmt->rowCount() === 1;
+        if ($deleted && $revokeXp && function_exists('progress_revoke_event')) {
+            progress_revoke_event($db, $uid, 'treino:session:' . $safeId);
+        }
+        if ($own) $db->commit();
+        return $deleted;
+    } catch (Throwable $e) {
+        if ($own && $db->inTransaction()) $db->rollBack();
+        throw $e;
     }
-    return $stmt->rowCount() === 1;
 }

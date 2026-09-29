@@ -431,6 +431,8 @@ CREATE TABLE IF NOT EXISTS training_session_entries (
   progression_level VARCHAR(64) NULL,
   assisted_kg DECIMAL(8,3) NULL,
   weighted_kg DECIMAL(8,3) NULL,
+  rpe DECIMAL(3,1) NULL,
+  rir SMALLINT UNSIGNED NULL,
   UNIQUE INDEX uq_training_session_entries_client (session_id, client_id),
   INDEX idx_training_entries_user_modality (user_id, modality),
   FOREIGN KEY (session_id) REFERENCES training_sessions(id) ON DELETE CASCADE,

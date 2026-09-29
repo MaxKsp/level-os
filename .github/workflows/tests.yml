@@ -138,3 +138,4 @@ jobs:
             sleep 1
           done
           node scripts/browser-smoke.mjs
+          node scripts/browser-orbital-scroll.mjs

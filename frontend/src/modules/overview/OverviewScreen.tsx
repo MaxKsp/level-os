@@ -9,6 +9,7 @@ import { netWorth } from "../finance/selectors"
 import { FinancePanelSkeleton } from "../finance/FinanceSkeleton"
 import { useIdentity } from "../identity/store"
 import { ProgressOverview } from "../progress/components/ProgressOverview"
+import { CrossModuleJourney } from "../progress/components/CrossModuleJourney"
 import { routineConsistency, routineSummary, tasksOn } from "../routine/selectors"
 import { useTraining } from "../training/store"
 import type { WorkoutSession } from "../training/contracts"
@@ -67,6 +68,7 @@ export function OverviewScreen() {
         <section aria-label="Progresso e conquistas" className="border-t border-outline-variant pt-6">
           <ProgressOverview pendingTasks={routine.pending} workoutReady={hasWorkout} />
         </section>
+        <CrossModuleJourney />
       </div>
     </main>
   )
