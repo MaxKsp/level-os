@@ -39,6 +39,7 @@ return static function (): void {
         ],
     ]);
     $snapshot = training_snapshot($db, 11);
+    test_assert_same(true, $snapshot['capabilities']['effortMetrics'] ?? null, 'The API must expose whether effort columns are installed.');
     $sets = current(array_filter($snapshot['sessions'], static fn(array $row): bool => $row['id'] === 'ts_sets'))['exercises'];
     test_assert_same(7.5, $sets[0]['rpe'], 'Recorded RPE must survive snapshot.');
     test_assert_same(2, $sets[0]['rir'], 'Recorded RIR must survive snapshot.');

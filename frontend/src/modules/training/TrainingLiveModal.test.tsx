@@ -52,4 +52,18 @@ describe("TrainingLiveModal", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continuar treino" }))
     expect(screen.queryByRole("alertdialog", { name: "Confirmação de descarte" })).not.toBeInTheDocument()
   })
+  it("mantém séries e cargas funcionais sem migração, mas não envia esforço não suportado", async () => {
+    const onSave = vi.fn().mockResolvedValue(undefined)
+    render(<TrainingLiveModal workout={workout} history={[]} effortMetricsAvailable={false}
+      onSave={onSave} onClose={vi.fn()} />)
+    expect(screen.getByRole("textbox", { name: "RPE série 1 de Supino" })).toBeDisabled()
+    expect(screen.getByRole("textbox", { name: "RIR série 1 de Supino" })).toBeDisabled()
+    expect(screen.getByText(/RPE\/RIR temporariamente indisponíveis/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Concluir série 1 de Supino" }))
+    fireEvent.click(screen.getByRole("button", { name: /Finalizar treino/ }))
+    await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+    expect(onSave.mock.calls[0][0].exercises[0]).toMatchObject({
+      reps: 10, loadKg: 50, rpe: null, rir: null,
+    })
+  })
 })

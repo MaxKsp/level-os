@@ -32,10 +32,11 @@ const initialDraft = (workout: Workout): ExerciseDraft[] => workout.exercises.ma
 interface Props {
   workout: Workout | null
   history: TrainingSessionLog[]
+  effortMetricsAvailable?: boolean
   onClose: () => void
   onSave: (record: Omit<TrainingSessionLog, "id"> & { id?: string }) => Promise<void>
 }
-export function TrainingLiveModal({ workout, history, onClose, onSave }: Props) {
+export function TrainingLiveModal({ workout, history, effortMetricsAvailable = true, onClose, onSave }: Props) {
   const [rows, setRows] = useState<ExerciseDraft[]>([])
   const [sessionId, setSessionId] = useState(() => wid("ts"))
   const [date, setDate] = useState(localDate)
@@ -92,9 +93,9 @@ export function TrainingLiveModal({ workout, history, onClose, onSave }: Props) 
           for (const set of row.sets.filter((item) => item.done)) {
             const reps = value(set.reps, 1, 10000, row.template.name + ": repetições", true)
             if (!Number.isInteger(reps)) throw new Error("Repetições precisam ser inteiras.")
-            const rpe = value(set.rpe, 1, 10, row.template.name + ": RPE")
+            const rpe = effortMetricsAvailable ? value(set.rpe, 1, 10, row.template.name + ": RPE") : null
             if (rpe !== null && !Number.isInteger(rpe * 2)) throw new Error("RPE: use intervalos de 0,5.")
-            const rir = value(set.rir, 0, 10, row.template.name + ": RIR")
+            const rir = effortMetricsAvailable ? value(set.rir, 0, 10, row.template.name + ": RIR") : null
             if (rir !== null && !Number.isInteger(rir)) throw new Error("RIR deve ser inteiro.")
             const loadKg = modality === "forca" ? value(set.load, 0, 2000, row.template.name + ": carga") : null
             exercises.push({ id: set.id, name: row.template.name, modality, sets: 1, reps, loadKg, restSec,
@@ -183,8 +184,8 @@ export function TrainingLiveModal({ workout, history, onClose, onSave }: Props) 
                       className={"flex min-h-10 items-center justify-center gap-1 rounded-md text-xs font-semibold " + (set.done ? "bg-primary text-on-primary" : "border border-outline-variant text-muted hover:text-primary")}>{set.done ? <Check className="size-4" /> : <Circle className="size-3.5" />}{set.done ? "Feito" : "Fazer"}</button>
                     <input aria-label={"Repetições série " + (setIndex + 1) + " de " + row.template.name} inputMode="numeric" value={set.reps} onChange={(e) => updateSet(row.template.id, set.id, { reps: e.target.value })} className={field} />
                     <input aria-label={"Carga série " + (setIndex + 1) + " de " + row.template.name} inputMode="decimal" placeholder="–" value={set.load} disabled={modality !== "forca"} onChange={(e) => updateSet(row.template.id, set.id, { load: e.target.value })} className={field} />
-                    <input aria-label={"RPE série " + (setIndex + 1) + " de " + row.template.name} inputMode="decimal" placeholder="1–10" value={set.rpe} onChange={(e) => updateSet(row.template.id, set.id, { rpe: e.target.value })} className={field} />
-                    <input aria-label={"RIR série " + (setIndex + 1) + " de " + row.template.name} inputMode="numeric" placeholder="0–10" value={set.rir} onChange={(e) => updateSet(row.template.id, set.id, { rir: e.target.value })} className={field} />
+                    <input aria-label={"RPE série " + (setIndex + 1) + " de " + row.template.name} inputMode="decimal" placeholder="1–10" disabled={!effortMetricsAvailable} title={effortMetricsAvailable ? "Esforço percebido" : "Indisponível até a migração do banco de dados"} value={effortMetricsAvailable ? set.rpe : ""} onChange={(e) => updateSet(row.template.id, set.id, { rpe: e.target.value })} className={field} />
+                    <input aria-label={"RIR série " + (setIndex + 1) + " de " + row.template.name} inputMode="numeric" placeholder="0–10" disabled={!effortMetricsAvailable} title={effortMetricsAvailable ? "Repetições em reserva" : "Indisponível até a migração do banco de dados"} value={effortMetricsAvailable ? set.rir : ""} onChange={(e) => updateSet(row.template.id, set.id, { rir: e.target.value })} className={field} />
                     <button type="button" disabled={row.sets.length <= 1} title="Remover esta série" aria-label={"Excluir série " + (setIndex + 1) + " de " + row.template.name} className="grid size-9 place-items-center text-muted hover:text-error disabled:opacity-30" onClick={() => updateRow(row.template.id, { sets: row.sets.filter((item) => item.id !== set.id) })}><Trash2 className="size-4" /></button>
                   </div>)}
                 </div>
@@ -196,7 +197,7 @@ export function TrainingLiveModal({ workout, history, onClose, onSave }: Props) 
             </article>
           })}
         </div>
-        <p className="text-xs leading-5 text-muted">RPE: esforço percebido de 1 a 10. RIR: quantas repetições sobrariam. Ambos são opcionais; registre por série concluída.</p>
+        <p className="text-xs leading-5 text-muted">{effortMetricsAvailable ? "RPE: esforço percebido de 1 a 10. RIR: repetições em reserva. Ambos são opcionais, por série concluída." : "RPE/RIR temporariamente indisponíveis: o banco de produção ainda precisa da migração. O registro de séries, cargas, repetições e descanso continua ativo, sem descartar o treino."}</p>
         {error ? <p role="alert" className="rounded-lg border border-error/30 bg-error/10 p-3 text-sm text-error">{error}</p> : null}
         {confirmDiscard ? <div role="alertdialog" aria-label="Confirmação de descarte" className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-error/30 bg-error/5 p-3">
           <p className="min-w-0 flex-1 text-xs leading-5 text-on-surface">Seu treino ainda não foi salvo. Deseja descartar as séries marcadas?</p>

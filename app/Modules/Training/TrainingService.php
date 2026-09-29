@@ -174,7 +174,8 @@ function training_snapshot(PDO $db, int $uid): array {
     $programs = $programSupport ? training_program_list($db, $uid, 'active', 10) : [];
     $programHistory = $programSupport ? training_program_list($db, $uid, 'archived', 20) : [];
     return ['workouts' => $workouts, 'measurements' => $measurements, 'sessions' => $sessions,
-        'programs' => $programs, 'programHistory' => $programHistory];
+        'programs' => $programs, 'programHistory' => $programHistory,
+        'capabilities' => ['effortMetrics' => training_effort_supported($db)]];
 }
 
 /** @return list<array<string,mixed>> */

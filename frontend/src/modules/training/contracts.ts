@@ -105,4 +105,6 @@ export interface TrainingSnapshot {
   sessions: TrainingSessionLog[]
   programs: TrainingProgram[]
   programHistory: TrainingProgram[]
+  /** O backend informa quando as colunas RPE/RIR já estão disponíveis. */
+  capabilities?: { effortMetrics: boolean }
 }
