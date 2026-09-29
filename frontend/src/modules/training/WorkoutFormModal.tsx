@@ -15,17 +15,20 @@ interface Props {
   open: boolean
   initial?: Workout | null
   onClose: () => void
-  onSave: (w: Workout) => void
+  onSave: (w: Workout) => Promise<void> | void
 }
 
 export function WorkoutFormModal({ open, initial, onClose, onSave }: Props) {
   const [name, setName] = useState("")
   const [focus, setFocus] = useState("")
   const [exs, setExs] = useState<WorkoutExercise[]>([emptyEx()])
+  const [draftId, setDraftId] = useState(() => wid())
   const [err, setErr] = useState("")
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (open) {
+      setDraftId(initial?.id ?? wid())
       setName(initial?.name ?? "")
       setFocus(initial?.focus ?? "")
       setExs(initial?.exercises.length ? initial.exercises.map((e) => ({ ...e })) : [emptyEx()])
@@ -36,12 +39,34 @@ export function WorkoutFormModal({ open, initial, onClose, onSave }: Props) {
   const setEx = (id: string, patch: Partial<WorkoutExercise>) =>
     setExs((xs) => xs.map((e) => (e.id === id ? { ...e, ...patch } : e)))
 
-  const submit = () => {
+  const submit = async () => {
+    if (saving) return
     if (!name.trim()) { setErr("Dê um nome ao treino."); return }
     const clean = exs.filter((e) => e.name.trim())
     if (clean.length === 0) { setErr("Adicione ao menos um exercício."); return }
-    onSave({ id: initial?.id ?? wid(), name: name.trim(), focus: focus.trim(), exercises: clean })
-    onClose()
+    const positiveInt = (value: number | string | null, max: number) => {
+      const num = Number(value)
+      return Number.isInteger(num) && num >= 1 && num <= max
+    }
+    for (const entry of clean) {
+      if (!positiveInt(entry.sets, 100) || !positiveInt(entry.reps, 10000)) {
+        setErr(`Revise séries e repetições de ${entry.name}.`); return
+      }
+      if (entry.loadKg != null && (!Number.isFinite(entry.loadKg) || entry.loadKg < 0 || entry.loadKg > 2000)) {
+        setErr(`Carga inválida em ${entry.name}.`); return
+      }
+      if (entry.restSec != null && (!Number.isInteger(entry.restSec) || entry.restSec < 0 || entry.restSec > 7200)) {
+        setErr(`Descanso inválido em ${entry.name}.`); return
+      }
+    }
+    try {
+      setSaving(true)
+      setErr("")
+      await onSave({ id: draftId, name: name.trim(), focus: focus.trim(), exercises: clean })
+      onClose()
+    } catch (cause) {
+      setErr(cause instanceof Error ? cause.message : "Não foi possível salvar o treino.")
+    } finally { setSaving(false) }
   }
 
   return (
@@ -63,30 +88,44 @@ export function WorkoutFormModal({ open, initial, onClose, onSave }: Props) {
             {exs.map((e, i) => {
               const videoUrl = findExerciseVideo(e.name)
               return (
-                <div key={e.id} className="flex items-center gap-2">
-                  <input className={field + " flex-1"} value={e.name} onChange={(ev) => setEx(e.id, { name: ev.target.value })} placeholder={`Exercício ${i + 1}`} />
-                  <input className={field + " w-16 text-center"} value={e.sets} onChange={(ev) => setEx(e.id, { sets: ev.target.value })} aria-label="Séries" title="Séries" />
-                  <span className="text-muted">×</span>
-                  <input className={field + " w-16 text-center"} value={e.reps} onChange={(ev) => setEx(e.id, { reps: ev.target.value })} aria-label="Repetições" title="Repetições" />
-                  {videoUrl ? (
-                    <a href={videoUrl} target="_blank" rel="noreferrer" aria-label={`Tutorial de ${e.name}`} title="Ver tutorial" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-container-high hover:text-primary">
+                <div key={e.id} className="rounded-xl border border-outline-variant bg-surface/60 p-3">
+                  <div className="mb-3 flex items-start gap-2">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-xs font-bold text-primary">{String(i + 1).padStart(2, "0")}</span>
+                    <label className="min-w-0 flex-1 text-[11px] font-medium text-muted">Exercício
+                      <input className={field + " mt-1 min-h-10"} value={e.name} onChange={(ev) => setEx(e.id, { name: ev.target.value })} placeholder={`Exercício ${i + 1}`} />
+                    </label>
+                    {videoUrl ? <a href={videoUrl} target="_blank" rel="noreferrer" aria-label={`Tutorial de ${e.name}`} title="Ver tutorial" className="mt-5 grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-container-high hover:text-primary">
                       <Icon name="play_circle" className="text-[18px]" />
-                    </a>
-                  ) : null}
-                  <button aria-label="Remover exercício" onClick={() => setExs((xs) => (xs.length > 1 ? xs.filter((x) => x.id !== e.id) : xs))} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-container-high hover:text-error">
-                    <Icon name="close" className="text-[18px]" />
-                  </button>
+                    </a> : null}
+                    <button type="button" aria-label={`Remover ${e.name || "exercício"}`} onClick={() => setExs((xs) => (xs.length > 1 ? xs.filter((x) => x.id !== e.id) : xs))} className="mt-5 grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-container-high hover:text-error">
+                      <Icon name="close" className="text-[18px]" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <label className="min-w-0 text-[11px] font-medium text-muted">Séries
+                      <input className={field + " mt-1 min-h-10"} inputMode="numeric" value={String(e.sets ?? "")} onChange={(ev) => setEx(e.id, { sets: ev.target.value })} />
+                    </label>
+                    <label className="min-w-0 text-[11px] font-medium text-muted">Repetições
+                      <input className={field + " mt-1 min-h-10"} inputMode="numeric" value={String(e.reps ?? "")} onChange={(ev) => setEx(e.id, { reps: ev.target.value })} />
+                    </label>
+                    <label className="min-w-0 text-[11px] font-medium text-muted">Carga prevista (kg)
+                      <input className={field + " mt-1 min-h-10"} inputMode="decimal" placeholder="Opcional" value={e.loadKg == null ? "" : String(e.loadKg)} onChange={(ev) => setEx(e.id, { loadKg: ev.target.value === "" ? null : Number(ev.target.value.replace(",", ".")) })} />
+                    </label>
+                    <label className="min-w-0 text-[11px] font-medium text-muted">Descanso (seg)
+                      <input className={field + " mt-1 min-h-10"} inputMode="numeric" placeholder="Opcional" value={e.restSec == null ? "" : String(e.restSec)} onChange={(ev) => setEx(e.id, { restSec: ev.target.value === "" ? null : Number(ev.target.value) })} />
+                    </label>
+                  </div>
                 </div>
               )
             })}
           </div>
-          <p className="mt-1 text-xs text-muted">Colunas: exercício · séries × repetições.</p>
+          <p className="mt-2 text-xs text-muted">As cargas são metas da ficha. Ao iniciar o treino, registre os valores realmente realizados.</p>
         </div>
 
         {err ? <p className="text-sm text-error">{err}</p> : null}
         <div className="flex justify-end gap-2 pt-1">
-          <Button variant="ghost" size="md" onClick={onClose}>Cancelar</Button>
-          <Button variant="primary" size="md" onClick={submit}>{initial ? "Salvar treino" : "Criar treino"}</Button>
+          <Button variant="ghost" size="md" disabled={saving} onClick={onClose}>Cancelar</Button>
+          <Button variant="primary" size="md" disabled={saving} onClick={()=>void submit()}>{saving ? "Salvando..." : initial ? "Salvar treino" : "Criar treino"}</Button>
         </div>
       </div>
     </Modal>
