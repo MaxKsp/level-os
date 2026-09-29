@@ -12,6 +12,7 @@ import type { Task } from "../../context/AppContext"
 import { TODAY_ISO } from "./mock"
 import { PRIORITY_LABEL, PRIORITY_TONE, progressPercent, routineConsistency, taskRepeatLabel, tasksOn } from "./selectors"
 import { TaskActionModal } from "./TaskActionModal"
+import { RoutineFocusPanel } from "./RoutineFocusPanel"
 import type { CalendarView, GoogleCalendarConnection, GoogleCalendarEvent } from "../calendar/contracts"
 import { useCalendarRange } from "../calendar/store"
 import {
@@ -99,6 +100,10 @@ export function RoutineScreen() {
         <RoutineMetric label="Concluídas" value={`${consistency.completed}`} />
         <RoutineMetric label="Planejadas" value={`${consistency.planned}`} />
       </section>
+
+      <RoutineFocusPanel tasks={tasks} date={isoOf(cursor)} fallbackDate={TODAY_ISO}
+        onManage={(taskId, occurrenceDate) => setManagedOccurrence({ taskId, date: occurrenceDate })}
+        onDay={(date) => { setCursor(parseISO(date)); setView("dia") }} />
 
       <Tabs value={view} onValueChange={(value) => setView(value as View)} className="w-full max-w-sm">
         <TabsList variant="line" aria-label="Visualização da rotina" className="w-full">

@@ -121,7 +121,8 @@ describe("RoutineScreen — Dia/Semana/Mês/Ano", () => {
     const googleTitle = await screen.findByText("Reunião Google")
     expect(googleTitle.closest("a")).toHaveAttribute("target", "_blank")
     expect(googleTitle.closest("button")).toBeNull()
-    expect(screen.getByText("Reunião de alinhamento").className).not.toContain("line-through")
+    const taskList = screen.getByText("Tarefas do dia").closest("section")!
+    expect(within(taskList).getByText("Reunião de alinhamento").className).not.toContain("line-through")
   })
 
   it("mostra erro do calendário sem repetir a requisição em loop", async () => {

@@ -18,7 +18,7 @@ interface TrainingContextValue extends TrainingSnapshot {
   removeWorkout: (id: string) => Promise<void>
   addMeasurement: (value: Omit<BodyMeasurement, "id">) => Promise<void>
   removeMeasurement: (id: string) => Promise<void>
-  addSession: (value: Omit<TrainingSessionLog, "id">) => Promise<void>
+  addSession: (value: Omit<TrainingSessionLog, "id"> & { id?: string }) => Promise<void>
   removeSession: (id: string) => Promise<void>
   restoreProgram: (id: string) => Promise<void>
 }
@@ -68,7 +68,7 @@ export function TrainingProvider({ children }: { children: ReactNode }) {
     removeWorkout: (id) => run(async () => { if (remote) await deleteWorkout(id); else setData((c) => ({ ...c, workouts: c.workouts.filter((x) => x.id !== id) })) }),
     addMeasurement: (item) => run(async () => { if (remote) await saveMeasurement(item); else setData((c) => ({ ...c, measurements: [{ ...item, id: wid("bm") }, ...c.measurements] })) }),
     removeMeasurement: (id) => run(async () => { if (remote) await deleteMeasurement(id); else setData((c) => ({ ...c, measurements: c.measurements.filter((x) => x.id !== id) })) }),
-    addSession: (item) => run(async () => { if (remote) await saveSession(item); else setData((c) => ({ ...c, sessions: [{ ...item, id: wid("ts") }, ...c.sessions] })); await refreshProgress() }),
+    addSession: (item) => run(async () => { if (remote) await saveSession(item); else setData((c) => ({ ...c, sessions: [{ ...item, id: item.id ?? wid("ts") }, ...c.sessions] })); await refreshProgress() }),
     removeSession: (id) => run(async () => { if (remote) await deleteSession(id); else setData((c) => ({ ...c, sessions: c.sessions.filter((x) => x.id !== id) })); await refreshProgress() }),
     restoreProgram: (id) => run(async () => { if (remote) await restoreProgram(id) }),
   }), [data, error, refresh, refreshProgress, remote, run, status, upsert])

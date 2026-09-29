@@ -5,6 +5,7 @@ import { Icon } from "../../design-system"
 import type { Workout, WorkoutExercise } from "./contracts"
 import { wid } from "./store"
 import { findExerciseVideo } from "./exerciseVideos"
+import { ExerciseLibraryPicker } from "./ExerciseLibraryPicker"
 
 const field = "w-full rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm text-on-surface outline-none transition-colors focus:border-primary"
 const lbl = "mb-1 block text-xs font-medium text-on-surface-variant"
@@ -25,6 +26,7 @@ export function WorkoutFormModal({ open, initial, onClose, onSave }: Props) {
   const [draftId, setDraftId] = useState(() => wid())
   const [err, setErr] = useState("")
   const [saving, setSaving] = useState(false)
+  const [libraryOpen, setLibraryOpen] = useState(false)
 
   useEffect(() => {
     if (open) {
@@ -33,6 +35,7 @@ export function WorkoutFormModal({ open, initial, onClose, onSave }: Props) {
       setFocus(initial?.focus ?? "")
       setExs(initial?.exercises.length ? initial.exercises.map((e) => ({ ...e })) : [emptyEx()])
       setErr("")
+      setLibraryOpen(false)
     }
   }, [open, initial])
 
@@ -70,7 +73,7 @@ export function WorkoutFormModal({ open, initial, onClose, onSave }: Props) {
   }
 
   return (
-    <Modal isOpen={open} onClose={onClose} title={initial ? "Editar treino" : "Novo treino"} icon="fitness_center" maxWidth="max-w-xl">
+    <Modal isOpen={open} onClose={onClose} title={initial ? "Editar treino" : "Novo treino"} icon="fitness_center" maxWidth="max-w-3xl">
       <div className="flex flex-col gap-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <div><label className={lbl}>Nome do treino</label><input className={field} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Superior A" autoFocus /></div>
@@ -80,10 +83,16 @@ export function WorkoutFormModal({ open, initial, onClose, onSave }: Props) {
         <div>
           <div className="mb-2 flex items-center justify-between">
             <span className={lbl + " mb-0"}>Exercícios</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <button type="button" onClick={() => setLibraryOpen((value) => !value)} className="flex min-h-9 items-center gap-1 rounded-lg border border-primary/25 bg-primary/10 px-2.5 text-xs font-semibold text-primary">{libraryOpen ? "Fechar biblioteca" : "Explorar biblioteca"}</button>
             <button onClick={() => setExs((xs) => [...xs, emptyEx()])} className="flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-medium text-primary hover:bg-surface-container-high">
               <Icon name="add" className="text-[16px]" /> Adicionar
-            </button>
+            </button></div>
           </div>
+          {libraryOpen ? <div className="mb-4"><ExerciseLibraryPicker onSelect={(item) => {
+            setExs((current) => [...current, { id: wid("e"), name: item.name, modality: item.modality, sets: "3", reps: "10", restSec: 90 }])
+            setErr("")
+          }} /></div> : null}
           <div className="flex flex-col gap-2">
             {exs.map((e, i) => {
               const videoUrl = findExerciseVideo(e.name)

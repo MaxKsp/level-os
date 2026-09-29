@@ -14,7 +14,8 @@ export type AssistantModule = "financeiro" | "agenda" | "treinos" | "alimentacao
 interface Value {
   open: boolean
   setOpen: (open: boolean) => void
-  openFor: (module: AssistantModule) => void
+  openFor: (module: AssistantModule, suggestedPrompt?: string) => void
+  suggestion: { id: number; text: string } | null
   moduleContext: AssistantModule | null
   loading: boolean
   phase: "analyzing" | "consulting" | null
@@ -32,6 +33,7 @@ const Ctx = createContext<Value | undefined>(undefined)
 export function AssistantProvider({ children }: { children: ReactNode }) {
   const [open, setOpenState] = useState(false)
   const [moduleContext, setModuleContext] = useState<AssistantModule | null>(null)
+  const [suggestion, setSuggestion] = useState<{ id: number; text: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [phase, setPhase] = useState<Value["phase"]>(null)
   const [error, setError] = useState<string | null>(null)
@@ -50,10 +52,12 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
 
   const setOpen = useCallback((value: boolean) => {
     setOpenState(value)
-    if (!value) setModuleContext(null)
+    if (!value) { setModuleContext(null); setSuggestion(null) }
   }, [])
-  const openFor = useCallback((module: AssistantModule) => {
+  const openFor = useCallback((module: AssistantModule, suggestedPrompt?: string) => {
     setModuleContext(module)
+    setSuggestion((previous) => suggestedPrompt?.trim()
+      ? { id: (previous?.id ?? 0) + 1, text: suggestedPrompt.trim().slice(0, 1000) } : null)
     setOpenState(true)
   }, [])
 
@@ -129,9 +133,9 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
 
   const dismiss = useCallback(() => { setResult(null); setError(null) }, [])
   const value = useMemo<Value>(() => ({
-    open, setOpen, openFor, moduleContext, loading, phase, error, result, paidAccess,
+    open, setOpen, openFor, suggestion, moduleContext, loading, phase, error, result, paidAccess,
     planReady, submit, undo, resolveConfirmation, dismiss,
-  }), [dismiss, error, loading, moduleContext, open, openFor, paidAccess, phase, planReady, resolveConfirmation, result, setOpen, submit, undo])
+  }), [dismiss, error, loading, moduleContext, open, openFor, paidAccess, phase, planReady, resolveConfirmation, result, setOpen, submit, suggestion, undo])
 
   return (
     <Ctx.Provider value={value}>

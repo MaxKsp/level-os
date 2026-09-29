@@ -120,6 +120,14 @@ export function AssistantCommand() {
   const pendingHistoryKey = useRef<AgentHistoryKey | null>(null)
   const pendingMessageId = useRef<number | null>(null)
 
+  // Sugestões dos módulos preenchem o campo; nunca são enviadas automaticamente.
+  useEffect(() => {
+    if (!assistant.open || !assistant.suggestion) return
+    setWorkoutForm(null); setDietForm(null)
+    setText(assistant.suggestion.text)
+    requestAnimationFrame(() => { adjust(); input.current?.focus() })
+  }, [assistant.open, assistant.suggestion, adjust, input])
+
   const appendMessage = useCallback((key: AgentHistoryKey, message: ChatMessage) => {
     setMessagesByAgent((current) => appendAgentHistory(current, key, message))
   }, [])
