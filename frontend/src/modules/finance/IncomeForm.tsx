@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "../../components/ui/button"
 import { CurrencyInput } from "../../components/ui/CurrencyInput"
+import { LevelSelect } from "../../components/ui/LevelSelect"
+import { LevelDateInput } from "../../components/ui/LevelDateInput"
 import { Icon } from "../../design-system"
 import { describeApiError } from "../../lib/apiErrors"
 import { formatCurrency } from "../../lib/format"
@@ -168,22 +170,19 @@ export function IncomeForm({ accounts, initial, resetKey, onCancel, onSaveIncome
 
         {mode === "avulsa" ? (
           <>
-            <div><label className={label} htmlFor="income-date">Data</label><input id="income-date" className={field} type="date" value={date} onChange={(event) => setDate(event.target.value)} /></div>
+            <div><label className={label} htmlFor="income-date">Data</label><LevelDateInput id="income-date" value={date} onChange={(event) => setDate(event.target.value)} /></div>
             <div><label className={label} htmlFor="income-km">Quilômetros (opcional)</label><input id="income-km" className={field} type="number" min="0" value={km} onChange={(event) => setKm(event.target.value)} /></div>
           </>
         ) : (
           <>
             <div><label className={label} htmlFor="income-payday">Dia de pagamento</label><input id="income-payday" className={field} type="number" min="1" max="31" value={payday} onChange={(event) => setPayday(event.target.value)} /></div>
-            {mode === "temporaria" ? <div><label className={label} htmlFor="income-end">Último recebimento</label><input id="income-end" className={field} type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></div> : null}
+            {mode === "temporaria" ? <div><label className={label} htmlFor="income-end">Último recebimento</label><LevelDateInput id="income-end" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></div> : null}
           </>
         )}
 
         <div className={mode === "clt" ? "sm:col-span-2" : ""}>
           <label className={label} htmlFor="income-account">Conta de recebimento</label>
-          <select id="income-account" className={field} value={accountId} onChange={(event) => setAccountId(event.target.value)}>
-            <option value="">Sem conta vinculada</option>
-            {accounts.filter((account) => account.tipo !== "cartao").map((account) => <option key={account.id} value={account.id}>{account.label}</option>)}
-          </select>
+          <LevelSelect id="income-account" value={accountId} onChange={setAccountId} options={[{ value: "", label: "Sem conta vinculada" }, ...accounts.filter((account) => account.tipo !== "cartao").map((account) => ({ value: account.id, label: account.label }))]} />
         </div>
       </div>
 

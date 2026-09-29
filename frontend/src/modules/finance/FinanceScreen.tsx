@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { AnimatedNumber } from "../../components/ui/AnimatedNumber";
 import { BankLogo } from "../../components/ui/BankLogo";
+import { LevelSelect } from "../../components/ui/LevelSelect";
 import { PersistentCollapsibleSection } from "../../components/ui/PersistentCollapsibleSection";
 import { ConfirmIconAction, IconAction } from "../../components/ui/IconAction";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,7 +11,6 @@ import {
   ChartNoAxesCombined,
   ChartPie,
   CalendarRange,
-  ChevronDown,
   FileText,
   Pencil,
   ReceiptText,
@@ -198,19 +198,11 @@ export function FinanceScreen() {
           </TabsTrigger>
           </TabsList>
         </Tabs>
-        <label className="relative shrink-0 sm:hidden">
-          <span className="sr-only">Mais seções financeiras</span>
-          <select
-            aria-label="Mais seções financeiras"
-            value={MORE_TABS.some((item) => item.value === tab) ? tab : ""}
-            onChange={(event) => changeTab(event.target.value as Tab)}
-            className="h-10 max-w-[8.5rem] appearance-none rounded-lg border border-outline-variant bg-surface-container-low px-3 pr-8 text-sm font-medium text-on-surface outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30"
-          >
-            <option value="" disabled>Mais</option>
-            {MORE_TABS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-          </select>
-          <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-muted" />
-        </label>
+        <div className="w-36 shrink-0 sm:hidden">
+          <LevelSelect aria-label="Mais seções financeiras" value={MORE_TABS.some((item) => item.value === tab) ? tab : ""}
+            onChange={(value) => changeTab(value as Tab)} placeholder="Mais"
+            options={[{ value: "", label: "Mais", disabled: true }, ...MORE_TABS.map((item) => ({ value: item.value, label: item.label }))]} />
+        </div>
       </div>
 
       {tab === "parcelamentos" ? (

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react"
 import { BankLogo } from "../../components/ui/BankLogo"
 import { Button } from "../../components/ui/button"
+import { LevelSelect } from "../../components/ui/LevelSelect"
+import { LevelDateInput } from "../../components/ui/LevelDateInput"
 import { Icon } from "../../design-system"
 import { formatCurrency } from "../../lib/format"
 import type { AccountV2, Transfer } from "./contracts"
@@ -52,22 +54,18 @@ export function TransferForm({ accounts, resetKey, onCancel, onSave }: { account
             <div className="grid gap-3 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
               <div>
                 <label className={label}>Conta de origem</label>
-                <select className={field} value={from} onChange={(event) => { setFrom(event.target.value); if (event.target.value === to) setTo(available.find((account) => account.id !== event.target.value)?.id ?? "") }}>
-                  {available.map((account) => <option key={account.id} value={account.id}>{account.label} · {account.bank}</option>)}
-                </select>
+                <LevelSelect aria-label="Conta de origem" value={from} onChange={(chosen) => { setFrom(chosen); if (chosen === to) setTo(available.find((account) => account.id !== chosen)?.id ?? "") }} options={available.map((account) => ({ value: account.id, label: `${account.label} · ${account.bank}` }))} />
               </div>
               <span className="mb-1 hidden h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary sm:grid"><Icon name="arrow_forward" className="text-[19px]" /></span>
               <div>
                 <label className={label}>Conta de destino</label>
-                <select className={field} value={to} onChange={(event) => setTo(event.target.value)}>
-                  {available.filter((account) => account.id !== from).map((account) => <option key={account.id} value={account.id}>{account.label} · {account.bank}</option>)}
-                </select>
+                <LevelSelect aria-label="Conta de destino" value={to} onChange={setTo} options={available.filter((account) => account.id !== from).map((account) => ({ value: account.id, label: `${account.label} · ${account.bank}` }))} />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div><label className={label}>Valor (R$)</label><input className={field} type="number" min="0" step="0.01" value={value} onChange={(event) => setValue(event.target.value)} placeholder="0,00" autoFocus /></div>
-              <div><label className={label}>Data</label><input className={field} type="date" value={date} onChange={(event) => setDate(event.target.value)} /></div>
+              <div><label className={label}>Data</label><LevelDateInput value={date} onChange={(event) => setDate(event.target.value)} /></div>
             </div>
 
             {source && destination ? (

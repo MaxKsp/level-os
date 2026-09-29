@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
 import { Activity, ChevronDown, Clock3, Dumbbell, Search, Trash2 } from "lucide-react"
 import { Button } from "../../components/ui/button"
+import { LevelSelect } from "../../components/ui/LevelSelect"
 import { ConfirmIconAction } from "../../components/ui/IconAction"
 import { EmptyState, SectionCard } from "../../design-system"
 import type { TrainingModality, TrainingSessionLog } from "./contracts"
@@ -33,10 +34,7 @@ export function TrainingHistory({ sessions, onQuickLog, onDelete }: Props) {
           <Search className="size-4 shrink-0" />
           <input value={query} onChange={(e) => { setQuery(e.target.value); setShowAll(false) }} placeholder="Buscar sessão ou exercício" aria-label="Buscar sessões" className="w-full min-w-0 bg-transparent text-sm text-on-surface outline-none placeholder:text-muted" />
         </label>
-        <select value={modality} onChange={(e) => { setModality(e.target.value as typeof modality); setShowAll(false) }} aria-label="Filtrar modalidade" className="min-h-11 rounded-lg border border-outline-variant bg-surface px-3 text-sm text-on-surface outline-none focus:border-primary">
-          <option value="all">Todas as modalidades</option>
-          {Object.entries(modalityLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-        </select>
+        <LevelSelect className="min-w-44" value={modality} onChange={(value) => { setModality(value); setShowAll(false) }} aria-label="Filtrar modalidade" options={[{ value: "all" as const, label: "Todas as modalidades" }, ...Object.entries(modalityLabels).map(([value, label]) => ({ value: value as TrainingModality, label }))]} />
       </div>
       {filtered.length === 0 ? <EmptyState title={sessions.length ? "Nenhum registro encontrado" : "Seu histórico começa no primeiro treino"} description={sessions.length ? "Ajuste a busca ou o filtro para encontrar outra sessão." : "Inicie uma ficha e registre tudo de uma vez, ou utilize a sessão livre."} icon="history" action={<Button variant="primary" size="sm" onClick={onQuickLog}>Registrar sessão livre</Button>} /> : (
         <div className="divide-y divide-outline-variant">
