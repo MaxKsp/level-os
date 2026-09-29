@@ -14,12 +14,13 @@ function saved(key: string | null, plan: DietPlan): MealCheckins {
   if (!key) return {}
   try { return normalizeMealCheckins(JSON.parse(localStorage.getItem(key) ?? "{}"), plan) } catch { return {} }
 }
-export function NutritionMealCheckin({ plan, dayNumber, planKey }: {
+export function NutritionMealCheckin({ plan, dayNumber, planKey, syncedChecks, onSync }: {
   plan: DietPlan; dayNumber: number; planKey: string; key?: string
+  syncedChecks?: MealCheckins; onSync?: (slot: string, value: MealCheckinStatus | null) => Promise<void>
 }) {
   const key = scopedKey(planKey)
   const [session, setSession] = useState(() => ({ key, checks: saved(key, plan) }))
-  const checks = session.key === key ? session.checks : saved(key, plan)
+  const checks = onSync ? normalizeMealCheckins(syncedChecks ?? {}, plan) : session.key === key ? session.checks : saved(key, plan)
   const [notice, setNotice] = useState("")
   const day = plan.days.find((item) => item.day === dayNumber) ?? plan.days[0]
   const summary = mealCheckinSummary(plan, checks)

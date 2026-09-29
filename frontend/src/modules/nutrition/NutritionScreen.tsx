@@ -15,6 +15,8 @@ import { NutritionPlanningPanel } from "./NutritionPlanningPanel"
 import { NutritionCommercePanel } from "./NutritionCommercePanel"
 import { NutritionPlanIntelligence } from "./NutritionPlanIntelligence"
 import { NutritionMealCheckin } from "./NutritionMealCheckin"
+import { NutritionWorkspacePanel } from "./NutritionWorkspacePanel"
+import { planWorkspaceId, useNutritionWorkspace } from "./nutritionWorkspace"
 
 const SHOPPING_CATEGORY_LABEL: Record<ShoppingCategory, string> = {
   hortifruti: "Hortifrúti",
@@ -37,6 +39,7 @@ const brl = (value: number) => value.toLocaleString("pt-BR", { style: "currency"
 
 export function NutritionScreen() {
   const nutrition = useNutrition()
+  const workspace = useNutritionWorkspace(nutrition.plan)
   const assistant = useAssistant()
   const training = useTraining()
   const [openDay, setOpenDay] = useState(1)
@@ -148,6 +151,8 @@ export function NutritionScreen() {
         </div>
       )}
       {!plan ? <NutritionCommercePanel plan={null} /> : null}
+      <NutritionWorkspacePanel plan={plan} workspace={workspace.workspace} loading={workspace.status === "loading"} error={workspace.error}
+        save={workspace.save} refresh={workspace.refresh} askRita={(text) => assistant.openFor("alimentacao", text)} />
       {nutrition.history.length > 0 ? (
         <SectionCard title="Histórico de planos" description={`${nutrition.history.length} versão(ões) arquivada(s)`} bodyClassName="p-0">
           <ul className="divide-y divide-outline-variant">

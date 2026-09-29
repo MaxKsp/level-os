@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once dirname(__DIR__) . '/Nutrition/NutritionPlanService.php';
+require_once dirname(__DIR__) . '/Nutrition/NutritionWorkspaceService.php';
 
 /**
  * Contexto explícito e mínimo da Rita. Não carrega informações financeiras,
@@ -19,7 +20,7 @@ final class AssistantNutritionContext {
             'asOf' => level_clock_today()->format('Y-m-d'),
             'source' => 'Level OS: banco de dados, usuário autenticado',
             'planStatus' => $active === null ? 'no_active_plan' : 'active',
-            'actualMealsAndPurchases' => 'not_synced: marcações atuais permanecem no navegador; não inferir consumo ou pagamento',
+            'actualMealsAndPurchases' => 'Dados reais: usar somente registros voluntários sincronizados; carrinho não comprova pagamento',
             'marketPrices' => 'unavailable: custos do plano são estimativas declaradas, não cotações reais',
         ];
         $context['previousVersions'] = array_map(static fn(array $item): array => [
@@ -27,6 +28,7 @@ final class AssistantNutritionContext {
             'goal'=>mb_substr((string)($item['goal'] ?? ''), 0, 50),
             'source'=>mb_substr((string)($item['source'] ?? ''), 0, 20),
         ], array_slice(is_array($snapshot['history'] ?? null) ? $snapshot['history'] : [], 0, 5));
+        $context['workspace'] = $this->sharedWorkspace($userId, $active);
         if ($active === null) return $context + ['plan'=>null];
         $days = [];
         foreach (array_slice(is_array($active['days'] ?? null) ? $active['days'] : [], 0, 30) as $day) {
@@ -62,5 +64,30 @@ final class AssistantNutritionContext {
             'days'=>$days, 'shoppingList'=>$shopping,
         ];
         return $context;
+    }
+    /** Additional information is shared with the model only by explicit user opt-in. */
+    private function sharedWorkspace(int $uid, ?array $active): array {
+        $ws = (new NutritionWorkspaceService($this->db))->load($uid);
+        $prefs = is_array($ws['preferences'] ?? null) ? $ws['preferences'] : [];
+        if (($prefs['shareWithRita'] ?? false) !== true) {
+            return ['sharing'=>'disabled', 'message'=>'Memória, despensa, diário e compras privados até autorização na aba Preferências.'];
+        }
+        $planId = is_array($active) ? (string)($active['id'] ?? 'legacy') : null;
+        return ['sharing'=>'enabled', 'selfReported'=>true,
+            'preferences'=>['favorites'=>array_slice($prefs['favorites'] ?? [], 0, 24),
+                'avoids'=>array_slice($prefs['avoids'] ?? [], 0, 24),
+                'notes'=>mb_substr((string)($prefs['notes'] ?? ''),0,500),
+                'prepMinutes'=>(int)($prefs['prepMinutes'] ?? 30)],
+            'pantry'=>array_slice($ws['pantry'] ?? [], 0, 60),
+            'recipes'=>array_map(static fn(array $r): array => [
+                'title'=>$r['title'], 'prepMinutes'=>$r['prepMinutes'], 'portions'=>$r['portions'],
+                'ingredients'=>array_slice($r['ingredients'] ?? [],0,24),
+            ], array_slice($ws['recipes'] ?? [],0,15)),
+            'diary'=>array_slice($ws['diary'] ?? [], -20),
+            'confirmedManualPurchases'=>array_slice($ws['purchases'] ?? [], -20),
+            'familyPortionTotal'=>array_sum(array_column($ws['family'] ?? [], 'portionFactor')),
+            'mealCheckins'=>$planId === null ? [] : ($ws['mealChecks'][$planId] ?? []),
+            'cartNotPayment'=>$planId === null ? [] : ($ws['cartChecks'][$planId] ?? []),
+            'limitations'=>'Registros declarados pelo próprio usuário; carrinho não comprova compra nem refeição marcada comprova ingestão.'];
     }
 }

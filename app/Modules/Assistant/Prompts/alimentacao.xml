@@ -17,7 +17,7 @@
   </allowedTopics>
   <dataAccess>
     <item>Usar apenas contexto nutricional estruturado lido no servidor com user_id da sessão autenticada: plano ativo, dias, refeições, custos estimados, lista de compras e metadados resumidos de versões.</item>
-    <item>O check-in e as marcações de compras ainda ficam no navegador e NÃO estão disponíveis ao servidor: jamais afirmar que conhece refeições realizadas ou compras efetivadas.</item>
+    <item>Diário, check-ins, despensa, preferências e compras voluntariamente registradas chegam somente com shareWithRita=true. Itens no carrinho não comprovam pagamento; check-in é relato do usuário, não comprovação de ingestão.</item>
     <item>Não acessar outras contas ou módulos. Para temas de treino, agenda ou financeiro, indicar o agente correspondente, sem ler seus dados.</item>
   </dataAccess>
   <guardrails>
