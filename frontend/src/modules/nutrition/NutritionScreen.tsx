@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Check, History, RotateCcw, ShoppingCart, Trash2, UtensilsCrossed } from "lucide-react"
+import { Check, History, RotateCcw, ShoppingCart, Trash2 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { ConfirmIconAction } from "../../components/ui/IconAction"
 import { EmptyState, SectionCard } from "../../design-system"
@@ -10,6 +10,9 @@ import { useNutrition, type ShoppingCategory, type ShoppingItem } from "./store"
 import { useTraining } from "../training/store"
 import { userStorageKey } from "../../lib/userStorage"
 import { NutritionPlanningPanel } from "./NutritionPlanningPanel"
+import { NutritionCommercePanel } from "./NutritionCommercePanel"
+import { NutritionPlanIntelligence } from "./NutritionPlanIntelligence"
+import { NutritionMealCheckin } from "./NutritionMealCheckin"
 
 const SHOPPING_CATEGORY_LABEL: Record<ShoppingCategory, string> = {
   hortifruti: "Hortifrúti",
@@ -92,6 +95,7 @@ export function NutritionScreen() {
           </section>
 
           <NutritionPlanningPanel plan={plan} activeProgram={training.programs.find((program) => program.status === "active") ?? null} onOpenLeo={() => assistant.openFor("treinos")} />
+          <NutritionPlanIntelligence plan={plan} onSuggestion={(draft) => assistant.openFor("alimentacao", draft)} />
 
           <SectionCard
             title="Cardápio"
@@ -116,26 +120,17 @@ export function NutritionScreen() {
                 </button>
               ))}
             </div>
-            <ul className="divide-y divide-outline-variant">
-              {(plan.days.find((d) => d.day === openDay) ?? plan.days[0])?.meals.map((meal, index) => (
-                <li key={index} className="flex items-start justify-between gap-4 px-5 py-4">
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-2 font-semibold text-on-surface">
-                      <UtensilsCrossed className="size-4 shrink-0 text-primary" />
-                      {meal.name}
-                    </p>
-                    <p className="mt-1 text-sm leading-6 text-on-surface-variant">{meal.description}</p>
-                  </div>
-                  <span className="numeric-value shrink-0 text-sm text-muted">{brl(meal.estimatedCostBRL)}</span>
-                </li>
-              ))}
-            </ul>
+            <NutritionMealCheckin key={plan.id ?? plan.createdAt ?? String(plan.version)} plan={plan}
+              planKey={plan.id ?? plan.createdAt ?? String(plan.version ?? "current")} dayNumber={openDay} />
           </SectionCard>
 
-          {plan.shoppingList && plan.shoppingList.length > 0 ? <ShoppingListCard key={plan.id ?? plan.createdAt ?? String(plan.version)} planKey={plan.id ?? plan.createdAt ?? String(plan.version ?? "current")} items={plan.shoppingList} /> : null}
+          {plan.shoppingList && plan.shoppingList.length > 0
+            ? <ShoppingListCard key={plan.id ?? plan.createdAt ?? String(plan.version)} plan={plan} planKey={plan.id ?? plan.createdAt ?? String(plan.version ?? "current")} items={plan.shoppingList} />
+            : <NutritionCommercePanel plan={plan} />}
 
         </div>
       )}
+      {!plan ? <NutritionCommercePanel plan={null} /> : null}
       {nutrition.history.length > 0 ? (
         <SectionCard title="Histórico de planos" description={`${nutrition.history.length} versão(ões) arquivada(s)`} bodyClassName="p-0">
           <ul className="divide-y divide-outline-variant">
@@ -158,7 +153,7 @@ export function NutritionScreen() {
   )
 }
 
-function ShoppingListCard({ items, planKey }: { items: ShoppingItem[]; planKey: string; key?: string }) {
+function ShoppingListCard({ items, planKey, plan }: { items: ShoppingItem[]; planKey: string; plan: NonNullable<ReturnType<typeof useNutrition>["plan"]>; key?: string }) {
   const key = userStorageKey("level-os:nutrition:shopping:" + String(planKey).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80))
   const [checked, setChecked] = useState<Set<number>>(() => {
     try {
@@ -188,6 +183,7 @@ function ShoppingListCard({ items, planKey }: { items: ShoppingItem[]; planKey: 
     .filter((group) => group.entries.length > 0)
 
   return (
+    <>
     <SectionCard
       title="Lista de compras"
       description={`${items.length} ${items.length === 1 ? "item" : "itens"} para o período — ${checked.size} no carrinho`}
@@ -232,5 +228,7 @@ function ShoppingListCard({ items, planKey }: { items: ShoppingItem[]; planKey: 
         ))}
       </div>
     </SectionCard>
+    <NutritionCommercePanel plan={plan} items={items} purchased={checked} />
+    </>
   )
 }
