@@ -27,7 +27,10 @@ const SUGGESTIONS: Suggestion[] = [
   { module: "treinos", icon: <Scale className="size-4" />, label: "Medida", description: "Registrar peso ou medida", prefix: "/medida", template: "Registrar peso 79,4 kg hoje" },
   { module: "treinos", icon: <Ruler className="size-4" />, label: "IMC e medidas", description: "Consultar evolução corporal", prefix: "/imc", template: "Quais minhas últimas medidas e IMC?" },
   { module: "treinos", icon: <GraduationCap className="size-4" />, label: "Programa personalizado", description: "Professor de educação física monta seu treino", prefix: "/programa", openWorkoutForm: true },
-  { module: "alimentacao", icon: <ChefHat className="size-4" />, label: "Montar dieta", description: "Nutricionista por objetivo e orçamento", prefix: "/dieta", openDietForm: true },
+  { module: "alimentacao", icon: <ChefHat className="size-4" />, label: "Criar cardápio", description: "Plano por objetivo e orçamento", prefix: "/dieta", openDietForm: true },
+  { module: "alimentacao", icon: <ChefHat className="size-4" />, label: "Ideias de refeições", description: "Receitas com o que tenho", prefix: "/receitas", template: "Me sugira 3 ideias de refeições simples, econômicas e práticas. Pergunte quais ingredientes tenho, se precisar." },
+  { module: "alimentacao", icon: <BarChart3 className="size-4" />, label: "Meu cardápio", description: "Analisar plano ativo", prefix: "/cardapio", template: "Analise meu cardápio ativo: dias, refeições, variedade, custo estimado e sugestões práticas. Use somente os dados realmente disponíveis no Level OS." },
+  { module: "alimentacao", icon: <ListTodo className="size-4" />, label: "Organizar compras", description: "Aproveitar a lista atual", prefix: "/compras", template: "Com base na lista do meu plano, organize os ingredientes por categoria, com quantidades registradas, e sugira como evitar desperdício. Não diga que foram comprados." },
 ]
 
 const WORKOUT_FOCUS_OPTIONS = ["Hipertrofia", "Emagrecimento", "Força", "Resistência", "Condicionamento geral"]

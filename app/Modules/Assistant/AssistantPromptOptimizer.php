@@ -44,7 +44,25 @@ final class AssistantPromptOptimizer {
             return true;
         }
 
+        // Esta lista continua fora do escopo mesmo quando o texto também
+        // menciona comida: a exceção contextual abaixo não pode liberá-la.
+        if (self::containsAny($normalized, [
+            'escreva um poema', 'conte uma piada', 'previsao do tempo', 'noticias de hoje',
+            'eleicao', 'politica', 'presidente', 'traduzir texto', 'traducao',
+            'programar em', 'codigo fonte', 'sql injection', 'hackear', 'malware',
+        ])) return true;
+
         $explicitDomains = self::explicitDomainIntents($normalized);
+        // 'O que comer depois do treino?' é uma pergunta sobre alimentação.
+        // O agente não lê dados de Academia; ele só pode discutir refeições
+        // de forma geral. Solicitações de extrato/registro de treino continuam
+        // no domínio apropriado.
+        if ($module === 'alimentacao'
+            && preg_match('/\b(?:alimentacao|dieta|cardapio|refeicao|lanche|almoco|jantar|cafe da manha|comer|alimento|receita|marmita|nutricao|proteina)\b/', $normalized) === 1
+            && array_diff($explicitDomains, ['alimentacao', 'treinos']) === []
+            && preg_match('/\b(?:mostrar|mostre|qual|quais|registrar|criar|montar)\b.{0,45}\b(?:treino|ficha de treino|exercicio|serie|carga)\b/', $normalized) !== 1) {
+            return false;
+        }
         if (count($explicitDomains) > 1) return true;
         if ($module !== null && $explicitDomains !== [] && $explicitDomains[0] !== $module) return true;
 
@@ -92,6 +110,13 @@ final class AssistantPromptOptimizer {
         $trimmed = trim($text);
         if ($trimmed === '' || mb_strlen($trimmed) > 500) return null;
         $normalized = mb_strtolower($trimmed, 'UTF-8');
+        // Conversas da Rita usam roteamento local apenas para identificar
+        // query. A resposta vem de uma segunda chamada de IA com dados reais.
+        // Somente pedidos explícitos de criar/substituir um plano usam a
+        // ferramenta de proposta versionada, com aprovação do usuário.
+        if ($module === 'alimentacao' && !self::isNutritionPlanRequest($trimmed)) {
+            return assistant_validate_route('query', ['question'=>$trimmed]);
+        }
         if (self::containsAny($normalized, ['registrar','adicionar','criar','lançar','lancar','transferir','montar'])) {
             return null;
         }
@@ -117,7 +142,7 @@ final class AssistantPromptOptimizer {
     public static function preferredAction(string $text, ?string $module): ?string {
         $normalized = self::ascii($text);
         return match ($module) {
-            'alimentacao' => str_starts_with($normalized, 'monte um plano alimentar') ? 'create_diet_plan' : null,
+            'alimentacao' => self::isNutritionPlanRequest($text) ? 'create_diet_plan' : null,
             'agenda' => preg_match('/\b(?:criar|adicionar|registrar) (?:uma )?tarefa\b/', $normalized) === 1 ? 'add_task' : null,
             'financeiro' => match (true) {
                 preg_match('/\b(?:transferir|transferi|transferencia)\b/', $normalized) === 1 => 'add_transfer',
@@ -132,6 +157,15 @@ final class AssistantPromptOptimizer {
             },
             default => null,
         };
+    }
+
+    private static function isNutritionPlanRequest(string $text): bool {
+        $normalized = self::ascii($text);
+        // Receitas isoladas, substituições e dúvidas não podem acionar uma
+        // mutação: só geração/revisão explícita de plano, dieta ou cardápio.
+        if (preg_match('/\b(?:posso|como|devo)\b.{0,30}\b(?:montar|criar|fazer)\b/', $normalized) === 1
+            && str_contains($normalized, '?')) return false;
+        return preg_match('/\b(?:monte|montar|crie|criar|gere|gerar|elabore|elaborar|faca|refaca|refazer|ajuste|substitua)\b.{0,95}\b(?:plano alimentar|dieta|cardapio)\b/', $normalized) === 1;
     }
 
     public static function maxOutputTokens(?string $module, ?string $preferredAction): int {

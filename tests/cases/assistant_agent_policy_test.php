@@ -20,6 +20,15 @@ return static function (): void {
         test_assert_true(str_contains((string)$policy['prompt'], '<dataAccess>'), 'Cada agente precisa declarar acesso a dados no XML.');
     }
 
+    $rita = AssistantAgentPolicy::forModule('alimentacao');
+    test_assert_same('Nutricionista Rita', $rita['name'], 'The registered agent and UI must use the same identity.');
+    test_assert_same('2.0.0', $rita['version'], 'Nutrition contract must be explicitly versioned.');
+    $ritaSafety = implode(' ', $rita['guardrails']);
+    test_assert_true(str_contains($ritaSafety, 'persona virtual') && str_contains($ritaSafety, 'reação alérgica'),
+        'The nutrition persona must disclose its role and include clinical/emergency guardrails.');
+    test_assert_true(str_contains($ritaSafety, 'compras') && str_contains($ritaSafety, 'aprovação explícita'),
+        'Nutrition chat must not invent checkouts or mutate a plan without approval.');
+
     foreach (assistant_action_schemas() as $action => $_schema) {
         test_assert_same(
             $action !== 'query',

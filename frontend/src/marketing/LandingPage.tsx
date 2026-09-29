@@ -72,7 +72,7 @@ const ASSISTANT_AGENTS = [
   },
   {
     id: "alimentacao",
-    name: "Cheff Rita",
+    name: "Nutricionista Rita",
     module: "Alimentação",
     context: "alimentacao",
     icon: "restaurant",

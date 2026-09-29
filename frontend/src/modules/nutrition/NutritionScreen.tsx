@@ -15,6 +15,8 @@ import { NutritionPlanningPanel } from "./NutritionPlanningPanel"
 import { NutritionCommercePanel } from "./NutritionCommercePanel"
 import { NutritionPlanIntelligence } from "./NutritionPlanIntelligence"
 import { NutritionMealCheckin } from "./NutritionMealCheckin"
+import { NutritionWorkspacePanel } from "./NutritionWorkspacePanel"
+import { planWorkspaceId, useNutritionWorkspace } from "./nutritionWorkspace"
 
 const SHOPPING_CATEGORY_LABEL: Record<ShoppingCategory, string> = {
   hortifruti: "Hortifrúti",
@@ -37,6 +39,7 @@ const brl = (value: number) => value.toLocaleString("pt-BR", { style: "currency"
 
 export function NutritionScreen() {
   const nutrition = useNutrition()
+  const workspace = useNutritionWorkspace(nutrition.plan)
   const assistant = useAssistant()
   const training = useTraining()
   const [openDay, setOpenDay] = useState(1)
@@ -68,7 +71,7 @@ export function NutritionScreen() {
             <Plus className="size-4" /> Criar manualmente
           </Button>
           <Button variant="primary" size="md" onClick={() => assistant.openFor("alimentacao")}>
-            <AssistantAvatar module="alimentacao" className="size-4" />Chef Rita
+            <AssistantAvatar module="alimentacao" className="size-4" />Nutricionista Rita
           </Button>
         </div>
       </header>
@@ -83,15 +86,15 @@ export function NutritionScreen() {
         <SectionCard title="Seu plano alimentar" description="Nenhum plano ativo" bodyClassName="p-0">
           <EmptyState
             title="Nenhuma dieta montada"
-            description="Crie seu próprio cardápio com refeições e custos, ou conte com a Chef Rita para preparar uma sugestão."
+            description="Crie seu próprio cardápio com refeições e custos, ou conte com a Nutricionista Rita para preparar uma sugestão."
             icon="restaurant"
-            action={<div className="flex flex-wrap gap-2"><Button variant="secondary" size="sm" onClick={() => openManual(false)}><Plus className="size-4" />Criar manualmente</Button><Button variant="primary" size="sm" onClick={() => assistant.openFor("alimentacao")}><AssistantAvatar module="alimentacao" className="size-4" />Chef Rita</Button></div>}
+            action={<div className="flex flex-wrap gap-2"><Button variant="secondary" size="sm" onClick={() => openManual(false)}><Plus className="size-4" />Criar manualmente</Button><Button variant="primary" size="sm" onClick={() => assistant.openFor("alimentacao")}><AssistantAvatar module="alimentacao" className="size-4" />Nutricionista Rita</Button></div>}
           />
         </SectionCard>
       ) : (
         <div id="nutrition-plan" className="scroll-mt-24 space-y-6">
           <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted">
-            <span className="rounded-full border border-primary/25 bg-primary/5 px-3 py-1 font-semibold text-primary">{plan.source === "manual" ? "Criado manualmente" : "Criado com Chef Rita"}</span>
+            <span className="rounded-full border border-primary/25 bg-primary/5 px-3 py-1 font-semibold text-primary">{plan.source === "manual" ? "Criado manualmente" : "Criado com Nutricionista Rita"}</span>
             {plan.version ? <span>Versão {plan.version}</span> : null}
           </div>
           <section className="grid border-y border-outline-variant sm:grid-cols-4" aria-label="Resumo do plano">
@@ -148,6 +151,8 @@ export function NutritionScreen() {
         </div>
       )}
       {!plan ? <NutritionCommercePanel plan={null} /> : null}
+      <NutritionWorkspacePanel plan={plan} workspace={workspace.workspace} loading={workspace.status === "loading"} error={workspace.error}
+        save={workspace.save} refresh={workspace.refresh} askRita={(text) => assistant.openFor("alimentacao", text)} />
       {nutrition.history.length > 0 ? (
         <SectionCard title="Histórico de planos" description={`${nutrition.history.length} versão(ões) arquivada(s)`} bodyClassName="p-0">
           <ul className="divide-y divide-outline-variant">
@@ -156,7 +161,7 @@ export function NutritionScreen() {
                 <div className="flex min-w-0 items-start gap-3">
                   <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><History className="size-4" /></span>
                   <div className="min-w-0">
-                    <p className="font-semibold text-on-surface">Versão {item.version ?? "anterior"} · {GOAL_LABELS[item.goal] ?? item.goal} · {item.source === "manual" ? "Manual" : "Chef Rita"}</p>
+                    <p className="font-semibold text-on-surface">Versão {item.version ?? "anterior"} · {GOAL_LABELS[item.goal] ?? item.goal} · {item.source === "manual" ? "Manual" : "Nutricionista Rita"}</p>
                     <p className="mt-1 text-xs text-muted">{item.periodDays} dias · {brl(item.estimatedCostBRL)} · {item.createdAt ? new Date(item.createdAt).toLocaleDateString("pt-BR") : "data indisponível"}</p>
                   </div>
                 </div>

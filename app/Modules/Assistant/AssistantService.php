@@ -8,6 +8,7 @@ require_once __DIR__ . '/AssistantActionExecutor.php';
 require_once __DIR__ . '/AssistantRepository.php';
 require_once __DIR__ . '/AssistantAgentPolicy.php';
 require_once __DIR__ . '/AssistantTriage.php';
+require_once __DIR__ . '/AssistantNutritionContext.php';
 
 final class AssistantUsageLimitExceeded extends RuntimeException {
 }
@@ -193,6 +194,21 @@ final class AssistantService {
                 return $response;
             }
 
+            // Uma consulta culinária não é uma mutação nem uma resposta fixa do
+            // executor. A Rita responde via LLM com contexto nutricional real,
+            // sem ferramentas e sem manter transação aberta durante a chamada.
+            $nutritionAnswer = null;
+            if ($module === 'alimentacao' && ($route['action'] ?? null) === 'query') {
+                $this->requireAvailableUsage($userId, false);
+                $nutritionAnswer = $this->router->answerNutrition(
+                    (string)($route['arguments']['question'] ?? $displayText),
+                    (new AssistantNutritionContext($this->db))->forUser($userId),
+                    $this->repository->history($userId, 'alimentacao', 4),
+                );
+                $provider = $nutritionAnswer['provider'];
+                $usage = self::combineUsage($usage, $nutritionAnswer['usage']);
+            }
+
             $autoCorrectedBudget = false;
             if (!$this->db->inTransaction()) $this->db->beginTransaction();
             $locked = $this->repository->findByRequest($userId, $requestId, true);
@@ -231,6 +247,10 @@ final class AssistantService {
                 $autoCorrectedBudget = true;
             }
             $response = $result['response'];
+            if ($nutritionAnswer !== null) {
+                $response['message'] = $nutritionAnswer['message'];
+                $response['data']['conversational'] = true;
+            }
             $undo = $result['undo'];
             $undoExpiry = $undo !== null ? level_clock_utc_sql(level_clock_epoch() + self::UNDO_WINDOW_SECONDS) : null;
             $response['usage'] = self::publicUsage($usage);

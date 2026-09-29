@@ -40,6 +40,14 @@ return static function (): void {
     test_assert_same('create_workout_program', AssistantPromptOptimizer::preferredAction('Monte um programa de treino para hipertrofia', 'treinos'), 'Training shortcut routes directly to a program.');
     test_assert_same('create_diet_plan', AssistantPromptOptimizer::preferredAction('Monte um plano alimentar para 7 dias', 'alimentacao'), 'Nutrition shortcut routes directly to a diet plan.');
     test_assert_same('query', AssistantPromptOptimizer::localRoute('Qual é meu plano alimentar?', 'alimentacao')['action'] ?? null, 'Nutrition questions use the free local route.');
+    test_assert_same('query', AssistantPromptOptimizer::localRoute('Sugira uma receita com banana e aveia.', 'alimentacao')['action'] ?? null,
+        'Recipe suggestions must use natural-language dialogue instead of creating a plan.');
+    test_assert_same('query', AssistantPromptOptimizer::localRoute('Quero organizar a lista de compras do meu cardápio.', 'alimentacao')['action'] ?? null,
+        'Shopping questions are read-only conversations.');
+    test_assert_true(!AssistantPromptOptimizer::isOutOfScope('O que comer depois do meu treino?', 'alimentacao'),
+        'Training as food context is allowed without granting access to training data.');
+    test_assert_true(AssistantPromptOptimizer::isOutOfScope('Mostre meu treino atual e meu almoço.', 'alimentacao'),
+        'The nutrition agent must still deny explicit cross-module data requests.');
     $routineQuery = (new AssistantActionExecutor($db))->execute(7, ['action'=>'query','arguments'=>['question'=>'Quais tarefas estão pendentes?']]);
     test_assert_true(str_contains((string)$routineQuery['response']['message'], '1 tarefa(s) pendente(s)'), 'Routine query reads the user task store without undefined context.');
     $nutritionQuery = (new AssistantActionExecutor($db))->execute(7, ['action'=>'query','arguments'=>['question'=>'Qual é meu plano alimentar?']]);
@@ -51,7 +59,7 @@ return static function (): void {
         'alimentacao',
     );
     test_assert_true(
-        str_contains((string)$scopedNutritionQuery['response']['message'], 'Chef Rita'),
+        str_contains((string)$scopedNutritionQuery['response']['message'], 'Nutricionista Rita'),
         'The nutrition executor must never read or answer finance data, even if a foreign query reaches it.',
     );
     test_assert_same(
@@ -64,7 +72,7 @@ return static function (): void {
         ['financeiro', 'Qual é meu plano alimentar?', 'Assessor Fin'],
         ['agenda', 'Qual é meu treino de hoje?', 'Secretária Nina'],
         ['treinos', 'Quais tarefas estão pendentes?', 'Personal Léo'],
-        ['alimentacao', 'Qual é o saldo da minha conta?', 'Chef Rita'],
+        ['alimentacao', 'Qual é o saldo da minha conta?', 'Nutricionista Rita'],
     ];
     foreach ($crossDomainQueries as [$agentModule, $foreignQuestion, $agentName]) {
         $scopedResult = $executor->execute(
@@ -156,7 +164,7 @@ return static function (): void {
         $nutritionAllowed['route']['arguments']['question'] ?? null,
         'The provider must not replace the original scoped query with another domain question.',
     );
-    test_assert_same(1, $scopedProvider->calls, 'An in-scope request may reach the configured provider.');
+    test_assert_same(0, $scopedProvider->calls, 'Nutrition conversation intent routes locally; the dedicated dialogue call uses the provider separately.');
 
     $crossActionProvider = new class implements LlmProvider {
         public function name(): string { return 'cross-action'; }

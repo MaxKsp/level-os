@@ -89,7 +89,7 @@ const PRODUCT_AREAS = [
     change: "84% do orçamento utilizado",
     icon: "restaurant",
     screenshot: "/marketing/screens/nutrition.png",
-    screenshotAlt: "Tela real de Alimentação do Level OS com plano alimentar e acesso à Cheff Rita",
+    screenshotAlt: "Tela real de Alimentação do Level OS com plano alimentar e acesso à Nutricionista Rita",
     hotspots: [{ x: 25, y: 32, title: "Cardápio", text: "Revise cada refeição antes de substituir o plano." }, { x: 72, y: 62, title: "Compras", text: "Ingredientes são consolidados para o mercado." }],
     features: ["Cardápio semanal", "Custo estimado", "Lista de compras", "Edição antes de aprovar", "Histórico de planos"],
     cta: "Planejar minha alimentação",

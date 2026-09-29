@@ -35,7 +35,7 @@ export function NutritionPlanIntelligence({ plan, onSuggestion }: {
       </div>
       {analysis.days.length > 14 ? <p className="mt-2 text-[11px] text-muted">Exibidos 14 dos {analysis.days.length} dias; o total considera todo o período.</p> : null}
       {analysis.estimateMismatch ? <p role="note" className="mt-3 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-[11px] leading-5 text-on-surface-variant">
-        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />Os dois totais estimados divergem em {brl(Math.abs(analysis.deltaVsDeclared))}. Peça à Chef Rita para revisar antes de usar como orçamento final.
+        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />Os dois totais estimados divergem em {brl(Math.abs(analysis.deltaVsDeclared))}. Peça à Nutricionista Rita para revisar antes de usar como orçamento final.
       </p> : null}
       <p className="mt-3 text-[11px] leading-5 text-muted">Valores estimados pelo planejamento, não preços cotados ou gastos realizados. Macronutrientes só devem ser apresentados quando vierem de uma fonte identificada.</p>
     </SectionCard>
@@ -48,7 +48,7 @@ export function NutritionPlanIntelligence({ plan, onSuggestion }: {
           <ArrowUpRight className="size-4 shrink-0 text-primary transition-transform group-hover:translate-x-0.5" />
         </button>)}
       </div>
-      <p className="mt-3 text-[11px] leading-5 text-muted">O atalho só prepara a mensagem na Chef Rita; não faz nenhuma compra, não edita o cardápio e não envia sem sua ação.</p>
+      <p className="mt-3 text-[11px] leading-5 text-muted">O atalho só prepara a mensagem na Nutricionista Rita; não faz nenhuma compra, não edita o cardápio e não envia sem sua ação.</p>
     </SectionCard>
   </section>
 }

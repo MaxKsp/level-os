@@ -125,6 +125,8 @@ export function AssistantResultCard({ response, onView, onRoute, approval, onApp
 
   if (response.action === "query") {
     const data = record(response.data)
+    // Uma conversa culinária não precisa exibir um card vazio de consulta.
+    if (data?.conversational === true && !record(data?.primaryMetric)) return null
     const sourceLabel = text(data?.sourceLabel) ?? "Dados do Level OS"
     const title = text(data?.title) ?? "Consulta"
     const period = record(data?.period)

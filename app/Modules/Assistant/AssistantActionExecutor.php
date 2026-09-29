@@ -11,6 +11,7 @@ require_once __DIR__ . '/DietPlanCostCalculator.php';
 require_once __DIR__ . '/AssistantFinanceInterpreter.php';
 require_once __DIR__ . '/AssistantLocalInsights.php';
 require_once __DIR__ . '/AssistantAgentPolicy.php';
+require_once __DIR__ . '/AssistantNutritionContext.php';
 
 final class AssistantActionExecutor {
     public function __construct(private readonly PDO $db) {
@@ -51,6 +52,11 @@ final class AssistantActionExecutor {
                     'id' => $workout['id'], 'name' => $workout['name'],
                 ], array_slice($training['workouts'], 0, 40)),
             ];
+        }
+        if ($module === 'alimentacao' && ($preferredAction === null || $preferredAction === 'create_diet_plan')) {
+            // Permite REVISAR o cardápio atual na proposta, sem acesso a dados
+            // financeiros, atividades físicas nem registros de outros usuários.
+            $context['nutrition'] = (new AssistantNutritionContext($this->db))->forUser($userId);
         }
         return $context;
     }
@@ -552,7 +558,7 @@ final class AssistantActionExecutor {
                 'financeiro' => 'O Assessor Fin consulta apenas saldos, patrimônio, despesas e análises financeiras.',
                 'agenda' => 'A Secretária Nina consulta apenas rotina, agenda, tarefas e produtividade.',
                 'treinos' => 'O Personal Léo consulta apenas treinos, cardio, medidas corporais e IMC.',
-                'alimentacao' => 'A Chef Rita consulta apenas alimentação, receitas, cardápios e planos alimentares.',
+                'alimentacao' => 'A Nutricionista Rita é assistente virtual para alimentação, receitas, cardápios e planos alimentares.',
                 default => 'Posso consultar saldos, análise de gastos, tarefas, produtividade, treinos, medidas, IMC e seu plano alimentar.',
             };
         }
