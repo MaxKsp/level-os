@@ -1,4 +1,4 @@
-import { useRef, type Key } from "react"
+import { useEffect, useRef, useState, type Key } from "react"
 import { useReducedMotion, useScroll, useSpring, useTransform, type MotionValue } from "motion/react"
 import * as m from "motion/react-m"
 import { LevelMark } from "../components/ui/LevelMark"
@@ -93,8 +93,27 @@ function OrbitalNode({ world, index, progress, reduceMotion }: { world: World; i
   )
 }
 
+function useMobileJourney(): boolean {
+  const getMobile = () => typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" && window.matchMedia("(max-width: 720px)").matches
+  const [mobile, setMobile] = useState(getMobile)
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 720px)")
+    const update = () => setMobile(query.matches)
+    query.addEventListener("change", update)
+    update()
+    return () => query.removeEventListener("change", update)
+  }, [])
+  return mobile
+}
+
 function OrbitalMap({ progress, reduceMotion }: { progress: MotionValue<number>; reduceMotion: boolean }) {
-  const x = useTransform(progress, cameraStops, ["25%", "21%", "15%", "6%", "-3%", "-12%", "-21%", "-30%", "-39%", "-48%", "-57%", "-59%"])
+  const mobile = useMobileJourney()
+  const desktopX = useTransform(progress, cameraStops, ["25%", "21%", "15%", "6%", "-3%", "-12%", "-21%", "-30%", "-39%", "-48%", "-57%", "-59%"])
+  // Mobile acompanha cada estacao, preservando a mesma historia de scroll.
+  const mobileX = useTransform(progress, cameraStops, ["42.1%", "39%", "29.3%", "20.5%", "11.5%", "2.5%", "-6.3%", "-15.2%", "-24.1%", "-33%", "-42%", "-42%"])
+  const mobileY = useTransform(progress, cameraStops, ["-7%", "-7%", "-10%", "-8%", "-11%", "-8%", "-10%", "-8%", "-11%", "-8%", "-10%", "-10%"])
+  const mobileScale = useTransform(progress, cameraStops, [0.9, 0.92, 1, 0.96, 1, 0.96, 1, 0.96, 1, 0.96, 1, 0.9])
   const y = useTransform(progress, cameraStops, ["0%", "1%", "4%", "0%", "-4%", "0%", "4%", "0%", "-4%", "0%", "4%", "1%"])
   const scale = useTransform(progress, cameraStops, [0.88, 0.92, 1.04, 0.96, 1.04, 0.96, 1.04, 0.96, 1.04, 0.96, 1.04, 0.92])
   const travelerDistance = useTransform(
@@ -105,7 +124,7 @@ function OrbitalMap({ progress, reduceMotion }: { progress: MotionValue<number>;
   const journeyPathLength = useTransform(progress, [0.08, 0.985], [0, 1])
 
   return (
-    <m.div className="orbital-map" style={reduceMotion ? undefined : { x, y, scale }}>
+    <m.div className="orbital-map" style={reduceMotion ? (mobile ? { x: "42.1%", y: "-7%" } : undefined) : { x: mobile ? mobileX : desktopX, y: mobile ? mobileY : y, scale: mobile ? mobileScale : scale }}>
       <svg className="orbital-routes" viewBox="0 0 1800 620" aria-hidden="true">
         <m.path className="orbit-route route-primary" d="M70 310C150 310 210 250 300 250S500 370 620 370S820 250 940 250S1140 370 1260 370S1460 250 1580 250S1680 310 1730 310" style={{ pathLength: reduceMotion ? 1 : progress }} />
         <m.path className="orbit-route" d="M70 278C150 278 210 218 300 218S500 338 620 338S820 218 940 218S1140 338 1260 338S1460 218 1580 218S1680 278 1730 278" style={{ pathLength: reduceMotion ? 1 : progress }} />
