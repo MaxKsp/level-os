@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react"
 import { Button } from "../../components/ui/button"
 import { CurrencyInput } from "../../components/ui/CurrencyInput"
+import { LevelSelect } from "../../components/ui/LevelSelect"
+import { LevelDateInput } from "../../components/ui/LevelDateInput"
 import { describeApiError } from "../../lib/apiErrors"
 import { userStorageKey } from "../../lib/userStorage"
 import type { AccountV2, ExpenseLineV4 } from "./contracts"
@@ -111,12 +113,12 @@ export function ExpenseForm({ accounts, resetKey, onCancel, onSave }: { accounts
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2"><label className={label} htmlFor="expense-description">Descrição</label><input id="expense-description" className={field} value={description} onChange={(event) => changeDescription(event.target.value)} placeholder="Ex.: Supermercado" autoFocus /></div>
           <div><label className={label} htmlFor="expense-value">{isInstallmentPurchase ? "Valor da parcela" : "Valor"}</label><CurrencyInput id="expense-value" className={field} value={amount} onValueChange={setAmount} placeholder="R$ 0,00" />{isInstallmentPurchase && Number.isFinite(amountValue) && amountValue > 0 ? <p className="mt-1 text-xs text-muted">Total estimado: <span className="numeric-value">{(amountValue * installmentCount).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span></p> : null}</div>
-          <div><label className={label} htmlFor="expense-account">Conta ou cartão</label><select id="expense-account" className={field} value={accountId} onChange={(event) => changeAccount(event.target.value)}>{accounts.map((item) => <option key={item.id} value={item.id}>{item.label} · {item.bank ?? "Sem banco"}</option>)}</select></div>
-          <div><label className={label} htmlFor="expense-date">Data</label><input id="expense-date" className={field} type="date" value={date} onChange={(event) => setDate(event.target.value)} /></div>
-          <div><label className={label} htmlFor="expense-time">Horário (opcional)</label><input id="expense-time" className={field} type="time" value={time} onChange={(event) => setTime(event.target.value)} /></div>
-          <div><label className={label} htmlFor="expense-category">Categoria</label><select id="expense-category" className={field} value={category} onChange={(event) => { setCategory(event.target.value); setCategoryTouched(true) }}>{Object.entries(CATEGORY_LABEL).map(([key, value]) => <option key={key} value={key}>{value}</option>)}</select><p className="mt-1 text-xs text-muted">Sugerida pela descrição; você pode alterar.</p></div>
-          <div><label className={label} htmlFor="expense-method">Forma de pagamento</label><select id="expense-method" className={field} value={method} onChange={(event) => setMethod(event.target.value)}><option value="debito">Débito</option><option value="credito">Crédito</option><option value="pix">Pix</option><option value="boleto">Boleto</option><option value="dinheiro">Dinheiro</option></select></div>
-          <div><label className={label} htmlFor="expense-recurrence">Recorrência</label><select id="expense-recurrence" className={field} value={recurrence} onChange={(event) => setRecurrence(event.target.value as "none" | "mensal")}><option value="none">Não recorrente</option><option value="mensal">Conta fixa mensal</option></select></div>
+          <div><label className={label} htmlFor="expense-account">Conta ou cartão</label><LevelSelect id="expense-account" value={accountId} onChange={changeAccount} options={accounts.map((item) => ({ value: item.id, label: `${item.label} · ${item.bank ?? "Sem banco"}` }))} /></div>
+          <div><label className={label} htmlFor="expense-date">Data</label><LevelDateInput id="expense-date" value={date} onChange={(event) => setDate(event.target.value)} /></div>
+          <div><label className={label} htmlFor="expense-time">Horário (opcional)</label><LevelDateInput id="expense-time" type="time" value={time} onChange={(event) => setTime(event.target.value)} /></div>
+          <div><label className={label} htmlFor="expense-category">Categoria</label><LevelSelect id="expense-category" value={category} onChange={(value) => { setCategory(value); setCategoryTouched(true) }} options={Object.entries(CATEGORY_LABEL).map(([value, label]) => ({ value, label }))} /><p className="mt-1 text-xs text-muted">Sugerida pela descrição; você pode alterar.</p></div>
+          <div><label className={label} htmlFor="expense-method">Forma de pagamento</label><LevelSelect id="expense-method" value={method} onChange={setMethod} options={[{ value: "debito", label: "Débito" }, { value: "credito", label: "Crédito" }, { value: "pix", label: "Pix" }, { value: "boleto", label: "Boleto" }, { value: "dinheiro", label: "Dinheiro" }]} placeholder="Selecione a forma de pagamento" /></div>
+          <div><label className={label} htmlFor="expense-recurrence">Recorrência</label><LevelSelect id="expense-recurrence" value={recurrence} onChange={setRecurrence} options={[{ value: "none", label: "Não recorrente" }, { value: "mensal", label: "Conta fixa mensal" }]} /></div>
           <div><label className={label} htmlFor="expense-installments">Parcelas (opcional)</label><input id="expense-installments" className={field} type="number" min="2" max="120" value={installments} onChange={(event) => setInstallments(event.target.value)} placeholder="Ex.: 6" /></div>
         </div>
       )}

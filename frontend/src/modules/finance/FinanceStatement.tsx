@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
 import { BankLogo } from "../../components/ui/BankLogo"
+import { LevelSelect } from "../../components/ui/LevelSelect"
 import { Icon, SectionCard } from "../../design-system"
 import { formatCurrency } from "../../lib/format"
 import { cn } from "../../lib/cn"
@@ -31,7 +32,7 @@ export function FinanceStatement() {
   return <SectionCard title="Extrato unificado" description="Entradas, saídas e importações OFX" bodyClassName="p-0">
     <div className="grid gap-2 border-b border-outline-variant p-4 md:grid-cols-[1fr_auto_auto]">
       <label className="relative"><Icon name="search" className="pointer-events-none absolute left-3 top-2.5 text-[18px] text-muted" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar no extrato" className="w-full rounded-xl border border-outline-variant bg-surface-container py-2 pl-10 pr-3 text-sm text-on-surface outline-none focus:border-primary" /></label>
-      <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className="rounded-xl border border-outline-variant bg-surface-container px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"><option value="todos">Todas as contas</option>{fin.accounts.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}</select>
+      <LevelSelect value={accountId} onChange={setAccountId} aria-label="Filtrar por conta" options={[{ value: "todos", label: "Todas as contas" }, ...fin.accounts.map((a) => ({ value: a.id, label: a.label }))]} />
       <div className="flex flex-wrap rounded-xl border border-outline-variant bg-surface-container p-1">{(["todos", "entrada", "saida", "transferencia"] as const).map((item) => <button key={item} onClick={() => setKind(item)} className={cn("rounded-lg px-3 py-1 text-xs capitalize", kind === item ? "bg-primary text-on-primary" : "text-muted hover:text-on-surface")}>{item === "saida" ? "saída" : item === "transferencia" ? "transferências" : item}</button>)}</div>
     </div>
     {rows.length ? <ul className="divide-y divide-outline-variant">{rows.map((row) => {

@@ -1,5 +1,6 @@
 import { useMemo, useState, type ChangeEvent } from "react"
 import { Button } from "../../components/ui/button"
+import { LevelSelect } from "../../components/ui/LevelSelect"
 import { Icon } from "../../design-system"
 import { formatCurrency } from "../../lib/format"
 import type { ExpenseLineV4, IfoodEntry } from "./contracts"
@@ -67,7 +68,7 @@ export function OfxImportForm({ onCancel, onComplete }: { onCancel: () => void; 
         <div className="rounded-2xl border border-dashed border-primary/45 bg-primary/5 p-5 text-center">
           <Icon name="account_balance_wallet" className="text-[30px] text-primary" />
           <p className="mt-2 text-sm font-semibold text-on-surface">Escolha o OFX exportado pelo seu banco</p>
-          <p className="mt-1 text-xs text-muted">{hasFinanceBackend() ? "Validação segura no servidor" : "Preview local"}, limite de 5 MB. Duplicidades prováveis ficam desmarcadas.</p>
+          <p className="mt-1 text-xs text-muted">{hasFinanceBackend() ? "Validação segura no servidor" : "Prévia local"}, limite de 5 MB. Duplicidades prováveis ficam desmarcadas.</p>
           <label className="mt-4 inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 text-xs font-semibold text-on-primary">
             <Icon name="attach_file" className="text-[18px]" /> {busy ? "Lendo…" : "Selecionar arquivo"}
             <input type="file" className="sr-only" accept=".ofx,.qfx,application/x-ofx" onChange={readFile} disabled={busy} />
@@ -79,9 +80,7 @@ export function OfxImportForm({ onCancel, onComplete }: { onCancel: () => void; 
         {rows.length ? <>
           <label className="block text-sm font-medium text-on-surface-variant">
             Conta de destino
-            <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className="mt-1.5 w-full rounded-xl border border-outline-variant bg-surface-container px-3 py-2.5 text-sm font-normal normal-case tracking-normal text-on-surface outline-none focus:border-primary">
-              {fin.accounts.map((account) => <option key={account.id} value={account.id}>{account.label} · {account.bank ?? "Sem banco"}</option>)}
-            </select>
+            <LevelSelect className="mt-1.5 w-full" value={accountId} onChange={setAccountId} aria-label="Conta de destino" options={fin.accounts.map((account) => ({ value: account.id, label: `${account.label} · ${account.bank ?? "Sem banco"}` }))} />
           </label>
           <div className="max-h-64 overflow-auto rounded-xl border border-outline-variant">
             <table className="w-full min-w-[580px] text-left text-xs">

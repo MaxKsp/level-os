@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from "react"
 import { Check, CopyPlus, Plus, Trash2, Utensils } from "lucide-react"
 import { Modal } from "../../components/ui/Modal"
 import { Button } from "../../components/ui/button"
+import { LevelSelect } from "../../components/ui/LevelSelect"
 import type { DietPlan, ManualDietPayload, ShoppingCategory } from "./store"
 
 type MealDraft = { name: string; description: string; cost: string }
@@ -118,10 +119,7 @@ export function NutritionManualEditor({ initial, hasActivePlan, expectedActivePl
     <form onSubmit={(event) => void submit(event)} className="space-y-5">
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="text-xs font-semibold text-muted">Objetivo
-          <select className={field} value={goal} onChange={(event) => setGoal(event.target.value as DietPlan["goal"])}>
-            <option value="manutencao">Manutenção</option><option value="emagrecimento">Emagrecimento</option>
-            <option value="hipertrofia">Hipertrofia</option>
-          </select>
+          <LevelSelect className="mt-1" value={goal} onChange={setGoal} options={[{ value: "manutencao", label: "Manutenção" }, { value: "emagrecimento", label: "Emagrecimento" }, { value: "hipertrofia", label: "Hipertrofia" }]} />
         </label>
         <label className="text-xs font-semibold text-muted">Período (dias)
           <input className={field} inputMode="numeric" type="number" min="1" max="30" required value={period}
@@ -207,11 +205,7 @@ export function NutritionManualEditor({ initial, hasActivePlan, expectedActivePl
               onChange={(event) => setIngredients((all) => all.map((item, i) => i === index ? { ...item, quantity: event.target.value } : item))} />
           </label>
           <label className="text-[11px] text-muted">Categoria
-            <select className={field} aria-label={`Categoria do ingrediente ${index + 1}`} value={ingredient.category}
-              onChange={(event) => setIngredients((all) => all.map((item, i) => i === index
-                ? { ...item, category: event.target.value as ShoppingCategory } : item))}>
-              {CATEGORY.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
+            <LevelSelect className="mt-1" aria-label={`Categoria do ingrediente ${index + 1}`} value={ingredient.category} onChange={(category) => setIngredients((all) => all.map((item, i) => i === index ? { ...item, category } : item))} options={CATEGORY} />
           </label>
           <button type="button" aria-label={`Remover ingrediente ${index + 1}`} className="grid size-9 place-items-center text-muted hover:text-error"
             onClick={() => setIngredients((all) => all.filter((_, i) => i !== index))}><Trash2 className="size-4" /></button>
