@@ -30,6 +30,10 @@ export interface WorkoutExercise {
   progressionLevel?: string | null
   assistedKg?: number | null
   weightedKg?: number | null
+  /** Esforço percebido por série, escala 1–10 em passos de 0,5. */
+  rpe?: number | null
+  /** Repetições em reserva no fim da série. */
+  rir?: number | null
 }
 
 export interface Workout {
@@ -78,6 +82,10 @@ export interface SessionExercise {
   progressionLevel?: string | null
   assistedKg?: number | null
   weightedKg?: number | null
+  /** Esforço percebido por série, escala 1–10 em passos de 0,5. */
+  rpe?: number | null
+  /** Repetições em reserva no fim da série. */
+  rir?: number | null
 }
 
 export interface TrainingSessionLog {

@@ -58,12 +58,14 @@ export function TrainingHistory({ sessions, onQuickLog, onDelete }: Props) {
                 <div className="divide-y divide-outline-variant rounded-xl border border-outline-variant bg-surface/70">
                   {session.exercises.map((exercise, i) => (
                     <div key={exercise.id ?? `${session.id}-${i}`} className="flex flex-wrap items-start justify-between gap-2 px-3 py-3 text-sm">
-                      <div className="min-w-0"><p className="font-semibold text-on-surface">{exercise.name}</p><p className="mt-1 text-[11px] text-muted">{modalityLabels[exercise.modality]}</p></div>
+                      <div className="min-w-0"><p className="font-semibold text-on-surface">{exercise.name}</p><p className="mt-1 text-[11px] text-muted">{modalityLabels[exercise.modality]}{exercise.sets === 1 ? " · série " + session.exercises.slice(0, i + 1).filter((e) => e.name === exercise.name).length : ""}</p></div>
                       <div className="max-w-full text-right text-xs tabular-nums text-on-surface-variant">
                         {exercise.sets != null && exercise.reps != null ? <p>{exercise.sets} × {exercise.reps} {exercise.loadKg != null ? `· ${amount(exercise.loadKg)} kg` : ""}</p> : null}
                         {exercise.distanceKm != null ? <p>{amount(exercise.distanceKm)} km</p> : null}
                         {exercise.durationSec != null ? <p>{amount(exercise.durationSec / 60)} min</p> : null}
                         {exercise.restSec != null ? <p className="text-muted">Descanso: {exercise.restSec} s</p> : null}
+                        {exercise.rpe != null ? <p>RPE: {amount(exercise.rpe)}</p> : null}
+                        {exercise.rir != null ? <p>RIR: {exercise.rir}</p> : null}
                         {exercise.progressionLevel ? <p className="text-muted">{exercise.progressionLevel}</p> : null}
                       </div>
                     </div>

@@ -7,6 +7,9 @@ import { cn } from "../../lib/cn"
 import { useAssistant } from "../assistant/store"
 import { AssistantAvatar } from "../assistant/AssistantAvatar"
 import { useNutrition, type ShoppingCategory, type ShoppingItem } from "./store"
+import { useTraining } from "../training/store"
+import { userStorageKey } from "../../lib/userStorage"
+import { NutritionPlanningPanel } from "./NutritionPlanningPanel"
 
 const SHOPPING_CATEGORY_LABEL: Record<ShoppingCategory, string> = {
   hortifruti: "Hortifrúti",
@@ -30,6 +33,7 @@ const brl = (value: number) => value.toLocaleString("pt-BR", { style: "currency"
 export function NutritionScreen() {
   const nutrition = useNutrition()
   const assistant = useAssistant()
+  const training = useTraining()
   const [openDay, setOpenDay] = useState(1)
   const plan = nutrition.plan
 
@@ -87,6 +91,8 @@ export function NutritionScreen() {
             ))}
           </section>
 
+          <NutritionPlanningPanel plan={plan} activeProgram={training.programs.find((program) => program.status === "active") ?? null} onOpenLeo={() => assistant.openFor("treinos")} />
+
           <SectionCard
             title="Cardápio"
             description={plan.days.length < plan.periodDays ? `${plan.days.length} dia(s) de cardápio — repita a sequência até completar o período` : `${plan.days.length} dia(s)`}
@@ -126,7 +132,7 @@ export function NutritionScreen() {
             </ul>
           </SectionCard>
 
-          {plan.shoppingList && plan.shoppingList.length > 0 ? <ShoppingListCard items={plan.shoppingList} /> : null}
+          {plan.shoppingList && plan.shoppingList.length > 0 ? <ShoppingListCard key={plan.id ?? plan.createdAt ?? String(plan.version)} planKey={plan.id ?? plan.createdAt ?? String(plan.version ?? "current")} items={plan.shoppingList} /> : null}
 
         </div>
       )}
@@ -152,8 +158,25 @@ export function NutritionScreen() {
   )
 }
 
-function ShoppingListCard({ items }: { items: ShoppingItem[] }) {
-  const [checked, setChecked] = useState<Set<number>>(new Set())
+function ShoppingListCard({ items, planKey }: { items: ShoppingItem[]; planKey: string; key?: string }) {
+  const key = userStorageKey("level-os:nutrition:shopping:" + String(planKey).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80))
+  const [checked, setChecked] = useState<Set<number>>(() => {
+    try {
+      const data: unknown = JSON.parse(localStorage.getItem(key) ?? "[]")
+      if (!Array.isArray(data)) return new Set<number>()
+      return new Set<number>(data.filter((index): index is number => Number.isInteger(index) && index >= 0 && index < items.length))
+    } catch { return new Set<number>() }
+  })
+  const [copyStatus, setCopyStatus] = useState("")
+  useEffect(() => {
+    try { localStorage.setItem(key, JSON.stringify([...checked])) } catch { /* storage opcional */ }
+  }, [checked, key])
+  const copyPending = async () => {
+    try {
+      await navigator.clipboard.writeText(items.filter((_, index) => !checked.has(index)).map((entry) => entry.item + " — " + entry.quantity).join("\n"))
+      setCopyStatus("Itens pendentes copiados.")
+    } catch { setCopyStatus("Não foi possível copiar. Verifique a permissão do navegador.") }
+  }
   const toggle = (index: number) => setChecked((current) => {
     const next = new Set(current)
     if (next.has(index)) next.delete(index); else next.add(index)
@@ -169,8 +192,17 @@ function ShoppingListCard({ items }: { items: ShoppingItem[] }) {
       title="Lista de compras"
       description={`${items.length} ${items.length === 1 ? "item" : "itens"} para o período — ${checked.size} no carrinho`}
       icon={<ShoppingCart className="size-5 text-primary" />}
+      action={<Button variant="secondary" size="sm" onClick={() => void copyPending()} disabled={checked.size === items.length}>Copiar pendentes</Button>}
       bodyClassName="p-0"
     >
+      <div className="space-y-2 border-b border-outline-variant px-5 py-3">
+        <div className="flex items-center justify-between gap-3 text-[11px] text-muted"><span>{checked.size}/{items.length} no carrinho · seleção salva neste dispositivo</span>
+          <button type="button" className="min-h-9 font-semibold text-primary hover:underline" onClick={() => setChecked(new Set())} disabled={!checked.size}>Reiniciar lista</button></div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-outline-variant" role="progressbar" aria-label="Itens do plano marcados na lista de compras" aria-valuemin={0} aria-valuemax={items.length} aria-valuenow={checked.size}>
+          <div className="h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none" style={{ width: (items.length ? checked.size / items.length * 100 : 0) + "%" }} />
+        </div>
+        {copyStatus ? <p role="status" className="text-[11px] text-muted">{copyStatus}</p> : null}
+      </div>
       <div className="divide-y divide-outline-variant">
         {grouped.map(({ category, entries }) => (
           <div key={category} className="px-5 py-3">
