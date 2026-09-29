@@ -28,8 +28,8 @@ export function OfxImportForm({ onCancel, onComplete }: { onCancel: () => void; 
       const parsed = hasFinanceBackend()
         ? await previewOfxServer(file)
         : parseOfxClient(await file.text(), [
-          ...fin.expenses.map((item) => ({ date: item.date, value: item.value })),
-          ...fin.variableIncome.map((item) => ({ date: item.date, value: item.valor })),
+          ...fin.expenses.map((item) => ({ date: item.date, value: item.value, kind: "saida" as const })),
+          ...fin.variableIncome.map((item) => ({ date: item.date, value: item.valor, kind: "entrada" as const })),
         ])
       if (!parsed.length) throw new Error("Nenhum lançamento compatível foi encontrado.")
       setRows(parsed)

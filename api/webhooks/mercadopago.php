@@ -235,7 +235,7 @@ try {
         'duplicate' => $result['status'] === 'duplicate',
     ]);
 } catch (Throwable $e) {
-    error_log('Mercado Pago webhook failed: ' . $e->getMessage());
+    security_log_exception('payment.webhook', $e);
     http_response_code(500);
     echo json_encode(['error' => 'webhook_processing_failed']);
 }

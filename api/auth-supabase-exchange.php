@@ -62,7 +62,7 @@ try {
     http_response_code(409);
     echo json_encode(['error' => 'link_required']);
 } catch (SupabaseAuthException $e) {
-    error_log('Supabase session validation failed: ' . $e->getMessage());
+    security_log_exception('auth.supabase_exchange', $e);
     http_response_code(401);
     echo json_encode(['error' => 'invalid_authentication']);
 } catch (Throwable $e) {

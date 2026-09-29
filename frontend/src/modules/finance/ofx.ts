@@ -11,6 +11,7 @@ export interface OfxPreviewRow {
 export interface ExistingTransaction {
   date: string | null
   value: number
+  kind?: "entrada" | "saida"
 }
 
 const normalize = (value: string) => value.replace(/\r/g, "")
@@ -24,7 +25,8 @@ function field(block: string, name: string): string {
 export function parseOfxClient(content: string, existing: ExistingTransaction[] = []): OfxPreviewRow[] {
   const text = normalize(content)
   const blocks = text.match(/<STMTTRN>[\s\S]*?(?:<\/STMTTRN>|(?=<STMTTRN>)|$)/gi) ?? []
-  const known = new Set(existing.filter((item) => item.date).map((item) => `${item.date}|${Math.abs(item.value).toFixed(2)}`))
+  const seenFitid = new Set<string>()
+  const known = new Set(existing.filter((item) => item.date).map((item) => `${item.kind ?? "any"}|${item.date}|${Math.abs(item.value).toFixed(2)}`))
 
   return blocks.flatMap((block, index) => {
     const rawDate = field(block, "DTPOSTED")
@@ -34,17 +36,25 @@ export function parseOfxClient(content: string, existing: ExistingTransaction[] 
     if (dateDigits.length !== 8 || !Number.isFinite(value) || value === 0) return []
 
     const date = `${dateDigits.slice(0, 4)}-${dateDigits.slice(4, 6)}-${dateDigits.slice(6, 8)}`
+    const year = Number(dateDigits.slice(0, 4))
+    const month = Number(dateDigits.slice(4, 6))
+    const day = Number(dateDigits.slice(6, 8))
+    const parsedDate = new Date(Date.UTC(year, month - 1, day))
+    if (parsedDate.getUTCFullYear() !== year || parsedDate.getUTCMonth() + 1 !== month || parsedDate.getUTCDate() !== day) return []
     const fitid = field(block, "FITID") || null
+    const repeatedFitid = fitid !== null && seenFitid.has(fitid)
+    if (fitid !== null) seenFitid.add(fitid)
     const desc = field(block, "MEMO") || field(block, "NAME") || field(block, "TRNTYPE") || "Lançamento OFX"
     const amount = Math.abs(value)
+    const matchKey = `${date}|${amount.toFixed(2)}`
     return [{
-      id: fitid || `ofx-${date}-${index}`,
+      id: `ofx-${date}-${fitid ?? "no-fitid"}-${index}`,
       date,
       value: amount,
       kind: value > 0 ? "entrada" as const : "saida" as const,
       desc: desc.replace(/\s+/g, " ").trim(),
       fitid,
-      duplicate: known.has(`${date}|${amount.toFixed(2)}`),
+      duplicate: repeatedFitid || known.has(`${value > 0 ? "entrada" : "saida"}|${matchKey}`) || known.has(`any|${matchKey}`),
     }]
   })
 }

@@ -39,6 +39,13 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+
+      - name: Identificar SHA efetivo do checkout
+        shell: bash
+        run: |
+          commit="$(git rev-parse HEAD)"
+          printf '{"application":"level-os","commit":"%s","builtAt":"%s"}\n' "$commit" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > frontend/public/release.json
+
       - name: Gerar frontend para a raiz publica
         working-directory: frontend
         run: npm run build && npm run check:bundle
@@ -190,3 +197,8 @@ jobs:
           curl --fail --silent --show-error \
             --retry 6 --retry-delay 10 --retry-all-errors \
             --max-time 20 https://lvlos.com/api/health.php > /dev/null
+
+
+      - name: Confirmar fingerprint e rotas publicas da versao publicada
+        shell: bash
+        run: node scripts/smoke-production.mjs "$(git rev-parse HEAD)"

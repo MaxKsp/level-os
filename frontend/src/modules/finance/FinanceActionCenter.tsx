@@ -1,13 +1,14 @@
-import { useEffect, useState } from "react"
+import { lazy, Suspense, useEffect, useState } from "react"
 import { Modal } from "../../components/ui/Modal"
 import { Icon } from "../../design-system"
 import { cn } from "../../lib/cn"
 import { AccountForm } from "./AccountFormModal"
 import { ExpenseForm } from "./ExpenseForm"
 import { IncomeForm } from "./IncomeForm"
-import { OfxImportForm } from "./OfxImportModal"
 import { TransferForm } from "./TransferFormModal"
 import { useFinance } from "./store"
+
+const OfxImportForm = lazy(() => import("./OfxImportModal").then(({ OfxImportForm }) => ({ default: OfxImportForm })))
 
 type MovementAction = "expense" | "income" | "transfer" | "account" | "ofx"
 
@@ -64,7 +65,7 @@ export function FinanceActionCenter({ open, onClose }: { open: boolean; onClose:
           {action === "income" ? <IncomeForm accounts={fin.accounts} resetKey={open} onCancel={onClose} onSaveIncome={fin.addIncome} onSaveVariable={fin.addVariableIncome} /> : null}
           {action === "transfer" ? <TransferForm accounts={fin.accounts} resetKey={open} onCancel={onClose} onSave={fin.addTransfer} /> : null}
           {action === "account" ? <AccountForm resetKey={open} onCancel={onClose} onSave={fin.addAccount} /> : null}
-          {action === "ofx" ? <OfxImportForm onCancel={onClose} onComplete={onClose} /> : null}
+          {action === "ofx" ? <Suspense fallback={<p role="status" className="p-4 text-sm text-muted">Carregando importador OFX…</p>}><OfxImportForm onCancel={onClose} onComplete={onClose} /></Suspense> : null}
         </div>
       </div>
     </Modal>
