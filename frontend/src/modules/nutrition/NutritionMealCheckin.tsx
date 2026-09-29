@@ -22,6 +22,7 @@ export function NutritionMealCheckin({ plan, dayNumber, planKey, syncedChecks, o
   const [session, setSession] = useState(() => ({ key, checks: saved(key, plan) }))
   const checks = onSync ? normalizeMealCheckins(syncedChecks ?? {}, plan) : session.key === key ? session.checks : saved(key, plan)
   const [notice, setNotice] = useState("")
+  const [busy, setBusy] = useState(false)
   const day = plan.days.find((item) => item.day === dayNumber) ?? plan.days[0]
   const summary = mealCheckinSummary(plan, checks)
   const save = (next: MealCheckins) => {
@@ -31,16 +32,32 @@ export function NutritionMealCheckin({ plan, dayNumber, planKey, syncedChecks, o
       catch { setNotice("O navegador não permitiu salvar estas marcações; elas ficarão somente nesta sessão.") }
     }
   }
+  const persist = async (changes: Array<[string, MealCheckinStatus | null]>) => {
+    setBusy(true)
+    setNotice("")
+    try {
+      for (const [slot, status] of changes) await onSync?.(slot, status)
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Falha ao sincronizar. Tente novamente.")
+    } finally { setBusy(false) }
+  }
   const mark = (index: number, value: MealCheckinStatus) => {
-    if (!day) return
+    if (!day || busy) return
     const slot = mealKey(day.day, index)
+    const status = checks[slot] === value ? null : value
+    if (onSync) { void persist([[slot, status]]); return }
     const next = { ...checks }
-    if (checks[slot] === value) delete next[slot]
-    else next[slot] = value
+    if (status === null) delete next[slot]
+    else next[slot] = status
     save(next)
   }
   const resetDay = () => {
-    if (!day) return
+    if (!day || busy) return
+    if (onSync) {
+      void persist(day.meals.map((_, index) => mealKey(day.day, index)).filter((slot) => checks[slot])
+        .map((slot) => [slot, null] as [string, null]))
+      return
+    }
     const next = { ...checks }
     day.meals.forEach((_, index) => delete next[mealKey(day.day, index)])
     save(next)
@@ -51,7 +68,7 @@ export function NutritionMealCheckin({ plan, dayNumber, planKey, syncedChecks, o
       <div><p className="text-xs font-semibold text-on-surface">Check-in do cardápio</p>
         <p className="mt-1 text-[11px] text-muted">Você marcou {summary.consumed} realizada(s), {summary.skipped} não realizada(s), {summary.pending} sem registro na sequência gerada.</p>
       </div>
-      <button type="button" disabled={!day.meals.some((_, index) => checks[mealKey(day.day, index)])}
+      <button type="button" disabled={busy || !day.meals.some((_, index) => checks[mealKey(day.day, index)])}
         onClick={resetDay} className="inline-flex min-h-9 items-center gap-1 rounded-md border border-outline-variant px-2 text-xs text-muted hover:text-on-surface disabled:opacity-40">
         <RotateCcw className="size-3.5" />Reiniciar dia
       </button>
@@ -69,12 +86,12 @@ export function NutritionMealCheckin({ plan, dayNumber, planKey, syncedChecks, o
             </div>
           </div>
           <div className="flex shrink-0 flex-wrap gap-1.5 sm:justify-end">
-            <button type="button" onClick={() => mark(index, "consumed")} aria-pressed={status === "consumed"} aria-label={`Marcar ${meal.name} como realizada`}
+            <button type="button" onClick={() => mark(index, "consumed")} disabled={busy} aria-pressed={status === "consumed"} aria-label={`Marcar ${meal.name} como realizada`}
               className={cn("inline-flex min-h-9 items-center gap-1 rounded-lg border px-2.5 text-[11px] font-semibold", status === "consumed"
                 ? "border-primary/40 bg-primary/15 text-primary" : "border-outline-variant text-muted hover:text-primary")}>
               {status === "consumed" ? <Check className="size-3.5" /> : <Circle className="size-3" />}Realizada
             </button>
-            <button type="button" onClick={() => mark(index, "skipped")} aria-pressed={status === "skipped"} aria-label={`Marcar ${meal.name} como não realizada`}
+            <button type="button" onClick={() => mark(index, "skipped")} disabled={busy} aria-pressed={status === "skipped"} aria-label={`Marcar ${meal.name} como não realizada`}
               className={cn("inline-flex min-h-9 items-center gap-1 rounded-lg border px-2.5 text-[11px] font-semibold", status === "skipped"
                 ? "border-warning/40 bg-warning/10 text-on-surface" : "border-outline-variant text-muted hover:text-on-surface")}>
               <X className="size-3.5" />Não realizada
@@ -85,7 +102,7 @@ export function NutritionMealCheckin({ plan, dayNumber, planKey, syncedChecks, o
     </ul>
     <p className="px-4 pb-4 text-[11px] leading-5 text-muted sm:px-5">
       Registro voluntário: marcar uma refeição não comprova consumo, porção ou qualidade nutricional.
-      {key ? " As marcações ficam apenas neste navegador, separadas por conta e versão do plano." : " Sem conta identificada, as marcações duram somente enquanto esta tela permanece aberta."}
+      {onSync ? " As marcacoes sao sincronizadas com sua conta e ficam disponiveis em outros dispositivos." : key ? " As marcações ficam apenas neste navegador, separadas por conta e versão do plano." : " Sem conta identificada, as marcações duram somente enquanto esta tela permanece aberta."}
     </p>
     {notice ? <p role="status" className="px-4 pb-3 text-[11px] text-warning">{notice}</p> : null}
   </div>

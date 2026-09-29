@@ -114,7 +114,7 @@ export function NutritionWorkspacePanel({ plan, workspace, loading, error, save,
       else setBarcodeMessage("Nenhum código identificado. Tente uma foto mais nítida.")
     } catch { setBarcodeMessage("Não foi possível ler a foto. Digite o código manualmente.") }
   }
-  return <section aria-label="Gestão alimentar" className="space-y-4">
+  return <section id="nutrition-workspace" aria-label="Gestão alimentar" className="scroll-mt-24 space-y-4">
     <div className="flex flex-wrap items-end justify-between gap-2">
       <div><p className="text-[10px] font-semibold uppercase tracking-[.16em] text-primary">Alimentação 2.0</p>
         <h2 className="mt-1 text-xl font-semibold text-on-surface">Sua rotina alimentar</h2>

@@ -4,6 +4,7 @@ import { Button } from "../../components/ui/button"
 import { AnimatedNumber } from "../../components/ui/AnimatedNumber"
 import type { TrainingProgram, TrainingSessionLog, Workout } from "./contracts"
 import { trainingAnalytics } from "./trainingAnalytics"
+import { nextWorkout } from "./nextWorkout"
 
 interface Props {
   sessions: TrainingSessionLog[]
@@ -20,7 +21,7 @@ export function TrainingInsights({ sessions, workouts, programs, onStart, onCrea
   const goal = programs.find((p) => p.status === "active")?.daysPerWeek ?? null
   const goalProgress = goal ? Math.min(100, Math.round(stats.weekCount / goal * 100)) : 0
   const maxDay = Math.max(1, ...stats.trend.map((day) => day.count))
-  const highlighted = workouts[0] ?? null
+  const highlighted = useMemo(() => nextWorkout(workouts, programs, sessions), [workouts, programs, sessions])
   const metrics = [
     { label: "Sessões na semana", value: stats.weekCount, suffix: "", icon: Dumbbell, detail: `Semana anterior: ${stats.previousWeekCount}` },
     { label: "Volume registrado", value: stats.weekVolumeKg, suffix: " kg", icon: TrendingUp, detail: "Séries × repetições × carga" },
@@ -37,9 +38,17 @@ export function TrainingInsights({ sessions, workouts, programs, onStart, onCrea
           <p className="mt-2 max-w-[52ch] text-sm leading-6 text-on-surface-variant">Acompanhe frequência, carga e consistência com base nas suas sessões reais.</p>
         </div>
         <Button variant="primary" size="md" className="w-full sm:w-auto" onClick={highlighted ? () => onStart(highlighted) : onCreate}>
-          <Play className="size-4" /> {highlighted ? "Iniciar uma ficha" : "Criar primeira ficha"}
+          <Play className="size-4" /> {highlighted ? "Iniciar proxima ficha" : "Criar primeira ficha"}
         </Button>
       </div>
+      {highlighted ? <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/5 p-3 sm:p-4">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[.15em] text-primary">Proxima ficha sugerida</p>
+          <p className="mt-1 text-sm font-semibold text-on-surface">{highlighted.name}</p>
+          <p className="mt-1 text-xs text-muted">{highlighted.focus || "Foco livre"} · {highlighted.exercises.length} exercicio(s)</p>
+        </div>
+        <p className="max-w-[30ch] text-[11px] leading-5 text-muted">Rotacao pela ordem do programa e pelo seu ultimo registro. Nao substitui seu planejamento semanal.</p>
+      </div> : null}
       <div className="mt-5 grid grid-cols-2 gap-2 md:grid-cols-4">
         {metrics.map(({ label, value, suffix, icon: MetricIcon, detail }) => (
           <div key={label} className="min-w-0 rounded-xl border border-outline-variant bg-surface/70 p-3 sm:p-4">

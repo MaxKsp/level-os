@@ -14,6 +14,8 @@ try {
     const errors = []
     page.on("pageerror", (error) => errors.push(error.message))
     await page.goto(base + "/landing.html", { waitUntil: "networkidle", timeout: 45_000 })
+    const cardOverflow = await page.locator(".orbit-copy").first().evaluate((element) => getComputedStyle(element).overflowY)
+    assert.notEqual(cardOverflow, "auto", "O cartao mobile nao deve roubar o gesto de rolagem do scroll cinematografico")
     const journey = await page.locator(".orbital-journey").evaluate((el) => ({
       top: window.scrollY + el.getBoundingClientRect().top, height: el.getBoundingClientRect().height,
     }))
@@ -34,6 +36,11 @@ try {
       assert.ok(centerY > 40 && centerY < viewport.height * .75,
         `${viewport.width}px / ${station}: estação fora da câmera (y=${centerY.toFixed(0)})`)
       assert.ok(Math.abs(stage.y) <= 3, station + ": palco deve continuar fixo no scroll")
+      const card = await page.locator("#" + station + " .orbit-copy").boundingBox()
+      assert.ok(card && card.y >= -3 && card.y + card.height <= viewport.height + 3,
+        `${viewport.width}px / ${station}: conteudo do capitulo recortado na viewport`)
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)
+      assert.ok(overflow <= 1, `${viewport.width}px / ${station}: pagina extrapola a largura por ${overflow}px`)
       console.log(`PASS mobile ${viewport.width}px: ${station} x=${centerX.toFixed(0)} y=${centerY.toFixed(0)}`)
     }
     assert.deepEqual(errors, [], "Exceções JS na jornada mobile")

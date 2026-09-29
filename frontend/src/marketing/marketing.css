@@ -908,3 +908,15 @@ html[data-marketing-scroll="fast"] .hero-guide, html[data-marketing-scroll="fast
   .orbit-result { margin-top: .55rem; padding: .6rem .7rem; }
   .orbit-card-footer { margin-top: .6rem; padding-top: .6rem; }
 }
+
+/* Em telefones de altura regular, o card nao cria uma segunda regiao rolavel:
+   o gesto permanece ligado a camera orbital da pagina. Para telas baixas,
+   conserva-se o scroll interno existente, evitando cortar informacao. */
+@media (max-width: 720px) and (min-height: 680px) {
+  .orbital-journey { touch-action: pan-y; }
+  .orbit-copy { max-height: none; overflow: visible; }
+}
+@media (max-width: 720px) and (min-height: 680px) {
+  /* Ultima estacao deve continuar inteiramente visivel antes do fim da jornada. */
+  .orbit-chapter:last-child { padding-bottom: clamp(4.5rem, 10svh, 6rem); }
+}
