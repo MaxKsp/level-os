@@ -158,5 +158,5 @@ return static function (): void {
 
     $ritaRefusal = $service->handle(7, 'request_confirmation_0004', 'Qual é o saldo da minha conta?', 'alimentacao');
     test_assert_same('refused', $ritaRefusal['status'] ?? null, 'Rita must refuse requests from another module.');
-    test_assert_true(str_contains((string)($ritaRefusal['message'] ?? ''), 'Chef Rita'), 'The refusal must identify the active agent scope.');
+    test_assert_true(str_contains((string)($ritaRefusal['message'] ?? ''), 'Nutricionista Rita'), 'The refusal must identify the active agent scope.');
 };

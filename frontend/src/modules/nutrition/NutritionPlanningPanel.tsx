@@ -30,8 +30,8 @@ export function NutritionPlanningPanel({ plan, activeProgram, onOpenLeo }: Props
       {activeProgram ? <>
         <p className="text-xs font-semibold text-on-surface">{activeProgram.name}</p>
         <p className="mt-1 flex items-center gap-1.5 text-xs text-muted"><CalendarDays className="size-3.5" />{activeProgram.daysPerWeek} dia(s) de treino por semana · {activeProgram.location}</p>
-        <p className="mt-3 text-xs leading-5 text-on-surface-variant">Use esta referência ao conversar com os agentes. Chef Rita cuida do cardápio; Personal Léo, do treino.</p>
-      </> : <p className="text-xs leading-5 text-muted">Nenhum programa ativo. O Personal Léo pode ajudar a organizar seus dias de treino antes de rever o cardápio com a Chef Rita.</p>}
+        <p className="mt-3 text-xs leading-5 text-on-surface-variant">Use esta referência ao conversar com os agentes. Nutricionista Rita cuida do cardápio; Personal Léo, do treino.</p>
+      </> : <p className="text-xs leading-5 text-muted">Nenhum programa ativo. O Personal Léo pode ajudar a organizar seus dias de treino antes de rever o cardápio com a Nutricionista Rita.</p>}
       <Button type="button" variant="secondary" size="sm" className="mt-4 w-full sm:w-auto" onClick={onOpenLeo}>
         Conversar com Personal Léo <ArrowUpRight className="size-3.5" />
       </Button>

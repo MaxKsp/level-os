@@ -29,10 +29,10 @@ export const PERSONAS: Record<AssistantModule, AssistantPersona> = {
     greeting: "Bora treinar. O que você precisa?",
   },
   alimentacao: {
-    title: "Chef",
+    title: "Nutricionista",
     name: "Rita",
-    tagline: "Cardápios e receitas feitas especialmente para você.",
-    greeting: "O que vamos preparar?",
+    tagline: "Assistente virtual de alimentação, receitas, cardápios e compras.",
+    greeting: "Oi! Quer analisar seu cardápio, descobrir uma receita ou tirar uma dúvida sobre alimentação?",
   },
 }
 
