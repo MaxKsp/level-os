@@ -65,16 +65,30 @@ export function useNutritionWorkspace(plan: DietPlan | null) {
     if (!workspace || !plan || !window.CSRF_TOKEN || !window.LEVEL_OS_USER_SCOPE) return
     const planId = planWorkspaceId(plan)
     if (imported.current.has(planId)) return
-    if (Object.keys(workspace.mealChecks?.[planId] ?? {}).length || Object.keys(workspace.cartChecks?.[planId] ?? {}).length) return
     const safe = planId.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80)
+    const migrationKey = userStorageKey("level-os:nutrition:legacy-migrated:" + safe)
+    const mealStorageKey = userStorageKey("level-os:nutrition:checkins:" + safe)
+    const cartStorageKey = userStorageKey("level-os:nutrition:shopping:" + safe)
     try {
-      const mealRaw = JSON.parse(localStorage.getItem(userStorageKey("level-os:nutrition:checkins:" + safe)) ?? "{}") as unknown
-      const cartRaw = JSON.parse(localStorage.getItem(userStorageKey("level-os:nutrition:shopping:" + safe)) ?? "[]") as unknown
+      if (localStorage.getItem(migrationKey) === "1") return
+      // Um servidor ja preenchido tem precedencia sobre qualquer cache local antigo.
+      if (Object.keys(workspace.mealChecks?.[planId] ?? {}).length || Object.keys(workspace.cartChecks?.[planId] ?? {}).length) {
+        localStorage.setItem(migrationKey, "1")
+        return
+      }
+      const mealRaw = JSON.parse(localStorage.getItem(mealStorageKey) ?? "{}") as unknown
+      const cartRaw = JSON.parse(localStorage.getItem(cartStorageKey) ?? "[]") as unknown
       const mealChecks = normalizeMealCheckins(mealRaw, plan)
       const cartIndices = Array.isArray(cartRaw) ? cartRaw.filter((n): n is number => Number.isInteger(n) && n >= 0 && n < (plan.shoppingList?.length ?? 0)) : []
       if (!Object.keys(mealChecks).length && !cartIndices.length) return
       imported.current.add(planId)
-      void save("import_legacy", { planId, mealChecks, cartIndices }).catch(() => imported.current.delete(planId))
+      void save("import_legacy", { planId, mealChecks, cartIndices }).then(() => {
+        try {
+          localStorage.setItem(migrationKey, "1")
+          localStorage.removeItem(mealStorageKey)
+          localStorage.removeItem(cartStorageKey)
+        } catch { /* Os dados do servidor continuam autoritativos. */ }
+      }).catch(() => imported.current.delete(planId))
     } catch { /* Storage is optional; server data is authoritative. */ }
   }, [plan, save, workspace])
   return { workspace, status, error, refresh, save }

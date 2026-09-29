@@ -16,6 +16,7 @@ import { NutritionCommercePanel } from "./NutritionCommercePanel"
 import { NutritionPlanIntelligence } from "./NutritionPlanIntelligence"
 import { NutritionMealCheckin } from "./NutritionMealCheckin"
 import { NutritionWorkspacePanel } from "./NutritionWorkspacePanel"
+import { NutritionWeeklySnapshot } from "./NutritionWeeklySnapshot"
 import { planWorkspaceId, useNutritionWorkspace } from "./nutritionWorkspace"
 
 const SHOPPING_CATEGORY_LABEL: Record<ShoppingCategory, string> = {
@@ -82,6 +83,8 @@ export function NutritionScreen() {
         </div>
       ) : null}
 
+      {workspace.workspace && window.CSRF_TOKEN ? <NutritionWeeklySnapshot plan={plan} workspace={workspace.workspace} /> : null}
+
       {!plan ? (
         <SectionCard title="Seu plano alimentar" description="Nenhum plano ativo" bodyClassName="p-0">
           <EmptyState
@@ -140,12 +143,24 @@ export function NutritionScreen() {
                 </button>
               ))}
             </div>
-            <NutritionMealCheckin key={plan.id ?? plan.createdAt ?? String(plan.version)} plan={plan}
-              planKey={plan.id ?? plan.createdAt ?? String(plan.version ?? "current")} dayNumber={openDay} />
+            {window.CSRF_TOKEN && !workspace.workspace
+              ? <p role="status" className="px-5 py-4 text-xs text-muted">Sincronizando as marcacoes alimentares com sua conta...</p>
+              : <NutritionMealCheckin key={plan.id ?? plan.createdAt ?? String(plan.version)} plan={plan}
+                planKey={plan.id ?? plan.createdAt ?? String(plan.version ?? "current")} dayNumber={openDay}
+                syncedChecks={workspace.workspace?.mealChecks[planWorkspaceId(plan)]}
+                onSync={workspace.workspace && window.CSRF_TOKEN
+                  ? async (slot, status) => { await workspace.save("mark_meal", { planId: planWorkspaceId(plan), slot, status }) }
+                  : undefined} />}
           </SectionCard>
 
           {plan.shoppingList && plan.shoppingList.length > 0
-            ? <ShoppingListCard key={plan.id ?? plan.createdAt ?? String(plan.version)} plan={plan} planKey={plan.id ?? plan.createdAt ?? String(plan.version ?? "current")} items={plan.shoppingList} />
+            ? window.CSRF_TOKEN && !workspace.workspace
+              ? <p role="status" className="px-5 py-4 text-xs text-muted">Sincronizando a lista de compras...</p>
+              : <ShoppingListCard key={plan.id ?? plan.createdAt ?? String(plan.version)} plan={plan} planKey={plan.id ?? plan.createdAt ?? String(plan.version ?? "current")} items={plan.shoppingList}
+                  syncedCart={workspace.workspace?.cartChecks[planWorkspaceId(plan)]}
+                  onSync={workspace.workspace && window.CSRF_TOKEN
+                    ? async (index, inCart) => { await workspace.save("mark_cart", { planId: planWorkspaceId(plan), index, inCart }) }
+                    : undefined} />
             : <NutritionCommercePanel plan={plan} />}
 
         </div>
@@ -179,9 +194,11 @@ export function NutritionScreen() {
   )
 }
 
-function ShoppingListCard({ items, planKey, plan }: { items: ShoppingItem[]; planKey: string; plan: NonNullable<ReturnType<typeof useNutrition>["plan"]>; key?: string }) {
+function ShoppingListCard({ items, planKey, plan, syncedCart, onSync }: { items: ShoppingItem[]; planKey: string; plan: NonNullable<ReturnType<typeof useNutrition>["plan"]>; key?: string
+  syncedCart?: Record<string, boolean>; onSync?: (index: number, inCart: boolean) => Promise<void>
+}) {
   const key = userStorageKey("level-os:nutrition:shopping:" + String(planKey).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80))
-  const [checked, setChecked] = useState<Set<number>>(() => {
+  const [localChecked, setLocalChecked] = useState<Set<number>>(() => {
     try {
       const data: unknown = JSON.parse(localStorage.getItem(key) ?? "[]")
       if (!Array.isArray(data)) return new Set<number>()
@@ -189,20 +206,46 @@ function ShoppingListCard({ items, planKey, plan }: { items: ShoppingItem[]; pla
     } catch { return new Set<number>() }
   })
   const [copyStatus, setCopyStatus] = useState("")
+  const [busy, setBusy] = useState(false)
+  const checked = onSync
+    ? new Set(Object.entries(syncedCart ?? {}).filter(([index, value]) => value && /^[0-9]+$/.test(index) && Number(index) < items.length).map(([index]) => Number(index)))
+    : localChecked
   useEffect(() => {
-    try { localStorage.setItem(key, JSON.stringify([...checked])) } catch { /* storage opcional */ }
-  }, [checked, key])
+    if (onSync) return
+    try { localStorage.setItem(key, JSON.stringify([...localChecked])) } catch { /* storage opcional */ }
+  }, [localChecked, key, onSync])
   const copyPending = async () => {
     try {
       await navigator.clipboard.writeText(items.filter((_, index) => !checked.has(index)).map((entry) => entry.item + " — " + entry.quantity).join("\n"))
       setCopyStatus("Itens pendentes copiados.")
     } catch { setCopyStatus("Não foi possível copiar. Verifique a permissão do navegador.") }
   }
-  const toggle = (index: number) => setChecked((current) => {
-    const next = new Set(current)
-    if (next.has(index)) next.delete(index); else next.add(index)
-    return next
-  })
+  const toggle = async (index: number) => {
+    if (busy) return
+    if (onSync) {
+      setBusy(true)
+      try { await onSync(index, !checked.has(index)); setCopyStatus("") }
+      catch (error) { setCopyStatus(error instanceof Error ? error.message : "Falha na sincronizacao.") }
+      finally { setBusy(false) }
+      return
+    }
+    setLocalChecked((current) => {
+      const next = new Set(current)
+      if (next.has(index)) next.delete(index); else next.add(index)
+      return next
+    })
+  }
+  const reset = async () => {
+    if (busy) return
+    if (onSync) {
+      setBusy(true)
+      try { for (const index of checked) await onSync(index, false); setCopyStatus("") }
+      catch (error) { setCopyStatus(error instanceof Error ? error.message : "Falha na sincronizacao.") }
+      finally { setBusy(false) }
+      return
+    }
+    setLocalChecked(new Set())
+  }
 
   const grouped = SHOPPING_CATEGORY_ORDER
     .map((category) => ({ category, entries: items.map((item, index) => ({ item, index })).filter(({ item }) => item.category === category) }))
@@ -218,8 +261,8 @@ function ShoppingListCard({ items, planKey, plan }: { items: ShoppingItem[]; pla
       bodyClassName="p-0"
     >
       <div className="space-y-2 border-b border-outline-variant px-5 py-3">
-        <div className="flex items-center justify-between gap-3 text-[11px] text-muted"><span>{checked.size}/{items.length} no carrinho · seleção salva neste dispositivo</span>
-          <button type="button" className="min-h-9 font-semibold text-primary hover:underline" onClick={() => setChecked(new Set())} disabled={!checked.size}>Reiniciar lista</button></div>
+        <div className="flex items-center justify-between gap-3 text-[11px] text-muted"><span>{checked.size}/{items.length} no carrinho · {onSync ? "sincronizado com sua conta" : "seleção local neste dispositivo"}</span>
+          <button type="button" className="min-h-9 font-semibold text-primary hover:underline" onClick={() => void reset()} disabled={!checked.size || busy}>Reiniciar lista</button></div>
         <div className="h-1.5 overflow-hidden rounded-full bg-outline-variant" role="progressbar" aria-label="Itens do plano marcados na lista de compras" aria-valuemin={0} aria-valuemax={items.length} aria-valuenow={checked.size}>
           <div className="h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none" style={{ width: (items.length ? checked.size / items.length * 100 : 0) + "%" }} />
         </div>
@@ -236,7 +279,8 @@ function ShoppingListCard({ items, planKey, plan }: { items: ShoppingItem[]; pla
                   <li key={index}>
                     <button
                       type="button"
-                      onClick={() => toggle(index)}
+                      onClick={() => void toggle(index)}
+                      disabled={busy}
                       aria-pressed={done}
                       className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-surface-container"
                     >

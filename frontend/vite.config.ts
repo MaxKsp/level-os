@@ -17,7 +17,8 @@ export default defineConfig(() => {
         output: {
           manualChunks(id) {
             if (!id.includes('node_modules')) return undefined;
-            if (/node_modules[\\/]react(?:-dom|-router|-router-dom)?[\\/]/.test(id)) return 'vendor-react';
+            if (/node_modules[\\/]react-router(?:-dom)?[\\/]/.test(id)) return 'vendor-router';
+            if (/node_modules[\\/]react(?:-dom)?[\\/]/.test(id)) return 'vendor-react';
             if (/node_modules[\\/](?:motion|framer-motion)[\\/]/.test(id)) return 'vendor-motion';
             if (id.includes('node_modules/@radix-ui/')) return 'vendor-radix';
             if (id.includes('node_modules/lucide-react/')) return 'vendor-icons';
