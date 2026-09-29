@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState, type FormEvent } from "react"
 import { BookOpen, CalendarDays, Heart, Package, Plus, ScanLine, ShoppingCart, Trash2, Users, WandSparkles } from "lucide-react"
 import { SectionCard } from "../../design-system"
 import { Button } from "../../components/ui/button"
+import { LevelSelect } from "../../components/ui/LevelSelect"
+import { LevelDateInput } from "../../components/ui/LevelDateInput"
 import type { DietPlan, ShoppingCategory } from "./store"
 import { newWorkspaceId, type NutritionWorkspace, type PantryItem, type RecipeItem, type DiaryItem, type PurchaseItem, type FamilyItem, type NutritionPreferences } from "./nutritionWorkspace"
 
@@ -138,7 +140,7 @@ export function NutritionWorkspacePanel({ plan, workspace, loading, error, save,
     {!workspace ? <SectionCard title="Registros indisponíveis">Entre na sua conta para utilizar os recursos sincronizados.</SectionCard> : null}
     {workspace && tab === "diary" ? <SectionCard title="Diário alimentar" description="Registros voluntários: não estimamos calorias a partir de descrições vagas.">
       <form onSubmit={(e) => void addDiary(e)} className="grid gap-3 sm:grid-cols-2">
-        <label className={labelClass}>Data<input type="date" required value={mealForm.date} className={inputClass} onChange={(e) => setMealForm({ ...mealForm, date: e.target.value })} /></label>
+        <label className={labelClass}>Data<LevelDateInput required value={mealForm.date} onChange={(e) => setMealForm({ ...mealForm, date: e.target.value })} /></label>
         <label className={labelClass}>Refeição consumida<input required maxLength={100} placeholder="Ex.: arroz, feijão, frango" value={mealForm.title} className={inputClass} onChange={(e) => setMealForm({ ...mealForm, title: e.target.value })} /></label>
         <label className={labelClass}>Porção (opcional)<input maxLength={80} placeholder="Ex.: 1 prato" value={mealForm.portion} className={inputClass} onChange={(e) => setMealForm({ ...mealForm, portion: e.target.value })} /></label>
         <label className={labelClass}>Observação (opcional)<input maxLength={400} value={mealForm.note} className={inputClass} onChange={(e) => setMealForm({ ...mealForm, note: e.target.value })} /></label>
@@ -167,11 +169,9 @@ export function NutritionWorkspacePanel({ plan, workspace, loading, error, save,
       <form onSubmit={(e) => void addPantry(e)} className="grid gap-2 sm:grid-cols-3">
         <label className={labelClass}>Ingrediente<input required maxLength={80} value={pantryForm.name} placeholder="Ex.: Frango" className={inputClass} onChange={(e) => setPantryForm({ ...pantryForm, name: e.target.value })} /></label>
         <label className={labelClass}>Quantidade<input required type="number" min={0} max={10000} step="0.01" value={pantryForm.quantity} className={inputClass} onChange={(e) => setPantryForm({ ...pantryForm, quantity: e.target.value })} /></label>
-        <label className={labelClass}>Unidade<select className={inputClass} value={pantryForm.unit} onChange={(e) => setPantryForm({ ...pantryForm, unit: e.target.value as PantryItem["unit"] })}>
-          {["un","g","kg","ml","l","pacote"].map((u) => <option key={u} value={u}>{u}</option>)}</select></label>
-        <label className={labelClass}>Categoria<select className={inputClass} value={pantryForm.category} onChange={(e) => setPantryForm({ ...pantryForm, category: e.target.value as ShoppingCategory })}>
-          {categories.map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
-        <label className={labelClass}>Validade (opcional)<input type="date" value={pantryForm.expiresOn} className={inputClass} onChange={(e) => setPantryForm({ ...pantryForm, expiresOn: e.target.value })} /></label>
+        <label className={labelClass}>Unidade<LevelSelect value={pantryForm.unit} onChange={(unit) => setPantryForm({ ...pantryForm, unit })} options={["un","g","kg","ml","l","pacote"].map((u) => ({ value: u as PantryItem["unit"], label: u }))} /></label>
+        <label className={labelClass}>Categoria<LevelSelect value={pantryForm.category} onChange={(category) => setPantryForm({ ...pantryForm, category })} options={categories.map((c) => ({ value: c, label: c }))} /></label>
+        <label className={labelClass}>Validade (opcional)<LevelDateInput value={pantryForm.expiresOn} onChange={(e) => setPantryForm({ ...pantryForm, expiresOn: e.target.value })} /></label>
         <Button type="submit" disabled={pending} className="self-end"><Plus className="size-4" />Adicionar</Button>
       </form>
       <ul className="mt-4 grid gap-2 sm:grid-cols-2">{workspace.pantry.map((item) =>
@@ -209,11 +209,10 @@ export function NutritionWorkspacePanel({ plan, workspace, loading, error, save,
     </SectionCard> : null}
     {workspace && tab === "purchases" ? <SectionCard title="Compras registradas" description="Informe apenas compras que você concluiu. Carrinho não é comprovante de pagamento.">
       <form onSubmit={(e) => void addPurchase(e)} className="grid gap-3 sm:grid-cols-2">
-        <label className={labelClass}>Data<input required type="date" value={purchaseForm.date} className={inputClass} onChange={(e) => setPurchaseForm({ ...purchaseForm, date: e.target.value })} /></label>
+        <label className={labelClass}>Data<LevelDateInput required value={purchaseForm.date} onChange={(e) => setPurchaseForm({ ...purchaseForm, date: e.target.value })} /></label>
         <label className={labelClass}>Descrição<input required maxLength={120} placeholder="Ex.: compra do mercado" value={purchaseForm.description} className={inputClass} onChange={(e) => setPurchaseForm({ ...purchaseForm, description: e.target.value })} /></label>
         <label className={labelClass}>Valor pago (R$)<input required inputMode="decimal" value={purchaseForm.amountBRL} className={inputClass} onChange={(e) => setPurchaseForm({ ...purchaseForm, amountBRL: e.target.value })} /></label>
-        <label className={labelClass}>Categoria<select className={inputClass} value={purchaseForm.category} onChange={(e) => setPurchaseForm({ ...purchaseForm, category: e.target.value as PurchaseItem["category"] })}>
-          {["mercado","restaurante","marmita","outros"].map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
+        <label className={labelClass}>Categoria<LevelSelect value={purchaseForm.category} onChange={(category) => setPurchaseForm({ ...purchaseForm, category })} options={(["mercado","restaurante","marmita","outros"] as PurchaseItem["category"][]).map((c) => ({ value: c, label: c }))} /></label>
         <Button type="submit" disabled={pending}><Plus className="size-4" />Registrar compra</Button>
       </form>
       <p className="mt-4 text-sm text-muted">Total de compras registradas: {brl(spent)}. Previsão do cardápio: {plan ? brl(plan.estimatedCostBRL) : "sem plano"}.</p>

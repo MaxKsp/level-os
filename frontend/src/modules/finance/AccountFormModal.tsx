@@ -3,6 +3,7 @@ import { Modal } from "../../components/ui/Modal"
 import { Button } from "../../components/ui/button"
 import { BankLogo } from "../../components/ui/BankLogo"
 import { BankPicker } from "../../components/ui/BankPicker"
+import { LevelSelect } from "../../components/ui/LevelSelect"
 import { describeApiError } from "../../lib/apiErrors"
 import type { AccountV2 } from "./contracts"
 import { genId, useFinance } from "./store"
@@ -80,9 +81,7 @@ export function AccountForm({ initial, resetKey, onCancel, onSave }: { initial?:
         <div className="grid gap-3 sm:grid-cols-[.8fr_1.2fr]">
           <div>
             <label className={lbl}>Tipo</label>
-            <select className={field} value={a.tipo} onChange={(e) => setIdentity({ tipo: e.target.value })}>
-              {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
+            <LevelSelect aria-label="Tipo de conta" value={a.tipo} onChange={(tipo) => setIdentity({ tipo })} options={TYPES.map((t) => ({ value: t.value, label: t.label }))} />
           </div>
           <div>
             <label className={lbl}>Banco</label>

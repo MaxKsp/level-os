@@ -521,6 +521,25 @@ output {
 /* Títulos: peso equilibrado, tracking levemente negativo (nada de exagero). */
 h1, h2, h3 { letter-spacing: -0.02em; }
 
+/* Controles compartilhados: superfícies sólidas, resposta sutil e movimento acessível. */
+@keyframes level-popover-enter {
+  from { opacity: 0; transform: translateY(-4px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.level-select-menu {
+  animation: level-popover-enter 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  box-shadow: 0 14px 34px rgb(0 0 0 / 0.24);
+}
+.level-select-trigger[aria-expanded="true"] {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent);
+}
+.level-date-input { color-scheme: inherit; font-variant-numeric: tabular-nums; }
+.level-date-input::-webkit-calendar-picker-indicator { opacity: 0; width: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .level-select-menu { animation: none; }
+}
+
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 button:focus-visible,

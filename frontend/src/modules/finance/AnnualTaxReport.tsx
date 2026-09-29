@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react"
 import { Button } from "../../components/ui/button"
+import { LevelSelect } from "../../components/ui/LevelSelect"
 import { AnimatedNumber } from "../../components/ui/AnimatedNumber"
 import { BankLogo } from "../../components/ui/BankLogo"
 import { Icon, SectionCard } from "../../design-system"
@@ -37,9 +38,7 @@ export function AnnualTaxReport({ data }: { data: FinanceBootstrap }) {
         </div>
         <div className="flex items-center gap-2">
           <label htmlFor="tax-year" className="text-sm text-on-surface-variant">Ano</label>
-          <select id="tax-year" value={year} onChange={(event) => setYear(Number(event.target.value))} className="rounded-xl border border-outline-variant bg-surface-container px-3 py-2 text-sm text-on-surface outline-none focus:border-primary">
-            {Array.from({ length: 6 }, (_, index) => currentYear - index).map((option) => <option key={option}>{option}</option>)}
-          </select>
+          <LevelSelect id="tax-year" value={year} onChange={setYear} className="w-28" options={Array.from({ length: 6 }, (_, index) => currentYear - index).map((option) => ({ value: option, label: option }))} />
           <Button variant="secondary" onClick={() => window.print()}><Icon name="print" className="text-[18px]" />Imprimir / PDF</Button>
         </div>
       </div>

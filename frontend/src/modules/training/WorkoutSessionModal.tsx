@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { Check, Dumbbell, Timer } from "lucide-react"
 import { Modal } from "../../components/ui/Modal"
 import { Button } from "../../components/ui/button"
+import { LevelDateInput } from "../../components/ui/LevelDateInput"
 import type { SessionExercise, TrainingModality, TrainingSessionLog, Workout } from "./contracts"
 
 type Entry = { key: string; name: string; modality: TrainingModality; included: boolean; sets: string; reps: string; loadKg: string; restSec: string; durationMin: string; distanceKm: string; progressionLevel: string }
@@ -89,7 +90,7 @@ export function WorkoutSessionModal({ workout, onClose, onSave }: Props) {
           <span className="text-xs text-muted">Ficha vinculada ao histórico</span>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <label className="text-xs font-medium text-on-surface-variant">Data<input type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} className={field + " mt-1"} /></label>
+          <label className="text-xs font-medium text-on-surface-variant">Data<LevelDateInput className="mt-1" value={date} max={today()} onChange={(e) => setDate(e.target.value)} /></label>
           <label className="text-xs font-medium text-on-surface-variant"><Timer className="mr-1 inline size-3.5" />Duração total (min)<input inputMode="numeric" value={duration} onChange={(e) => setDuration(e.target.value)} className={field + " mt-1"} /></label>
         </div>
         <div className="space-y-2">

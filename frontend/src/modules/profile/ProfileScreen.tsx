@@ -13,6 +13,8 @@ type ActivityEvent = {
   created_at: string;
 };
 import { Button } from "../../components/ui/button";
+import { LevelSelect } from "../../components/ui/LevelSelect";
+import { LevelDateInput } from "../../components/ui/LevelDateInput";
 import { AnimatedNumber } from "../../components/ui/AnimatedNumber";
 import { ThemeToggle } from "../../components/ui/ThemeToggle";
 import { Switch } from "@/components/ui/switch";
@@ -288,24 +290,10 @@ export function ProfileScreen() {
                 />
               </Field>
               <Field title="Sexo biológico (somente para estimativas)">
-                <select
-                  className={field}
-                  value={profile.sex}
-                  onChange={(event) => setProfile({ ...profile, sex: event.target.value })}
-                >
-                  <option value="">Prefiro não informar</option>
-                  <option value="m">Masculino</option>
-                  <option value="f">Feminino</option>
-                </select>
+                <LevelSelect aria-label="Sexo biológico" value={profile.sex} onChange={(sex) => setProfile({ ...profile, sex })} options={[{ value: "", label: "Prefiro não informar" }, { value: "m", label: "Masculino" }, { value: "f", label: "Feminino" }]} />
               </Field>
               <Field title="Data de nascimento">
-                <input
-                  className={field}
-                  type="date"
-                  max={localTodayInputValue()}
-                  value={profile.birthDate}
-                  onChange={(event) => setProfile({ ...profile, birthDate: event.target.value })}
-                />
+                <LevelDateInput aria-label="Data de nascimento" max={localTodayInputValue()} value={profile.birthDate} onChange={(event) => setProfile({ ...profile, birthDate: event.target.value })} />
               </Field>
               <div className="sm:col-span-2">
                 <Field title="Sobre você">

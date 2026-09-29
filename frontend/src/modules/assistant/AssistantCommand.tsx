@@ -12,6 +12,7 @@ import { AssistantResultCard } from "./AssistantResultCard"
 import { agentHistoryKey, appendAgentHistory, createEmptyAgentHistory, type AgentHistoryKey } from "./agentHistory"
 import { clearAssistantHistory, getAssistantHistory, getAssistantInsights, getAssistantQuality, type AssistantApproval } from "./api"
 import { TypewriterText } from "./TypewriterText"
+import { LevelSelect } from "../../components/ui/LevelSelect"
 
 interface Suggestion { icon: ReactNode; label: string; description: string; prefix: string; module: AssistantModule; template?: string; openWorkoutForm?: boolean; openDietForm?: boolean }
 
@@ -675,34 +676,15 @@ export function AssistantCommand() {
                       <div className="grid gap-3 sm:grid-cols-3">
                         <label className="text-xs text-muted">
                           Foco
-                          <select
-                            value={workoutForm.focus}
-                            onChange={(e) => setWorkoutForm({ ...workoutForm, focus: e.target.value })}
-                            className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container px-2.5 py-2 text-sm text-on-surface"
-                          >
-                            {WORKOUT_FOCUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
-                          </select>
+                          <LevelSelect className="mt-1" value={workoutForm.focus} onChange={(focus) => setWorkoutForm({ ...workoutForm, focus })} options={WORKOUT_FOCUS_OPTIONS.map((option) => ({ value: option, label: option }))} />
                         </label>
                         <label className="text-xs text-muted">
                           Dias por semana
-                          <select
-                            value={workoutForm.days}
-                            onChange={(e) => setWorkoutForm({ ...workoutForm, days: Number(e.target.value) })}
-                            className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container px-2.5 py-2 text-sm text-on-surface"
-                          >
-                            {[1, 2, 3, 4, 5, 6, 7].map((day) => <option key={day} value={day}>{day}x</option>)}
-                          </select>
+                          <LevelSelect className="mt-1" value={workoutForm.days} onChange={(days) => setWorkoutForm({ ...workoutForm, days })} options={[1, 2, 3, 4, 5, 6, 7].map((day) => ({ value: day, label: day + "x" }))} />
                         </label>
                         <label className="text-xs text-muted">
                           Local
-                          <select
-                            value={workoutForm.location}
-                            onChange={(e) => setWorkoutForm({ ...workoutForm, location: e.target.value as "casa" | "academia" })}
-                            className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container px-2.5 py-2 text-sm text-on-surface"
-                          >
-                            <option value="academia">Academia</option>
-                            <option value="casa">Em casa</option>
-                          </select>
+                          <LevelSelect className="mt-1" value={workoutForm.location} onChange={(location) => setWorkoutForm({ ...workoutForm, location })} options={[{ value: "academia" as const, label: "Academia" }, { value: "casa" as const, label: "Em casa" }]} />
                         </label>
                       </div>
                       <div className="mt-3 flex items-center justify-between gap-2">
@@ -724,23 +706,11 @@ export function AssistantCommand() {
                       <div className="grid gap-3 sm:grid-cols-3">
                         <label className="text-xs text-muted">
                           Objetivo
-                          <select
-                            value={dietForm.goal}
-                            onChange={(e) => setDietForm({ ...dietForm, goal: e.target.value })}
-                            className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container px-2.5 py-2 text-sm text-on-surface"
-                          >
-                            {DIET_GOAL_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                          </select>
+                          <LevelSelect className="mt-1" value={dietForm.goal} onChange={(goal) => setDietForm({ ...dietForm, goal })} options={DIET_GOAL_OPTIONS.map(([value, label]) => ({ value, label }))} />
                         </label>
                         <label className="text-xs text-muted">
                           Período
-                          <select
-                            value={dietForm.periodDays}
-                            onChange={(e) => setDietForm({ ...dietForm, periodDays: Number(e.target.value) })}
-                            className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container px-2.5 py-2 text-sm text-on-surface"
-                          >
-                            {[7, 14, 30].map((days) => <option key={days} value={days}>{days} dias</option>)}
-                          </select>
+                          <LevelSelect className="mt-1" value={dietForm.periodDays} onChange={(periodDays) => setDietForm({ ...dietForm, periodDays })} options={[7, 14, 30].map((days) => ({ value: days, label: days + " dias" }))} />
                         </label>
                         <label className="text-xs text-muted">
                           Orçamento total (R$)

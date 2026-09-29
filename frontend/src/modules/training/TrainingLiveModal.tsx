@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { Activity, Check, CheckCircle2, Circle, Dumbbell, Pause, Play, Plus, RotateCcw, Timer, Trash2 } from "lucide-react"
 import { Modal } from "../../components/ui/Modal"
 import { Button } from "../../components/ui/button"
+import { LevelDateInput } from "../../components/ui/LevelDateInput"
 import type { SessionExercise, TrainingSessionLog, Workout, WorkoutExercise } from "./contracts"
 import { wid } from "./store"
 import { bestExerciseLoad } from "./trainingRecords"
@@ -125,11 +126,11 @@ export function TrainingLiveModal({ workout, history, effortMetricsAvailable = t
         <div className="relative overflow-hidden rounded-xl border border-primary/25 bg-surface p-4">
           <div aria-hidden="true" className="absolute -right-10 -top-16 size-44 rounded-full bg-primary/10 blur-3xl" />
           <div className="relative flex flex-wrap items-center justify-between gap-3">
-            <div><p className="text-[10px] font-bold uppercase tracking-[.18em] text-primary">Live workout</p>
+            <div><p className="text-[10px] font-bold uppercase tracking-[.18em] text-primary">Treino em andamento</p>
               <p className="mt-1 text-2xl font-semibold tabular-nums text-on-surface">{formatTime(Math.floor((now - startedAt) / 1000))}</p>
               <p className="mt-1 text-xs text-muted">{completeSets} de {totalSets} séries/atividades feitas · {completedVolume.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kg de volume</p>
             </div>
-            <label className="text-[11px] font-semibold text-muted">Data<input type="date" max={localDate()} value={date} onChange={(e) => setDate(e.target.value)} className={field + " mt-1"} /></label>
+            <label className="text-[11px] font-semibold text-muted">Data<LevelDateInput className="mt-1" max={localDate()} value={date} onChange={(e) => setDate(e.target.value)} /></label>
           </div>
           <div className="relative mt-4 h-1.5 overflow-hidden rounded-full bg-outline-variant"><div className="h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none" style={{ width: (totalSets ? completeSets / totalSets * 100 : 0) + "%" }} /></div>
         </div>
