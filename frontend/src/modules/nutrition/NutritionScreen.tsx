@@ -163,6 +163,9 @@ export function NutritionScreen() {
                   pantry={workspace.workspace?.pantry ?? []}
                   onSync={workspace.workspace && window.CSRF_TOKEN
                     ? async (index, inCart) => { await workspace.save("mark_cart", { planId: planWorkspaceId(plan), index, inCart }) }
+                    : undefined}
+                  onReset={workspace.workspace && window.CSRF_TOKEN
+                    ? async () => { await workspace.save("reset_cart", { planId: planWorkspaceId(plan) }) }
                     : undefined} />
             : <NutritionCommercePanel plan={plan} />}
           {workspace.workspace && window.CSRF_TOKEN && plan.shoppingList?.length
@@ -200,8 +203,9 @@ export function NutritionScreen() {
   )
 }
 
-function ShoppingListCard({ items, planKey, plan, syncedCart, pantry = [], onSync }: { items: ShoppingItem[]; planKey: string; plan: NonNullable<ReturnType<typeof useNutrition>["plan"]>; key?: string
+function ShoppingListCard({ items, planKey, plan, syncedCart, pantry = [], onSync, onReset }: { items: ShoppingItem[]; planKey: string; plan: NonNullable<ReturnType<typeof useNutrition>["plan"]>; key?: string
   syncedCart?: Record<string, boolean>; pantry?: PantryItem[]; onSync?: (index: number, inCart: boolean) => Promise<void>
+  onReset?: () => Promise<void>
 }) {
   const key = userStorageKey("level-os:nutrition:shopping:" + String(planKey).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80))
   const [localChecked, setLocalChecked] = useState<Set<number>>(() => {
@@ -247,7 +251,11 @@ function ShoppingListCard({ items, planKey, plan, syncedCart, pantry = [], onSyn
     if (busy) return
     if (onSync) {
       setBusy(true)
-      try { for (const index of checked) await onSync(index, false); setCopyStatus("") }
+      try {
+        if (onReset) await onReset()
+        else for (const index of checked) await onSync(index, false)
+        setCopyStatus("")
+      }
       catch (error) { setCopyStatus(error instanceof Error ? error.message : "Falha na sincronizacao.") }
       finally { setBusy(false) }
       return

@@ -14,6 +14,7 @@ const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", curren
 const displayDate = (date: string | null) => date && /^\d{4}-\d{2}-\d{2}$/.test(date)
   ? date.slice(8, 10) + "/" + date.slice(5, 7) + "/" + date.slice(0, 4) : date ?? "—"
 const today = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10) }
+const inDays = (days: number) => { const d = new Date(); d.setDate(d.getDate() + days); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10) }
 const categories: ShoppingCategory[] = ["hortifruti", "proteina", "mercearia", "laticinios", "padaria", "bebidas", "outros"]
 const inputClass = "min-h-10 w-full rounded-lg border border-outline-variant bg-surface px-3 text-sm text-on-surface outline-none focus:border-primary"
 const labelClass = "mb-1 block text-xs font-semibold text-on-surface-variant"
@@ -61,7 +62,7 @@ export function NutritionWorkspacePanel({ plan, workspace, loading, error, save,
   const itemsAtHome = useMemo(() => plan?.shoppingList?.filter((item) =>
     inventoryCoverage(item, workspace?.pantry ?? [], today()).status === "sufficient") ?? [],
   [plan, workspace?.pantry])
-  const soon = workspace?.pantry.filter((i) => i.quantity > 0 && i.expiresOn && i.expiresOn <= new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10)) ?? []
+  const soon = workspace?.pantry.filter((i) => i.quantity > 0 && i.expiresOn && i.expiresOn <= inDays(3)) ?? []
   const commit = async (op: string, changes: Record<string, unknown>): Promise<boolean> => {
     setPending(true); setNotice("")
     try { await save(op, changes); setNotice("Registros sincronizados com sua conta."); return true }
@@ -262,8 +263,8 @@ export function NutritionWorkspacePanel({ plan, workspace, loading, error, save,
       <form id="nutrition-pantry-form" onSubmit={(e) => void addPantry(e)} className="grid gap-2 sm:grid-cols-3">
         <label className={labelClass}>Ingrediente<input required maxLength={80} value={pantryForm.name} placeholder="Ex.: Frango" className={inputClass} onChange={(e) => setPantryForm({ ...pantryForm, name: e.target.value })} /></label>
         <label className={labelClass}>Quantidade<input required type="number" min={0} max={10000} step="0.01" value={pantryForm.quantity} className={inputClass} onChange={(e) => setPantryForm({ ...pantryForm, quantity: e.target.value })} /></label>
-        <label className={labelClass}>Unidade<LevelSelect value={pantryForm.unit} onChange={(unit) => setPantryForm({ ...pantryForm, unit })} options={["un","g","kg","ml","l","pacote"].map((u) => ({ value: u as PantryItem["unit"], label: u }))} /></label>
-        <label className={labelClass}>Categoria<LevelSelect value={pantryForm.category} onChange={(category) => setPantryForm({ ...pantryForm, category })} options={categories.map((c) => ({ value: c, label: c }))} /></label>
+        <div><LevelSelect label="Unidade" value={pantryForm.unit} onChange={(unit) => setPantryForm({ ...pantryForm, unit })} options={["un","g","kg","ml","l","pacote"].map((u) => ({ value: u as PantryItem["unit"], label: u }))} /></div>
+        <div><LevelSelect label="Categoria" value={pantryForm.category} onChange={(category) => setPantryForm({ ...pantryForm, category })} options={categories.map((c) => ({ value: c, label: c }))} /></div>
         <div><LevelDateInput label="Validade (opcional)" value={pantryForm.expiresOn} onChange={(e) => setPantryForm({ ...pantryForm, expiresOn: e.target.value })} /></div>
         <div className="flex flex-wrap items-end gap-2"><Button type="submit" disabled={pending} className="self-end">{editing.pantry ? <Pencil className="size-4" /> : <Plus className="size-4" />}{editing.pantry ? "Salvar item" : "Adicionar"}</Button>
           {editing.pantry ? <Button type="button" variant="secondary" disabled={pending} onClick={() => cancelEdit("pantry")}>Cancelar</Button> : null}</div>
@@ -331,7 +332,7 @@ export function NutritionWorkspacePanel({ plan, workspace, loading, error, save,
         <div><LevelDateInput label="Data" required value={purchaseForm.date} onChange={(e) => setPurchaseForm({ ...purchaseForm, date: e.target.value })} /></div>
         <label className={labelClass}>Descrição<input required maxLength={120} placeholder="Ex.: compra do mercado" value={purchaseForm.description} className={inputClass} onChange={(e) => setPurchaseForm({ ...purchaseForm, description: e.target.value })} /></label>
         <label className={labelClass}>Valor pago (R$)<input required inputMode="decimal" value={purchaseForm.amountBRL} className={inputClass} onChange={(e) => setPurchaseForm({ ...purchaseForm, amountBRL: e.target.value })} /></label>
-        <label className={labelClass}>Categoria<LevelSelect value={purchaseForm.category} onChange={(category) => setPurchaseForm({ ...purchaseForm, category })} options={(["mercado","restaurante","marmita","outros"] as PurchaseItem["category"][]).map((c) => ({ value: c, label: c }))} /></label>
+        <div><LevelSelect label="Categoria" value={purchaseForm.category} onChange={(category) => setPurchaseForm({ ...purchaseForm, category })} options={(["mercado","restaurante","marmita","outros"] as PurchaseItem["category"][]).map((c) => ({ value: c, label: c }))} /></div>
         <div className="flex flex-wrap gap-2 sm:col-span-2"><Button type="submit" disabled={pending}>{editing.purchases ? <Pencil className="size-4" /> : <Plus className="size-4" />}{editing.purchases ? "Salvar alterações" : "Registrar compra"}</Button>
           {editing.purchases ? <Button type="button" variant="secondary" disabled={pending} onClick={() => cancelEdit("purchases")}>Cancelar edição</Button> : null}</div>
       </form>

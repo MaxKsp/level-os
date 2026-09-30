@@ -73,4 +73,7 @@ return static function (): void {
     catch (InvalidArgumentException) { $rejected = true; }
     test_assert_true($rejected,'Duplicate item identifiers are rejected by the backend.');
     test_assert_same(0,count($service->load(8)['pantry']),'Stock changes cannot cross account boundaries.');
+    $saved = $service->save(7,['operation'=>'reset_cart','revision'=>9,'planId'=>$active['id']]);
+    test_assert_true(empty($saved['cartChecks'][$active['id']] ?? []),'Reset shopping cart must clear all marks in one revision.');
+    test_assert_same(10,$saved['revision'],'Atomic cart reset increments revision once, not for every item.');
 };

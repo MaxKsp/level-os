@@ -22,6 +22,7 @@ Escopo: Web/PWA e API de alimentação. Os projetos nativos não foram modificad
 - Conversões permitidas apenas kg↔g, L↔ml e unidades/pacotes da mesma base. Sem equivalência arbitrária entre pacote, unidade e massa.
 - Exclui saldos zero e itens vencidos; para medidas sem parse confiável exibe "Conferir unidade/quantidade".
 - Estados: suficiente, parcial, ausente e revisão. Déficits quantificáveis exportados em unidade base; marcados no carrinho não entram na cópia.
+- Reiniciar seleção do carrinho usa `reset_cart`: uma mutação atômica por plano/revisão, sem dezenas de requisições sequenciais sujeitas a rate limit.
 - `NutritionInventoryBridge.tsx`: registrar item **recebido**, sem supor pagamento; salva nova linha por meio de `save_pantry`, revisão otimista.
 - `NutritionWorkspacePanel.tsx`: editar diário, despensa, receitas e compras **sem trocar o ID**; cancelar alterações; baixa parcial com limite de saldo; confirmações nas exclusões; entrada do estoque separada do check-in.
 - Favoritos e itens a evitar passam a ter rascunhos controlados para não perder vírgulas enquanto se digita e refletir reset pós-sincronização.
