@@ -130,7 +130,7 @@ export function TrainingLiveModal({ workout, history, effortMetricsAvailable = t
               <p className="mt-1 text-2xl font-semibold tabular-nums text-on-surface">{formatTime(Math.floor((now - startedAt) / 1000))}</p>
               <p className="mt-1 text-xs text-muted">{completeSets} de {totalSets} séries/atividades feitas · {completedVolume.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} kg de volume</p>
             </div>
-            <label className="text-[11px] font-semibold text-muted">Data<LevelDateInput className="mt-1" max={localDate()} value={date} onChange={(e) => setDate(e.target.value)} /></label>
+            <div><LevelDateInput label="Data" max={localDate()} value={date} onChange={(e) => setDate(e.target.value)} /></div>
           </div>
           <div className="relative mt-4 h-1.5 overflow-hidden rounded-full bg-outline-variant"><div className="h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none" style={{ width: (totalSets ? completeSets / totalSets * 100 : 0) + "%" }} /></div>
         </div>

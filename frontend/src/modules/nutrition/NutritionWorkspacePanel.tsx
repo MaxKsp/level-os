@@ -9,6 +9,8 @@ import type { DietPlan, ShoppingCategory } from "./store"
 import { newWorkspaceId, type NutritionWorkspace, type PantryItem, type RecipeItem, type DiaryItem, type PurchaseItem, type FamilyItem, type NutritionPreferences } from "./nutritionWorkspace"
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+const displayDate = (date: string | null) => date && /^\d{4}-\d{2}-\d{2}$/.test(date)
+  ? date.slice(8, 10) + "/" + date.slice(5, 7) + "/" + date.slice(0, 4) : date ?? "—"
 const today = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10) }
 const fold = (v: string) => v.toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
 const categories: ShoppingCategory[] = ["hortifruti", "proteina", "mercearia", "laticinios", "padaria", "bebidas", "outros"]
@@ -143,7 +145,7 @@ export function NutritionWorkspacePanel({ plan, workspace, loading, error, save,
     {workspace && tab === "overview" ? <NutritionActionCenter workspace={workspace} plan={plan} onNavigate={setTab} askRita={askRita} /> : null}
     {workspace && tab === "diary" ? <SectionCard title="Diário alimentar" description="Registros voluntários: não estimamos calorias a partir de descrições vagas.">
       <form onSubmit={(e) => void addDiary(e)} className="grid gap-3 sm:grid-cols-2">
-        <label className={labelClass}>Data<LevelDateInput required value={mealForm.date} onChange={(e) => setMealForm({ ...mealForm, date: e.target.value })} /></label>
+        <div><LevelDateInput label="Data" required value={mealForm.date} onChange={(e) => setMealForm({ ...mealForm, date: e.target.value })} /></div>
         <label className={labelClass}>Refeição consumida<input required maxLength={100} placeholder="Ex.: arroz, feijão, frango" value={mealForm.title} className={inputClass} onChange={(e) => setMealForm({ ...mealForm, title: e.target.value })} /></label>
         <label className={labelClass}>Porção (opcional)<input maxLength={80} placeholder="Ex.: 1 prato" value={mealForm.portion} className={inputClass} onChange={(e) => setMealForm({ ...mealForm, portion: e.target.value })} /></label>
         <label className={labelClass}>Observação (opcional)<input maxLength={400} value={mealForm.note} className={inputClass} onChange={(e) => setMealForm({ ...mealForm, note: e.target.value })} /></label>
@@ -151,7 +153,7 @@ export function NutritionWorkspacePanel({ plan, workspace, loading, error, save,
       </form>
       <ul className="mt-4 divide-y divide-outline-variant text-sm">{workspace.diary.slice(0, 30).map((item) =>
         <li key={item.id} className="flex items-start justify-between gap-3 py-3">
-          <div className="min-w-0"><b>{item.title}</b><p className="text-xs text-muted">{item.date} · {item.portion || "Porção não informada"} · {item.note}</p></div>
+          <div className="min-w-0"><b>{item.title}</b><p className="text-xs text-muted">{displayDate(item.date)} · {item.portion || "Porção não informada"} · {item.note}</p></div>
           <button type="button" disabled={pending} aria-label={"Excluir refeição " + item.title} onClick={() => void remove("diary", item.id)} className="text-muted hover:text-error"><Trash2 className="size-4" /></button>
         </li>)}</ul>
       {!workspace.diary.length ? <p className="mt-3 text-xs text-muted">Nenhuma refeição registrada ainda.</p> : null}
@@ -174,13 +176,13 @@ export function NutritionWorkspacePanel({ plan, workspace, loading, error, save,
         <label className={labelClass}>Quantidade<input required type="number" min={0} max={10000} step="0.01" value={pantryForm.quantity} className={inputClass} onChange={(e) => setPantryForm({ ...pantryForm, quantity: e.target.value })} /></label>
         <label className={labelClass}>Unidade<LevelSelect value={pantryForm.unit} onChange={(unit) => setPantryForm({ ...pantryForm, unit })} options={["un","g","kg","ml","l","pacote"].map((u) => ({ value: u as PantryItem["unit"], label: u }))} /></label>
         <label className={labelClass}>Categoria<LevelSelect value={pantryForm.category} onChange={(category) => setPantryForm({ ...pantryForm, category })} options={categories.map((c) => ({ value: c, label: c }))} /></label>
-        <label className={labelClass}>Validade (opcional)<LevelDateInput value={pantryForm.expiresOn} onChange={(e) => setPantryForm({ ...pantryForm, expiresOn: e.target.value })} /></label>
+        <div><LevelDateInput label="Validade (opcional)" value={pantryForm.expiresOn} onChange={(e) => setPantryForm({ ...pantryForm, expiresOn: e.target.value })} /></div>
         <Button type="submit" disabled={pending} className="self-end"><Plus className="size-4" />Adicionar</Button>
       </form>
       <ul className="mt-4 grid gap-2 sm:grid-cols-2">{workspace.pantry.map((item) =>
         <li key={item.id} className="flex items-center justify-between gap-2 rounded-lg border border-outline-variant p-3 text-sm">
           <div className="min-w-0"><b>{item.name}</b><p className="text-xs text-muted">{item.quantity} {item.unit} · {item.category}
-            {item.expiresOn ? " · Validade " + item.expiresOn : ""}</p></div>
+            {item.expiresOn ? " · Validade " + displayDate(item.expiresOn) : ""}</p></div>
           <button disabled={pending} aria-label={"Remover " + item.name} onClick={() => void remove("pantry", item.id)} className="text-muted hover:text-error"><Trash2 className="size-4" /></button>
         </li>)}</ul>
       {!workspace.pantry.length ? <p className="mt-3 text-xs text-muted">Cadastre o que você tem para a Rita sugerir aproveitamento quando autorizar o compartilhamento.</p> : null}
@@ -212,7 +214,7 @@ export function NutritionWorkspacePanel({ plan, workspace, loading, error, save,
     </SectionCard> : null}
     {workspace && tab === "purchases" ? <SectionCard title="Compras registradas" description="Informe apenas compras que você concluiu. Carrinho não é comprovante de pagamento.">
       <form onSubmit={(e) => void addPurchase(e)} className="grid gap-3 sm:grid-cols-2">
-        <label className={labelClass}>Data<LevelDateInput required value={purchaseForm.date} onChange={(e) => setPurchaseForm({ ...purchaseForm, date: e.target.value })} /></label>
+        <div><LevelDateInput label="Data" required value={purchaseForm.date} onChange={(e) => setPurchaseForm({ ...purchaseForm, date: e.target.value })} /></div>
         <label className={labelClass}>Descrição<input required maxLength={120} placeholder="Ex.: compra do mercado" value={purchaseForm.description} className={inputClass} onChange={(e) => setPurchaseForm({ ...purchaseForm, description: e.target.value })} /></label>
         <label className={labelClass}>Valor pago (R$)<input required inputMode="decimal" value={purchaseForm.amountBRL} className={inputClass} onChange={(e) => setPurchaseForm({ ...purchaseForm, amountBRL: e.target.value })} /></label>
         <label className={labelClass}>Categoria<LevelSelect value={purchaseForm.category} onChange={(category) => setPurchaseForm({ ...purchaseForm, category })} options={(["mercado","restaurante","marmita","outros"] as PurchaseItem["category"][]).map((c) => ({ value: c, label: c }))} /></label>
@@ -221,7 +223,7 @@ export function NutritionWorkspacePanel({ plan, workspace, loading, error, save,
       <p className="mt-4 text-sm text-muted">Total de compras registradas: {brl(spent)}. Previsão do cardápio: {plan ? brl(plan.estimatedCostBRL) : "sem plano"}.</p>
       <p className="mt-1 text-xs text-muted">Valores declarados, sem conciliação bancária; os períodos podem ser diferentes.</p>
       <ul className="mt-3 divide-y divide-outline-variant">{workspace.purchases.map((item) => <li key={item.id} className="flex items-center justify-between gap-2 py-3 text-sm">
-        <div><b>{item.description}</b><p className="text-xs text-muted">{item.date} · {item.category} · {brl(item.amountBRL)}</p></div>
+        <div><b>{item.description}</b><p className="text-xs text-muted">{displayDate(item.date)} · {item.category} · {brl(item.amountBRL)}</p></div>
         <button disabled={pending} aria-label={"Remover compra " + item.description} onClick={() => void remove("purchases",item.id)}><Trash2 className="size-4 text-muted hover:text-error" /></button>
       </li>)}</ul>
     </SectionCard> : null}

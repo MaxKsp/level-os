@@ -162,8 +162,8 @@ export function TaskSchedulerForm({ onClose, task }: TaskSchedulerFormProps) {
       <Input label="Título da tarefa" required placeholder="Ex.: Tomar medicamento" value={title} onChange={(event) => setTitle(event.target.value)} />
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block text-sm font-medium text-on-surface-variant">Começa em<LevelDateInput required min={editing ? undefined : TODAY_ISO} value={date} onChange={(event) => setDate(event.target.value)} className="mt-1.5" /></label>
-        <label className="block text-sm font-medium text-on-surface-variant">Horário<LevelDateInput type="time" required value={time} onChange={(event) => setTime(event.target.value)} className="mt-1.5" /></label>
+        <div><LevelDateInput label="Começa em" required min={editing ? undefined : TODAY_ISO} value={date} onChange={(event) => setDate(event.target.value)} /></div>
+        <div><LevelDateInput label="Horário" type="time" required value={time} onChange={(event) => setTime(event.target.value)} /></div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -232,7 +232,7 @@ export function TaskSchedulerForm({ onClose, task }: TaskSchedulerFormProps) {
             </span>
             <input type="checkbox" checked={hasEndDate} onChange={(event) => setHasEndDate(event.target.checked)} className="size-5 accent-primary" />
           </label>
-          {hasEndDate ? <label className="block text-sm font-medium text-on-surface-variant">Repetir até<LevelDateInput className="mt-1.5" min={date} required value={repeatUntil} onChange={(event) => setRepeatUntil(event.target.value)} /></label> : null}
+          {hasEndDate ? <div><LevelDateInput label="Repetir até" min={date} required value={repeatUntil} onChange={(event) => setRepeatUntil(event.target.value)} /></div> : null}
         </div>
       ) : null}
 
