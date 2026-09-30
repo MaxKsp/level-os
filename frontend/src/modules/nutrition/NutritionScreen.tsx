@@ -17,7 +17,9 @@ import { NutritionPlanIntelligence } from "./NutritionPlanIntelligence"
 import { NutritionMealCheckin } from "./NutritionMealCheckin"
 import { NutritionWorkspacePanel } from "./NutritionWorkspacePanel"
 import { NutritionWeeklySnapshot } from "./NutritionWeeklySnapshot"
-import { planWorkspaceId, useNutritionWorkspace } from "./nutritionWorkspace"
+import { NutritionInventoryBridge } from "./NutritionInventoryBridge"
+import { planWorkspaceId, useNutritionWorkspace, type PantryItem } from "./nutritionWorkspace"
+import { coverageText, inventoryCoverage, shoppingRemaining } from "./nutritionInventory"
 
 const SHOPPING_CATEGORY_LABEL: Record<ShoppingCategory, string> = {
   hortifruti: "Hortifrúti",
@@ -158,10 +160,14 @@ export function NutritionScreen() {
               ? <p role="status" className="px-5 py-4 text-xs text-muted">Sincronizando a lista de compras...</p>
               : <ShoppingListCard key={plan.id ?? plan.createdAt ?? String(plan.version)} plan={plan} planKey={plan.id ?? plan.createdAt ?? String(plan.version ?? "current")} items={plan.shoppingList}
                   syncedCart={workspace.workspace?.cartChecks[planWorkspaceId(plan)]}
+                  pantry={workspace.workspace?.pantry ?? []}
                   onSync={workspace.workspace && window.CSRF_TOKEN
                     ? async (index, inCart) => { await workspace.save("mark_cart", { planId: planWorkspaceId(plan), index, inCart }) }
                     : undefined} />
             : <NutritionCommercePanel plan={plan} />}
+          {workspace.workspace && window.CSRF_TOKEN && plan.shoppingList?.length
+            ? <NutritionInventoryBridge key={plan.id ?? plan.createdAt ?? String(plan.version)} plan={plan}
+                workspace={workspace.workspace} save={workspace.save} /> : null}
 
         </div>
       )}
@@ -194,8 +200,8 @@ export function NutritionScreen() {
   )
 }
 
-function ShoppingListCard({ items, planKey, plan, syncedCart, onSync }: { items: ShoppingItem[]; planKey: string; plan: NonNullable<ReturnType<typeof useNutrition>["plan"]>; key?: string
-  syncedCart?: Record<string, boolean>; onSync?: (index: number, inCart: boolean) => Promise<void>
+function ShoppingListCard({ items, planKey, plan, syncedCart, pantry = [], onSync }: { items: ShoppingItem[]; planKey: string; plan: NonNullable<ReturnType<typeof useNutrition>["plan"]>; key?: string
+  syncedCart?: Record<string, boolean>; pantry?: PantryItem[]; onSync?: (index: number, inCart: boolean) => Promise<void>
 }) {
   const key = userStorageKey("level-os:nutrition:shopping:" + String(planKey).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80))
   const [localChecked, setLocalChecked] = useState<Set<number>>(() => {
@@ -214,10 +220,12 @@ function ShoppingListCard({ items, planKey, plan, syncedCart, onSync }: { items:
     if (onSync) return
     try { localStorage.setItem(key, JSON.stringify([...localChecked])) } catch { /* storage opcional */ }
   }, [localChecked, key, onSync])
+  const date = new Date().toLocaleDateString("sv-SE")
+  const remaining = shoppingRemaining(items, pantry, checked, date)
   const copyPending = async () => {
     try {
-      await navigator.clipboard.writeText(items.filter((_, index) => !checked.has(index)).map((entry) => entry.item + " — " + entry.quantity).join("\n"))
-      setCopyStatus("Itens pendentes copiados.")
+      await navigator.clipboard.writeText(remaining.map((entry) => entry.line).join("\n"))
+      setCopyStatus("Sugestão de faltantes copiada. Confira estoque e quantidades antes da compra.")
     } catch { setCopyStatus("Não foi possível copiar. Verifique a permissão do navegador.") }
   }
   const toggle = async (index: number) => {
@@ -257,12 +265,13 @@ function ShoppingListCard({ items, planKey, plan, syncedCart, onSync }: { items:
       title="Lista de compras"
       description={`${items.length} ${items.length === 1 ? "item" : "itens"} para o período — ${checked.size} no carrinho`}
       icon={<ShoppingCart className="size-5 text-primary" />}
-      action={<Button variant="secondary" size="sm" onClick={() => void copyPending()} disabled={checked.size === items.length}>Copiar pendentes</Button>}
+      action={<Button variant="secondary" size="sm" onClick={() => void copyPending()} disabled={!remaining.length}>Copiar faltantes ({remaining.length})</Button>}
       bodyClassName="p-0"
     >
       <div className="space-y-2 border-b border-outline-variant px-5 py-3">
         <div className="flex items-center justify-between gap-3 text-[11px] text-muted"><span>{checked.size}/{items.length} no carrinho · {onSync ? "sincronizado com sua conta" : "seleção local neste dispositivo"}</span>
           <button type="button" className="min-h-9 font-semibold text-primary hover:underline" onClick={() => void reset()} disabled={!checked.size || busy}>Reiniciar lista</button></div>
+        <p className="text-[11px] text-muted">{remaining.length} item(ns) para revisar/comprar após considerar o estoque cadastrado (estimativa por unidade).</p>
         <div className="h-1.5 overflow-hidden rounded-full bg-outline-variant" role="progressbar" aria-label="Itens do plano marcados na lista de compras" aria-valuemin={0} aria-valuemax={items.length} aria-valuenow={checked.size}>
           <div className="h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none" style={{ width: (items.length ? checked.size / items.length * 100 : 0) + "%" }} />
         </div>
@@ -287,7 +296,8 @@ function ShoppingListCard({ items, planKey, plan, syncedCart, onSync }: { items:
                       <span className={cn("grid size-5 shrink-0 place-items-center rounded-md border", done ? "border-primary bg-primary text-on-primary" : "border-outline-variant")}>
                         {done ? <Check className="size-3.5" /> : null}
                       </span>
-                      <span className={cn("min-w-0 flex-1 text-sm", done ? "text-muted line-through" : "text-on-surface")}>{item.item}</span>
+                      <span className="min-w-0 flex-1"><span className={cn("block text-sm", done ? "text-muted line-through" : "text-on-surface")}>{item.item}</span>
+                        <small className="mt-0.5 block text-[10px] text-muted">{coverageText(inventoryCoverage(item, pantry, date))}</small></span>
                       <span className="shrink-0 text-xs text-muted">{item.quantity}</span>
                     </button>
                   </li>
