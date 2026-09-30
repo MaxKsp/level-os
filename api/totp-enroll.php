@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 require_csrf();
 
 $db = get_db();
-$stmt = $db->prepare('SELECT username FROM users WHERE id = ?');
+$stmt = $db->prepare('SELECT username, totp_enabled FROM users WHERE id = ?');
 $stmt->execute([$uid]);
 $user = $stmt->fetch();
 if (!$user) {
@@ -24,12 +24,23 @@ if (!$user) {
     echo json_encode(['error' => 'Perfil não encontrado.']);
     exit;
 }
+if ((int)$user['totp_enabled'] === 1) {
+    // Nunca desabilitar o fator atual como efeito colateral de um novo QR Code.
+    http_response_code(409);
+    echo json_encode(['error' => 'O 2FA existente deve ser desativado com reautenticação antes de uma nova configuração.']);
+    exit;
+}
 
 $secret = totp_generate_secret();
 totp_secret_ensure_storage($db);
 $encryptedSecret = totp_secret_encrypt($secret, $uid);
-$stmt = $db->prepare('UPDATE users SET totp_secret = ?, totp_enabled = 0 WHERE id = ?');
+$stmt = $db->prepare('UPDATE users SET totp_secret = ? WHERE id = ? AND totp_enabled = 0');
 $stmt->execute([$encryptedSecret, $uid]);
+if ($stmt->rowCount() !== 1) {
+    http_response_code(409);
+    echo json_encode(['error' => 'O status do 2FA mudou. Recarregue a página.']);
+    exit;
+}
 
 echo json_encode([
     'secret' => $secret,

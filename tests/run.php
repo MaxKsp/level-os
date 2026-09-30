@@ -11,6 +11,15 @@ if ($filter !== '') {
         $files,
         static fn(string $file): bool => str_contains(basename($file), $filter)
     ));
+    if ($files === []) {
+        fwrite(STDERR, 'Nenhum teste corresponde ao filtro: ' . $filter . PHP_EOL);
+        exit(2);
+    }
+}
+
+if ($files === []) {
+    fwrite(STDERR, 'Nenhum teste disponível para execução.' . PHP_EOL);
+    exit(2);
 }
 
 $passed = 0;
