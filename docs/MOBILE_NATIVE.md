@@ -1,4 +1,6 @@
-# Recursos nativos do Level OS
+# Recursos nativos do Level OS — camada Capacitor/Web
+
+> Este documento descreve a ponte Capacitor associada ao frontend Web/PWA. Há também um aplicativo **React Native/Expo sem WebView** em `mobile/` (consulte `mobile/README.md`). Para o futuro desenvolvimento com câmera, consultar `docs/mobile/CAMERA_ROADMAP_2026-09-29.md` e consolidar a estratégia de distribuição antes de duplicar módulos.
 
 O app Capacitor usa a aplicação HTTPS de produção e adiciona capacidades nativas
 sem armazenar senha, sessão ou token de autenticação no `localStorage`.

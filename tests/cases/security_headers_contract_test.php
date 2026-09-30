@@ -22,4 +22,8 @@ return static function (): void {
     test_assert_true(str_contains((string)$htaccess, "RewriteRule (^|/)\\.(?!well-known(?:/|$)) - [F,L,NC]"), 'Apache-compatible hosts must deny hidden deploy metadata while preserving .well-known.');
     test_assert_true(str_contains((string)$authView, 'http-equiv="Content-Security-Policy"'), 'Authentication pages must enforce CSP even when the hosting provider rewrites response headers.');
     test_assert_true(str_contains((string)$frontendShell, 'http-equiv="Content-Security-Policy"'), 'The React shell must enforce CSP even when the hosting provider rewrites response headers.');
+    test_assert_true(str_contains((string)$security, 'camera=(self)'), 'PWA camera must be available only to the Level OS origin.');
+    test_assert_true(str_contains((string)$security, 'https://wger.de'), 'Licensed exercise media host must be explicit in CSP.');
+    test_assert_true(str_contains((string)$htaccess, 'camera=(self)'), 'Apache fallback must preserve same-origin camera permission.');
+    test_assert_true(str_contains((string)$frontendShell, 'https://wger.de'), 'React meta CSP must allow the licensed exercise media host.');
 };

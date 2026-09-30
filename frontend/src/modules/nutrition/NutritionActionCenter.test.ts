@@ -35,7 +35,12 @@ describe("nutritionActions — dados reais e período identificado", () => {
     const result = nutritionActions(workspace, plan, new Date(2026, 8, 29, 12))
     expect(result.expired.map((item) => item.name)).toEqual(["Frango"])
     expect(result.expiring.map((item) => item.name)).toEqual(["Arroz"])
-    expect(result.possibleAtHome.map((item) => item.item)).toEqual(["Arroz integral"])
+    expect(result.possibleAtHome.map((item) => item.item)).toEqual([])
+    // "Arroz" não deve ser confundido com "Arroz integral".
+    const verified = nutritionActions({ ...workspace, pantry: [...workspace.pantry,
+      { id: "d", name: "Arroz integral", quantity: 1, unit: "kg", category: "mercearia", expiresOn: "2026-10-01" }] },
+      plan, new Date(2026, 8, 29, 12))
+    expect(verified.possibleAtHome.map((item) => item.item)).toEqual(["Arroz integral"])
     expect(result.pending.map((item) => item.item)).toEqual(["Frango", "Arroz integral"])
     expect(result.inCart).toBe(1)
     expect(result.shoppingTotal).toBe(3)

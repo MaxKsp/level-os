@@ -2,11 +2,11 @@ import { AlertTriangle, ArrowRight, ChefHat, ListChecks, Receipt, Sparkles } fro
 import type { DietPlan } from "./store"
 import type { NutritionWorkspace } from "./nutritionWorkspace"
 import { planWorkspaceId } from "./nutritionWorkspace"
+import { inventoryCoverage } from "./nutritionInventory"
 
 const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 const isoDate = (d: Date) => [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"),
   String(d.getDate()).padStart(2, "0")].join("-")
-const fold = (s: string) => s.toLocaleLowerCase("pt-BR").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
 const categoryName: Record<NutritionWorkspace["purchases"][number]["category"], string> = {
   mercado: "Mercado", restaurante: "Restaurante", marmita: "Marmitas", outros: "Outros",
 }
@@ -20,13 +20,11 @@ export function nutritionActions(workspace: NutritionWorkspace, plan: DietPlan |
   const stocked = workspace.pantry.filter((item) => item.quantity > 0)
   const expired = stocked.filter((item) => item.expiresOn && item.expiresOn < today)
   const expiring = stocked.filter((item) => item.expiresOn && item.expiresOn >= today && item.expiresOn <= warningUntil)
-  const usable = stocked.filter((item) => !item.expiresOn || item.expiresOn > today)
   const cart = plan ? workspace.cartChecks[planWorkspaceId(plan)] ?? {} : {}
   const pending = (plan?.shoppingList ?? []).map((item, index) => ({ ...item, index }))
     .filter(({ index }) => !cart[String(index)])
-  const possibleAtHome = pending.filter((item) => usable.some((stock) =>
-    fold(item.item).length > 2 && fold(stock.name).length > 2 &&
-    (fold(stock.name).includes(fold(item.item)) || fold(item.item).includes(fold(stock.name)))))
+  const possibleAtHome = pending.filter((item) =>
+    inventoryCoverage(item, workspace.pantry, today).status === "sufficient")
   const weekly = workspace.purchases.filter((item) => item.date >= weekStart && item.date <= today)
   const categorySpent = (Object.keys(categoryName) as (keyof typeof categoryName)[])
     .map((category) => ({ category, label: categoryName[category],
@@ -84,7 +82,7 @@ export function NutritionActionCenter({ workspace, plan, onNavigate, askRita }: 
             <span className="truncate text-on-surface">{item.item}</span>
             <span className="shrink-0">{item.quantity}</span>
           </li>)}</ul>
-          {data.possibleAtHome.length ? <p className="mt-3 text-xs text-primary">{data.possibleAtHome.length} item(ns) pendente(s) têm nome semelhante na despensa. Confira quantidade antes de remover da lista.</p> : null}
+          {data.possibleAtHome.length ? <p className="mt-3 text-xs text-primary">{data.possibleAtHome.length} item(ns) pendente(s) têm estoque estimado suficiente em unidades compatíveis.</p> : null}
           <p className="mt-3 text-[11px] text-muted">Itens no carrinho não representam pagamentos ou estoque recebido.</p>
         </> : <p className="mt-3 text-xs text-muted">Crie um plano alimentar para acompanhar a lista de compras aqui.</p>}
         <div className="mt-4"><ActionButton onClick={() => onNavigate("pantry")}>Revisar o estoque</ActionButton></div>
