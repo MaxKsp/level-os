@@ -66,3 +66,15 @@ Quando for necessária mídia persistente, projetar endpoint próprio com autent
 
 ## Portão para iniciar o app com câmera
 Fechar visual e contratos de Alimentação, Academia, Rotina, Financeiro e Progresso; estabilizar a API, autenticação mobile e isolamento; definir mídia/retenção e validar homologação em Android/iOS. Depois implementar scanner de código de barras isoladamente e ampliar em etapas.
+
+## Extensão Academia — câmera de aparelhos (30/09/2026)
+O PWA passa a estabelecer o contrato que o app Expo deverá reutilizar:
+- reconhecimento é classificação em taxonomia fechada, não geração livre;
+- usuário confirma o aparelho, especialmente com baixa confiança;
+- boas práticas vêm do backend Level OS, não do modelo visual;
+- exercícios/imagens/vídeos são cruzados com a biblioteca licenciada;
+- foto é temporária e não deve virar mídia persistente por padrão;
+- endpoint compartilhado: `POST /api/training-machine-recognition.php`;
+- catálogo compartilhado: `GET /api/training-library.php`.
+
+No aplicativo nativo, substituir a captura Web por câmera Expo somente na camada de interface. Compressão, consentimento, limites, confirmação e regras do backend permanecem iguais. Ver `docs/development/TRAINING_KNOWLEDGE_CAMERA_2026-09-30.md`.

@@ -6,6 +6,7 @@ import { LevelDateInput } from "../../components/ui/LevelDateInput"
 import type { SessionExercise, TrainingSessionLog, Workout, WorkoutExercise } from "./contracts"
 import { wid } from "./store"
 import { bestExerciseLoad } from "./trainingRecords"
+import { ExerciseReferenceButton } from "./ExerciseReferenceButton"
 
 type SetDraft = { id: string; done: boolean; reps: string; load: string; rpe: string; rir: string }
 type ExerciseDraft = {
@@ -169,10 +170,13 @@ export function TrainingLiveModal({ workout, history, effortMetricsAvailable = t
                     {potentialRecord ? " · acima do recorde anterior (ao finalizar)" : ""}</p>
                   </div>
                 </div>
-                {strength ? <div className="flex items-center gap-2">
-                  <label className="text-[11px] text-muted">Descanso (s)<input aria-label={"Descanso de " + row.template.name} value={row.rest} inputMode="numeric" onChange={(e) => updateRow(row.template.id, { rest: e.target.value })} className={field + " ml-1 w-17 text-center"} /></label>
-                  <Button size="sm" variant="secondary" disabled={row.sets.length >= 20} onClick={() => updateRow(row.template.id, { sets: [...row.sets, initialSet(row.template)] })}><Plus className="size-3.5" /> Série</Button>
-                </div> : null}
+                <div className="flex items-center gap-2">
+                  <ExerciseReferenceButton name={row.template.name} />
+                  {strength ? <>
+                    <label className="text-[11px] text-muted">Descanso (s)<input aria-label={"Descanso de " + row.template.name} value={row.rest} inputMode="numeric" onChange={(e) => updateRow(row.template.id, { rest: e.target.value })} className={field + " ml-1 w-17 text-center"} /></label>
+                    <Button size="sm" variant="secondary" disabled={row.sets.length >= 20} onClick={() => updateRow(row.template.id, { sets: [...row.sets, initialSet(row.template)] })}><Plus className="size-3.5" /> Série</Button>
+                  </> : null}
+                </div>
               </header>
               {strength ? <div className="overflow-x-auto p-2 sm:p-3">
                 <div className="min-w-[510px] space-y-1.5">

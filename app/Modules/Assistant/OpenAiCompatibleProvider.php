@@ -33,7 +33,8 @@ final class OpenAiCompatibleProvider implements LlmProvider {
         if (!function_exists('curl_init')) throw new LlmProviderException('HTTP client unavailable.', $this->providerName, 0, 'transport');
         $payload = self::preparePayload($payload, $this->model, $this->tools, $this->openAiApi);
         $encoded = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-        if (strlen($encoded) > 512 * 1024) throw new LlmProviderException('Provider request too large.', $this->providerName, 0, 'request');
+        $maxRequestBytes = str_contains($encoded, '"image_url"') ? 3 * 1024 * 1024 : 512 * 1024;
+        if (strlen($encoded) > $maxRequestBytes) throw new LlmProviderException('Provider request too large.', $this->providerName, 0, 'request');
         $url = rtrim($this->baseUrl, '/') . '/chat/completions';
         $response = '';
         $curl = curl_init($url);
