@@ -68,7 +68,7 @@ Fluxo:
 4. O usuário inicia a análise; a imagem é enviada ao provedor de IA configurado e não é gravada pelo endpoint.
 5. O modelo só pode escolher uma taxonomia fechada de aparelhos e retornar confiança/alternativas.
 6. A orientação não vem do modelo visual. Ela vem da taxonomia do Level OS.
-7. Se a confiança for baixa, o usuário escolhe manualmente um candidato antes de consultar conteúdo.
+7. Se a confiança for baixa ou os candidatos não estiverem corretos, o usuário pode escolher manualmente qualquer aparelho da taxonomia suportada antes de consultar conteúdo.
 ## Taxonomia inicial reconhecida
 Cobertura inicial inclui, entre outros:
 - leg press, extensora, flexora, hack squat e Smith;

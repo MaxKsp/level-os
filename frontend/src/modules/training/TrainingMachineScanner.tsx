@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { Camera, CircleAlert, ExternalLink, ImagePlus, LoaderCircle, Play, ScanSearch, ShieldCheck, X } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Modal } from "../../components/ui/Modal"
+import { LevelSelect } from "../../components/ui/LevelSelect"
 import { SectionCard } from "../../design-system"
 import { findExerciseVideo } from "./exerciseVideos"
 import { fetchTrainingLibrary } from "./trainingKnowledge"
@@ -19,6 +20,7 @@ type Recognition = {
   machine: MachineProfile | null
   confidence: number
   alternatives: MachineProfile[]
+  catalog?: MachineProfile[]
   notice: string
 }
 async function imageToDataUrl(source: Blob): Promise<string> {
@@ -130,6 +132,7 @@ export function TrainingMachineScanner() {
   const candidates = recognition ? [recognition.machine, ...recognition.alternatives]
     .filter((item): item is MachineProfile => Boolean(item))
     .filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index) : []
+  const supportedMachines = recognition?.catalog?.length ? recognition.catalog : candidates
 
   return <SectionCard title="Reconhecer aparelho" description="Aponte a câmera para a máquina e confirme o resultado antes de consultar execução e vídeos."
     icon={<ScanSearch className="size-5 text-primary" />}>
@@ -157,6 +160,12 @@ export function TrainingMachineScanner() {
           <div className="flex flex-wrap gap-2">{candidates.map((machine) => <button type="button" key={machine.id}
             onClick={() => setSelected(machine)} aria-pressed={selected?.id === machine.id}
             className={"min-h-10 rounded-lg border px-3 text-xs font-semibold " + (selected?.id === machine.id ? "border-primary bg-primary/10 text-primary" : "border-outline-variant text-on-surface")}>{machine.name}</button>)}</div>
+          {supportedMachines.length ? <div className="pt-1"><LevelSelect
+            label="Selecionar manualmente entre aparelhos suportados"
+            value={selected?.id ?? ""}
+            onChange={(id) => setSelected(supportedMachines.find((machine) => machine.id === id) ?? null)}
+            options={[{ value: "", label: "Escolher aparelho" }, ...supportedMachines.map((machine) => ({ value: machine.id, label: machine.name }))]}
+          /></div> : null}
         </div> : null}
       </div>
       <div className="min-w-0">

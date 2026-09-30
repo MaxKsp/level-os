@@ -54,6 +54,16 @@ function training_machine_catalog(): array {
             'tips'=>['Comece devagar e mantenha o corpo centralizado nos degraus.','Use corrimãos para equilíbrio, não para sustentar todo o peso.','Não deixe os pés ultrapassarem perigosamente a borda do degrau.']],
     ];
 }
+/** @return list<array{id:string,name:string,query:string,equipment:string,tips:list<string>}> */
+function training_machine_public_catalog(): array {
+    $items = [];
+    foreach (training_machine_catalog() as $id => $item) {
+        $items[] = ['id'=>$id] + $item;
+    }
+    usort($items, static fn(array $a, array $b): int => strcasecmp((string)$a['name'], (string)$b['name']));
+    return $items;
+}
+
 function training_machine_image_data_url(mixed $raw): string {
     if (!is_string($raw) || strlen($raw) > 2_800_000) throw new InvalidArgumentException('Imagem inválida ou muito grande.');
     if (preg_match('/\Adata:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+\/=]+)\z/D', $raw, $matches) !== 1) {

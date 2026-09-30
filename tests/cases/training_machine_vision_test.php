@@ -10,6 +10,9 @@ return static function (): void {
         test_assert_true(count($catalog[$id]['tips']) >= 3, 'Every machine needs practical setup guidance.');
         test_assert_true(trim((string)$catalog[$id]['query']) !== '', 'Every machine needs a library query.');
     }
+    $publicCatalog = training_machine_public_catalog();
+    test_assert_same(count($catalog), count($publicCatalog), 'Manual confirmation catalog must expose every supported machine.');
+    test_assert_true(isset($publicCatalog[0]['id'], $publicCatalog[0]['name'], $publicCatalog[0]['tips']), 'Public machine catalog must preserve safe guidance fields.');
 
     $parsed = training_machine_parse_model_text(
         'Resultado: {"machineId":"leg_press","confidence":0.87,"alternatives":["hack_squat","smith_machine","invalid"]}'

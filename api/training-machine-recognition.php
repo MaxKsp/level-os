@@ -29,6 +29,7 @@ try {
     $result = training_machine_recognize((string)$body['imageDataUrl']);
     unset($result['provider']);
     echo json_encode(['ok'=>true] + $result + [
+        'catalog'=>training_machine_public_catalog(),
         'notice'=>'Reconhecimento visual é uma sugestão. Confirme o aparelho antes de seguir qualquer orientação.',
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 } catch (InvalidArgumentException $error) {
