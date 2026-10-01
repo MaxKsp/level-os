@@ -30,6 +30,11 @@ interface RawExercise {
 }
 export function normalizeLibraryExercise(raw: RawExercise): LibraryExercise {
   const instructions = raw.instructions.trim()
+  const cueSource = instructions.replace(/^\s*(?:\d+[.)]|[-•])\s*/u, "")
+  const firstSentence = cueSource.split(/(?<=[.!?])\s+/)[0]?.trim() ?? ""
+  const cue = firstSentence.length >= 6
+    ? firstSentence.slice(0, 180)
+    : "Abra os detalhes para conferir a execução e os ajustes do movimento."
   return {
     id: raw.id,
     name: raw.name.trim(),
@@ -39,7 +44,7 @@ export function normalizeLibraryExercise(raw: RawExercise): LibraryExercise {
     equipmentList: raw.equipment,
     equipment: raw.equipment.length ? raw.equipment.join(" / ") : "Equipamento não informado",
     instructions,
-    cue: instructions ? instructions.split(/(?<=[.!?])\s+/)[0]?.slice(0, 180) ?? "" : "Confira a execução antes de iniciar.",
+    cue: instructions ? cue : "Confira a execução antes de iniciar.",
     imageUrl: raw.imageUrl ?? null,
     imageLicense: raw.imageLicense ?? "",
     imageLicenseUrl: raw.imageLicenseUrl ?? "",
