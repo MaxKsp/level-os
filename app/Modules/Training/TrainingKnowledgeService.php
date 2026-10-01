@@ -10,6 +10,7 @@ const TRAINING_KNOWLEDGE_UPSTREAM = 'https://wger.de/api/v2/exerciseinfo/?limit=
 const TRAINING_KNOWLEDGE_TTL = 21600;
 const TRAINING_KNOWLEDGE_MAX_BYTES = 12_000_000;
 const TRAINING_VIDEO_CATALOG_FILE = __DIR__ . '/data/workout-video-catalog.json';
+const TRAINING_VIDEO_PTBR_FILE = __DIR__ . '/data/training-video-ptbr.json';
 const TRAINING_VIDEO_CATALOG_SOURCE = 'https://github.com/rthepen/workout-database';
 
 require_once __DIR__ . '/TrainingReferenceCatalogService.php';

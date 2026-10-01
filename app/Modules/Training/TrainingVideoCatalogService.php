@@ -57,24 +57,37 @@ function training_video_catalog_rows(): array {
     return $rows;
 }
 
+/** @return array<string,array<string,mixed>> */
+function training_video_catalog_ptbr(): array {
+    static $rows = null;
+    if (is_array($rows)) return $rows;
+    if (!is_file(TRAINING_VIDEO_PTBR_FILE)) return $rows = [];
+    $decoded = json_decode((string)file_get_contents(TRAINING_VIDEO_PTBR_FILE), true);
+    return $rows = is_array($decoded) ? $decoded : [];
+}
+
 /** @return list<array<string,mixed>> */
 function training_video_catalog_items(): array {
     static $items = null;
     if (is_array($items)) return $items;
     $items = [];
+    $ptbr = training_video_catalog_ptbr();
     foreach (training_video_catalog_rows() as $row) {
+        $rowId = training_knowledge_text($row['id'] ?? '', 100);
+        $override = is_array($ptbr[$rowId] ?? null) ? $ptbr[$rowId] : [];
         $video = is_array($row['video'] ?? null) ? $row['video'] : [];
-        $youtubeId = trim((string)($video['youtubeId'] ?? ''));
+        $youtubeId = trim((string)($override['youtubeId'] ?? $video['youtubeId'] ?? ''));
         if (preg_match('/\A[A-Za-z0-9_-]{8,16}\z/D', $youtubeId) !== 1) continue;
         $steps = [];
-        foreach (is_array($row['steps'] ?? null) ? $row['steps'] : [] as $step) {
+        $sourceSteps = is_array($override['steps'] ?? null) ? $override['steps'] : (is_array($row['steps'] ?? null) ? $row['steps'] : []);
+        foreach ($sourceSteps as $step) {
             $clean = training_knowledge_text($step, 420);
             if ($clean !== '') $steps[] = $clean;
             if (count($steps) >= 10) break;
         }
         if ($steps === []) continue;
         $cues = [];
-        foreach (is_array($row['cues'] ?? null) ? $row['cues'] : [] as $cue) {
+        foreach ($override !== [] ? [] : (is_array($row['cues'] ?? null) ? $row['cues'] : []) as $cue) {
             $clean = training_knowledge_text($cue, 320);
             if ($clean !== '') $cues[] = $clean;
             if (count($cues) >= 6) break;
@@ -85,11 +98,14 @@ function training_video_catalog_items(): array {
             static fn($alias): string => training_knowledge_text($alias, 120),
             is_array($row['aliases'] ?? null) ? $row['aliases'] : [],
         )));
+        $isPtBr = $override !== [];
+        $displayName = $isPtBr ? training_knowledge_text($override['name'] ?? $row['name'] ?? '', 120) : training_knowledge_text($row['name'] ?? '', 120);
+        $videoAuthor = $isPtBr ? training_knowledge_text($override['channel'] ?? 'Smart Fit', 100) : training_knowledge_text($video['channel'] ?? '', 100);
         $watchUrl = 'https://www.youtube.com/watch?v=' . $youtubeId;
         $items[] = [
             'id'=>'workoutdb-' . training_knowledge_text($row['id'] ?? '', 100),
-            'name'=>training_knowledge_text($row['name'] ?? '', 120),
-            'language'=>'fallback',
+            'name'=>$displayName,
+            'language'=>$isPtBr ? 'pt-BR' : 'fallback',
             'group'=>$group,
             'modality'=>training_video_catalog_modality($row, $group),
             'equipment'=>[$equipment],
@@ -100,7 +116,7 @@ function training_video_catalog_items(): array {
             'imageUrl'=>'https://i.ytimg.com/vi/' . $youtubeId . '/mqdefault.jpg',
             'imageLicense'=>'',
             'imageLicenseUrl'=>'',
-            'imageAuthor'=>training_knowledge_text($video['channel'] ?? '', 100),
+            'imageAuthor'=>$videoAuthor,
             'video'=>[
                 'provider'=>'youtube',
                 'youtubeId'=>$youtubeId,
@@ -108,8 +124,8 @@ function training_video_catalog_items(): array {
                 'startSeconds'=>max(0, (int)($video['startSeconds'] ?? 0)),
                 'durationSec'=>max(0, (int)($video['durationSeconds'] ?? 0)),
                 'type'=>training_knowledge_text($video['type'] ?? '', 30),
-                'language'=>training_knowledge_text($video['language'] ?? '', 20),
-                'author'=>training_knowledge_text($video['channel'] ?? '', 100),
+                'language'=>$isPtBr ? 'pt-BR' : training_knowledge_text($video['language'] ?? '', 20),
+                'author'=>$videoAuthor,
             ],            'source'=>'workout-db',
             'sourceUrl'=>TRAINING_VIDEO_CATALOG_SOURCE,
             'license'=>'MIT (metadados)',
@@ -127,5 +143,6 @@ function training_video_catalog_items(): array {
             ])),
         ];
     }
+    usort($items, static fn(array $a, array $b): int => (($a['language'] ?? '') === 'pt-BR' ? 0 : 1) <=> (($b['language'] ?? '') === 'pt-BR' ? 0 : 1));
     return $items;
 }
