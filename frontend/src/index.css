@@ -207,11 +207,35 @@ html[data-theme="light"] .text-primary { color: #087c72; }
   z-index: 1;
 }
 
+.level-app-main {
+  min-width: 0;
+  width: 100%;
+}
+
+.level-app-main .level-page {
+  width: 100%;
+}
+
 .level-trial-active .level-page { padding-top: 8.25rem; }
 
 @media (min-width: 768px) {
-  .level-app-main .level-page { padding-top: 3rem; }
+  .level-app-main {
+    margin-left: var(--level-sidebar-width);
+    width: calc(100% - var(--level-sidebar-width));
+    transition: margin-left 200ms ease, width 200ms ease;
+  }
+
+  .level-app-main .level-page {
+    margin-left: auto;
+    margin-right: auto;
+    padding-top: 3rem;
+  }
+
   .level-trial-active .level-app-main .level-page { padding-top: 5.75rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .level-app-main { transition: none; }
 }
 
 .level-shader-background {
