@@ -23,7 +23,7 @@ type Props = {
 
 export function ExerciseLibraryPicker({
   onSelect, title = "Biblioteca de movimentos",
-  description = "Pesquise exercícios com vídeo real, execução em etapas e orientações de técnica.",
+  description = "Pesquise exercícios com prioridade para vídeos em português, execução em etapas e orientações de técnica.",
   compact = false,
 }: Props) {
   const [query, setQuery] = useState("")
@@ -154,7 +154,9 @@ export function ExerciseLibraryPicker({
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   <span className="rounded-md bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary">{item.group}</span>
                   <span className="rounded-md border border-outline-variant bg-surface-container-high px-2 py-1 text-[10px] font-medium text-on-surface-variant">{item.equipment}</span>
-                  {item.language === "fallback" ? <span className="rounded-md bg-warning/10 px-2 py-1 text-[10px] font-semibold text-warning">Idioma original</span> : null}
+                  {item.language === "pt-BR"
+                    ? <span className="rounded-md bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary">PT-BR · padrão Smart Fit</span>
+                    : <span className="rounded-md bg-warning/10 px-2 py-1 text-[10px] font-semibold text-warning">Vídeo original · fallback</span>}
                 </div>
               </div>
             </div>
