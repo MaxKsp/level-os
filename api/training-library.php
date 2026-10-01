@@ -19,10 +19,11 @@ $group = is_string($_GET['group'] ?? null) ? trim((string)$_GET['group']) : '';
 $equipment = is_string($_GET['equipment'] ?? null) ? trim((string)$_GET['equipment']) : '';
 $limit = max(1, min(60, (int)($_GET['limit'] ?? 36)));
 $offset = max(0, min(5000, (int)($_GET['offset'] ?? 0)));
+$videoOnly = (string)($_GET['video'] ?? '') === '1';
 session_write_close();
 
 try {
-    $result = training_knowledge_search($query, $group, $equipment, $limit, $offset);
+    $result = training_knowledge_search($query, $group, $equipment, $limit, $offset, $videoOnly);
     echo json_encode(['ok'=>true] + $result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
 } catch (Throwable $error) {
     error_log('training library failed (' . get_class($error) . ').');

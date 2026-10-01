@@ -54,12 +54,13 @@ export function normalizeLibraryExercise(raw: RawExercise): LibraryExercise {
 }
 
 export async function fetchTrainingLibrary(params: {
-  query?: string; group?: MuscleGroup | "Todos"; equipment?: string; limit?: number; offset?: number
+  query?: string; group?: MuscleGroup | "Todos"; equipment?: string; videoOnly?: boolean; limit?: number; offset?: number
 }, signal?: AbortSignal): Promise<TrainingLibraryResponse> {
   const search = new URLSearchParams()
   if (params.query?.trim()) search.set("q", params.query.trim())
   if (params.group && params.group !== "Todos") search.set("group", params.group)
   if (params.equipment?.trim()) search.set("equipment", params.equipment.trim())
+  if (params.videoOnly) search.set("video", "1")
   search.set("limit", String(Math.max(1, Math.min(60, params.limit ?? 36))))
   search.set("offset", String(Math.max(0, params.offset ?? 0)))
   const response = await fetch("/api/training-library.php?" + search.toString(), {

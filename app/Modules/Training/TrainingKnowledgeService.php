@@ -221,7 +221,7 @@ function training_knowledge_upstream_rows(): array {
     return array_values(array_filter($rows, 'is_array'));
 }
 /** @return array<string,mixed> */
-function training_knowledge_search(string $query, string $group, string $equipment, int $limit, int $offset): array {
+function training_knowledge_search(string $query, string $group, string $equipment, int $limit, int $offset, bool $videoOnly = false): array {
     $needles = training_knowledge_search_needles($query);
     $group = mb_substr(trim($group), 0, 40, 'UTF-8');
     $equipmentNeedle = training_knowledge_key(mb_substr($equipment, 0, 80, 'UTF-8'));
@@ -240,6 +240,9 @@ function training_knowledge_search(string $query, string $group, string $equipme
     foreach ($candidates as $item) foreach ($item['equipment'] as $name) $equipmentOptions[$name] = true;
     $items = $equipmentNeedle === '' ? $candidates : array_values(array_filter($candidates,
         static fn(array $item): bool => str_contains(training_knowledge_key(implode(' ', $item['equipment'])), $equipmentNeedle)));
+    if ($videoOnly) {
+        $items = array_values(array_filter($items, static fn(array $item): bool => is_array($item['video'] ?? null) && trim((string)($item['video']['url'] ?? '')) !== ''));
+    }
     usort($items, static fn(array $a, array $b): int =>
         ((int)($b['language'] === 'pt') <=> (int)($a['language'] === 'pt'))
         ?: strcasecmp((string)$a['name'], (string)$b['name']));

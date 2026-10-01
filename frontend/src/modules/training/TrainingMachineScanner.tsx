@@ -4,8 +4,8 @@ import { Button } from "../../components/ui/button"
 import { Modal } from "../../components/ui/Modal"
 import { LevelSelect } from "../../components/ui/LevelSelect"
 import { SectionCard } from "../../design-system"
-import { findExerciseVideo } from "./exerciseVideos"
 import { fetchTrainingLibrary } from "./trainingKnowledge"
+import { NativeTrainingVideo, TrainingVideoModal } from "./NativeTrainingVideo"
 import type { LibraryExercise } from "./exerciseCatalog"
 
 type MachineProfile = {
@@ -61,6 +61,7 @@ export function TrainingMachineScanner() {
   const [relatedLoading, setRelatedLoading] = useState(false)
   const [preview, setPreview] = useState("")
   const [error, setError] = useState("")
+  const [videoExercise, setVideoExercise] = useState<LibraryExercise | null>(null)
 
   const stopCamera = () => {
     streamRef.current?.getTracks().forEach((track) => track.stop())
@@ -91,8 +92,17 @@ export function TrainingMachineScanner() {
     if (!selected) { setRelated([]); return }
     let active = true
     setRelatedLoading(true)
-    void fetchTrainingLibrary({ query: selected.query, limit: 8 })
-      .then((data) => { if (active) setRelated(data.items) })
+    const load = async () => {
+      const withVideo = await fetchTrainingLibrary({ query: selected.query, videoOnly: true, limit: 24 })
+      if (withVideo.items.length) return withVideo.items
+      const fallback = await fetchTrainingLibrary({ query: selected.query, limit: 24 })
+      return fallback.items
+    }
+    void load()
+      .then((items) => {
+        if (!active) return
+        setRelated([...items].sort((a, b) => Number(Boolean(b.video?.url)) - Number(Boolean(a.video?.url))))
+      })
       .catch(() => { if (active) setRelated([]) })
       .finally(() => { if (active) setRelatedLoading(false) })
     return () => { active = false }
@@ -104,8 +114,8 @@ export function TrainingMachineScanner() {
     try {
       const result = await recognizeMachine(dataUrl)
       setRecognition(result)
-      // A classificação é apenas uma sugestão: a pessoa confirma antes de ver orientações.
-      setSelected(null)
+      // Alta confiança permite seguir direto para o conteúdo; a correção manual continua disponível.
+      setSelected(result.recognized && result.machine && result.confidence >= 0.72 ? result.machine : null)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Não foi possível analisar a foto.")
     } finally { setAnalyzing(false) }
@@ -133,8 +143,9 @@ export function TrainingMachineScanner() {
     .filter((item): item is MachineProfile => Boolean(item))
     .filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index) : []
   const supportedMachines = recognition?.catalog?.length ? recognition.catalog : candidates
+  const featuredExercise = related.find((exercise) => Boolean(exercise.video?.url)) ?? null
 
-  return <SectionCard title="Reconhecer aparelho" description="Aponte a câmera para a máquina e confirme o resultado antes de consultar execução e vídeos."
+  return <SectionCard title="Reconhecer aparelho" description="Fotografe a máquina: o Level OS classifica o aparelho e seleciona um vídeo nativo compatível quando houver mídia licenciada."
     icon={<ScanSearch className="size-5 text-primary" />}>
     <div className="grid gap-4 lg:grid-cols-[.9fr_1.1fr]">
       <div className="rounded-xl border border-outline-variant bg-surface-container-low p-4">
@@ -154,8 +165,10 @@ export function TrainingMachineScanner() {
           <div className="flex items-center justify-between gap-2"><strong className="text-sm text-on-surface">Confiança visual</strong>
             <span className="text-sm font-semibold tabular-nums text-primary">{confidence}%</span></div>
           <div className="h-1.5 overflow-hidden rounded-full bg-outline-variant"><div className="h-full rounded-full bg-primary" style={{ width: confidence + "%" }} /></div>
-          <p className={recognition.recognized ? "text-xs text-on-surface-variant" : "text-xs text-warning"}>
-            {recognition.recognized ? "Confirme abaixo qual aparelho está na foto." : "A confiança ficou baixa. Escolha manualmente o aparelho correto antes de continuar."}
+          <p className={recognition.recognized && recognition.confidence >= 0.72 ? "text-xs text-on-surface-variant" : "text-xs text-warning"}>
+            {recognition.recognized && recognition.confidence >= 0.72
+              ? "Aparelho selecionado automaticamente. Você ainda pode corrigir a classificação abaixo."
+              : "A confiança ficou baixa. Escolha manualmente o aparelho correto antes de continuar."}
           </p>
           <div className="flex flex-wrap gap-2">{candidates.map((machine) => <button type="button" key={machine.id}
             onClick={() => setSelected(machine)} aria-pressed={selected?.id === machine.id}
@@ -171,8 +184,17 @@ export function TrainingMachineScanner() {
       <div className="min-w-0">
         {selected ? <div className="space-y-4">
           <div className="rounded-xl border border-primary/25 bg-primary/5 p-4">
-            <div className="flex items-center gap-2"><ShieldCheck className="size-4 text-primary" /><h3 className="font-semibold text-on-surface">{selected.name}</h3></div>
-            <p className="mt-1 text-xs text-muted">Boas práticas gerais para conferir antes de usar:</p>
+            <p className="text-[10px] font-bold uppercase tracking-[.16em] text-primary">Classificação do aparelho</p>
+            <div className="mt-1 flex items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold text-on-surface">{selected.name}</h3>
+              {featuredExercise ? <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold text-primary">VÍDEO SELECIONADO</span> : null}
+            </div>
+            <p className="mt-1 text-xs text-muted">{featuredExercise ? "O Level OS encontrou uma execução compatível com vídeo licenciado e já deixou o player pronto." : relatedLoading ? "Buscando a melhor execução em vídeo para este aparelho…" : "Sem vídeo nativo classificado para este aparelho nesta base; veja as referências relacionadas abaixo."}</p>
+          </div>
+          {featuredExercise ? <NativeTrainingVideo exercise={featuredExercise} autoPlay /> : null}
+          <div className="rounded-xl border border-primary/25 bg-primary/5 p-4">
+            <div className="flex items-center gap-2"><ShieldCheck className="size-4 text-primary" /><h3 className="font-semibold text-on-surface">Boas práticas antes de usar</h3></div>
+            <p className="mt-1 text-xs text-muted">Ajustes gerais para conferir no {selected.name}:</p>
             <ul className="mt-3 space-y-2">{selected.tips.map((tip) => <li key={tip} className="flex gap-2 text-xs leading-5 text-on-surface-variant">
               <span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" />{tip}</li>)}</ul>
             <p className="mt-3 text-[10px] leading-4 text-muted">Confira também os adesivos e regulagens do fabricante. Interrompa se houver dor ou sensação de instabilidade.</p>
@@ -181,13 +203,12 @@ export function TrainingMachineScanner() {
             <p className="mt-1 text-[11px] text-muted">Conteúdo da biblioteca para confirmar o movimento e o equipamento.</p></div></div>
             {relatedLoading ? <p role="status" className="mt-3 text-xs text-muted">Buscando conteúdo…</p> :
               related.length ? <div className="mt-3 grid gap-2 sm:grid-cols-2">{related.slice(0, 6).map((exercise) => {
-                const video = exercise.video?.url ?? findExerciseVideo(exercise.name)
-                return <article key={exercise.id ?? exercise.name} className="rounded-lg border border-outline-variant bg-surface-container/60 p-3">
+                return <article key={exercise.id ?? exercise.name} className={"rounded-lg border bg-surface-container/60 p-3 " + (featuredExercise?.id === exercise.id ? "border-primary/40" : "border-outline-variant")}>
                   <div className="flex gap-3">{exercise.imageUrl ? <img src={exercise.imageUrl} alt="" className="size-16 shrink-0 rounded-lg object-contain" /> : null}
                     <div className="min-w-0"><strong className="text-xs text-on-surface">{exercise.name}</strong><p className="mt-1 line-clamp-2 text-[10px] leading-4 text-muted">{exercise.cue}</p></div></div>
-                  <div className="mt-2 flex flex-wrap gap-2">{video ? <a href={video} target="_blank" rel="noopener noreferrer"
+                  <div className="mt-2 flex flex-wrap gap-2">{exercise.video?.url ? <button type="button" onClick={() => setVideoExercise(exercise)}
                     className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-primary/25 px-2 text-[10px] font-semibold text-primary">
-                    <Play className="size-3" />{exercise.video ? "Assistir vídeo" : "Buscar tutorial"}</a> : null}
+                    <Play className="size-3" />Assistir no Level OS</button> : <span className="inline-flex min-h-9 items-center px-2 text-[10px] text-muted">Sem vídeo nativo</span>}
                     {exercise.sourceUrl ? <a href={exercise.sourceUrl} target="_blank" rel="noopener noreferrer"
                       className="inline-flex min-h-9 items-center gap-1 px-2 text-[10px] text-muted">Fonte <ExternalLink className="size-3" /></a> : null}</div>
                 </article>
@@ -207,5 +228,6 @@ export function TrainingMachineScanner() {
       <div className="flex justify-end gap-2"><Button type="button" variant="secondary" onClick={() => setCameraOpen(false)}><X className="size-4" />Cancelar</Button>
         <Button type="button" disabled={Boolean(cameraError) || !cameraReady} onClick={() => void capture()}><Camera className="size-4" />Capturar</Button></div>
     </div></Modal>
+    <TrainingVideoModal exercise={videoExercise} open={Boolean(videoExercise)} onClose={() => setVideoExercise(null)} />
   </SectionCard>
 }

@@ -36,25 +36,28 @@ Backend:
 - O backend remove HTML, limita tamanhos e normaliza apenas campos necessários para a experiência.
 
 Frontend:
-- `trainingKnowledge.ts`: contrato da API.
-- `ExerciseLibraryPicker.tsx`: busca, filtros LevelSelect, cards, imagem, instrução, vídeo/fallback e atribuição.
-- `ExerciseReferenceButton.tsx`: consulta contextual dentro de ficha e treino ao vivo.
-- `TrainingScreen.tsx`: nova aba **Biblioteca**, separada de Treinos, Sessões e Medidas.
+- `trainingKnowledge.ts`: contrato da API, incluindo filtro de itens com vídeo nativo.
+- `ExerciseLibraryPicker.tsx`: busca, filtros LevelSelect, videoteca, cards, imagem, instrução e atribuição.
+- `NativeTrainingVideo.tsx`: player HTML5 interno, com poster, licença, autoria e modal reutilizável.
+- `ExerciseReferenceButton.tsx`: consulta contextual com player nativo dentro de ficha e treino ao vivo.
+- `TrainingMachineScanner.tsx`: identifica aparelho, seleciona conteúdo compatível e prioriza mídia licenciada.
+- `TrainingScreen.tsx`: **Central de treino** com acesso direto a scanner, fichas, biblioteca, sessões e medidas.
 
 O catálogo local antigo permanece como fallback quando o usuário não está autenticado ou a fonte externa está temporariamente indisponível.
-## Vídeos
+## Vídeos nativos na plataforma
 Prioridade de mídia:
-1. vídeo retornado pela Wger com licença/autoria explícita;
-2. referência de busca externa já existente no Level OS quando a base não contém vídeo;
-3. ausência de botão quando não existe referência segura.
+1. vídeo direto retornado pela Wger com licença/autoria explícita;
+2. reprodução pelo player HTML5 do próprio Level OS, sem abrir YouTube ou nova aba;
+3. estado claro de indisponibilidade quando a fonte não possui vídeo licenciado.
 
-Não hospedamos cópia da mídia externa nesta entrega. Isso reduz custo, evita duplicação e mantém a atribuição no contexto da fonte.
-Como alguns vídeos upstream podem usar codecs diferentes, a interface abre a referência externa em vez de assumir reprodução compatível em todo navegador.
+A biblioteca possui filtro **Com vídeo nativo**. O mesmo player é reutilizado na biblioteca, na referência de exercício e no fluxo de reconhecimento por câmera.
+Não copiamos a mídia da Wger para hospedagem própria: o arquivo continua vindo da fonte licenciada, mas a experiência de reprodução acontece dentro do Level OS.
+O fallback legado de buscas do YouTube foi removido do módulo para impedir que um exercício seja associado a vídeo genérico ou incorreto.
 
 Próxima evolução possível:
 - catálogo editorial próprio de vídeos Level OS;
 - CDN própria apenas para mídias que o Level OS tenha direito de distribuir;
-- avaliação/curadoria humana de execução antes de marcar um vídeo como “verificado”.
+- curadoria humana de execução antes de marcar um vídeo como “verificado”.
 ## Reconhecimento de aparelhos no PWA
 Arquivos:
 - `TrainingMachineScanner.tsx`
@@ -68,7 +71,8 @@ Fluxo:
 4. O usuário inicia a análise; a imagem é enviada ao provedor de IA configurado e não é gravada pelo endpoint.
 5. O modelo só pode escolher uma taxonomia fechada de aparelhos e retornar confiança/alternativas.
 6. A orientação não vem do modelo visual. Ela vem da taxonomia do Level OS.
-7. Se a confiança for baixa ou os candidatos não estiverem corretos, o usuário pode escolher manualmente qualquer aparelho da taxonomia suportada antes de consultar conteúdo.
+7. Com confiança alta (>= 72%), o aparelho é selecionado automaticamente e o Level OS busca primeiro exercícios com vídeo licenciado para montar o player classificado.
+8. Com confiança baixa, ou se a classificação estiver incorreta, o usuário escolhe manualmente qualquer aparelho da taxonomia suportada antes de consultar conteúdo.
 ## Taxonomia inicial reconhecida
 Cobertura inicial inclui, entre outros:
 - leg press, extensora, flexora, hack squat e Smith;
