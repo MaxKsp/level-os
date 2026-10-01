@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { Button } from "../../components/ui/button"
+import { ConfirmAction } from "../../components/ui/ConfirmAction"
 import { Icon, SectionCard } from "../../design-system"
 import { hasCalendarBackend } from "./api"
 import { useCalendar } from "./store"
@@ -37,11 +38,6 @@ export function GoogleCalendarSection() {
       window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.hash}`)
     }
   }, [refreshConnection])
-
-  const disconnectWithConfirmation = () => {
-    if (!window.confirm("Desconectar o Google Calendar deste perfil?")) return
-    void disconnect()
-  }
 
   const statusLabel = connectionStatus === "loading"
     ? "Verificando"
@@ -93,10 +89,19 @@ export function GoogleCalendarSection() {
 
         <div className="flex flex-wrap justify-end gap-2 border-t border-outline-variant pt-4">
           {connected ? (
-            <Button type="button" variant="secondary" disabled={busy} onClick={disconnectWithConfirmation}>
-              <Icon name="cloud_off" className="text-[17px]" />
-              {actionStatus === "disconnecting" ? "Desconectando…" : "Desconectar"}
-            </Button>
+            <ConfirmAction
+              title="Desconectar Google Calendar?"
+              description="Os eventos deixarão de aparecer na rotina até que você conecte a conta novamente."
+              confirmLabel="Desconectar"
+              destructive
+              onConfirm={() => void disconnect()}
+              trigger={
+                <Button type="button" variant="secondary" disabled={busy}>
+                  <Icon name="cloud_off" className="text-[17px]" />
+                  {actionStatus === "disconnecting" ? "Desconectando…" : "Desconectar"}
+                </Button>
+              }
+            />
           ) : (
             <Button type="button" disabled={busy || !backend} onClick={() => void connect()}>
               <Icon name="calendar_month" className="text-[17px]" />
