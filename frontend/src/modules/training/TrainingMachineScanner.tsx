@@ -94,10 +94,8 @@ export function TrainingMachineScanner() {
     let active = true
     setRelatedLoading(true)
     const load = async () => {
-      const withVideo = await fetchTrainingLibrary({ query: selected.query, videoOnly: true, limit: 24 })
-      if (withVideo.items.length) return withVideo.items
-      const fallback = await fetchTrainingLibrary({ query: selected.query, limit: 24 })
-      return fallback.items
+      const data = await fetchTrainingLibrary({ query: selected.query, limit: 24 })
+      return data.items
     }
     void load()
       .then((items) => {
@@ -144,7 +142,7 @@ export function TrainingMachineScanner() {
     .filter((item): item is MachineProfile => Boolean(item))
     .filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index) : []
   const supportedMachines = recognition?.catalog?.length ? recognition.catalog : candidates
-  const featuredExercise = related.find((exercise) => Boolean(exercise.video?.url)) ?? null
+  const featuredExercise = related.find((exercise) => Boolean(exercise.video?.url)) ?? related[0] ?? null
   const captureDone = Boolean(preview || analyzing || recognition)
   const identifyDone = Boolean(selected)
   const identifyStatus: LevelStepStatus = identifyDone ? "complete" : captureDone ? "active" : "pending"
@@ -170,7 +168,7 @@ export function TrainingMachineScanner() {
       {
         id: "playback",
         title: "Veja a execução",
-        description: "O Level OS seleciona orientações e prioriza um vídeo nativo compatível.",
+        description: "O Level OS abre um tutorial visual com execução e instruções em etapas.",
         icon: <Play className="size-4" />,
         status: playbackStatus,
       },
@@ -215,9 +213,9 @@ export function TrainingMachineScanner() {
             <p className="text-[10px] font-bold uppercase tracking-[.16em] text-primary">Classificação do aparelho</p>
             <div className="mt-1 flex items-center justify-between gap-3">
               <h3 className="text-lg font-semibold text-on-surface">{selected.name}</h3>
-              {featuredExercise ? <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold text-primary">VÍDEO SELECIONADO</span> : null}
+              {featuredExercise ? <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold text-primary">TUTORIAL SELECIONADO</span> : null}
             </div>
-            <p className="mt-1 text-xs text-muted">{featuredExercise ? "O Level OS encontrou uma execução compatível com vídeo licenciado e já deixou o player pronto." : relatedLoading ? "Buscando a melhor execução em vídeo para este aparelho…" : "Sem vídeo nativo classificado para este aparelho nesta base; veja as referências relacionadas abaixo."}</p>
+            <p className="mt-1 text-xs text-muted">{featuredExercise ? "O Level OS encontrou uma execução compatível e já preparou o tutorial passo a passo." : relatedLoading ? "Buscando a melhor execução para este aparelho…" : "Não encontrei uma correspondência segura para este aparelho; veja as referências relacionadas abaixo."}</p>
           </div>
           {featuredExercise ? <NativeTrainingVideo exercise={featuredExercise} autoPlay /> : null}
           <div className="rounded-xl border border-primary/25 bg-primary/5 p-4">
@@ -234,9 +232,9 @@ export function TrainingMachineScanner() {
                 return <article key={exercise.id ?? exercise.name} className={"rounded-lg border bg-surface-container/60 p-3 " + (featuredExercise?.id === exercise.id ? "border-primary/40" : "border-outline-variant")}>
                   <div className="flex gap-3">{exercise.imageUrl ? <img src={exercise.imageUrl} alt="" className="size-16 shrink-0 rounded-lg object-contain" /> : null}
                     <div className="min-w-0"><strong className="text-xs text-on-surface">{exercise.name}</strong><p className="mt-1 line-clamp-2 text-[10px] leading-4 text-muted">{exercise.cue}</p></div></div>
-                  <div className="mt-2 flex flex-wrap gap-2">{exercise.video?.url ? <button type="button" onClick={() => setVideoExercise(exercise)}
+                  <div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={() => setVideoExercise(exercise)}
                     className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-primary/25 px-2 text-[10px] font-semibold text-primary">
-                    <Play className="size-3" />Assistir no Level OS</button> : <span className="inline-flex min-h-9 items-center px-2 text-[10px] text-muted">Sem vídeo nativo</span>}
+                    <Play className="size-3" />Ver passo a passo</button>
                     {exercise.sourceUrl ? <a href={exercise.sourceUrl} target="_blank" rel="noopener noreferrer"
                       className="inline-flex min-h-9 items-center gap-1 px-2 text-[10px] text-muted">Fonte <ExternalLink className="size-3" /></a> : null}</div>
                 </article>

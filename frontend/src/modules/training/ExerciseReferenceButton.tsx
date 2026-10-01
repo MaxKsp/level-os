@@ -32,7 +32,7 @@ export function ExerciseReferenceButton({ name }: { name: string }) {
       <BookOpenCheck className="size-4" />
     </button>
     <Modal isOpen={open} onClose={() => setOpen(false)} title={exercise?.name ?? (name || "Referência do exercício")}
-      description="Execução, equipamento e vídeo nativo de referência. Confira a máquina e seus ajustes específicos." icon="fitness_center" maxWidth="max-w-4xl">
+      description="Tutorial visual em etapas, equipamento e referência. Confira a máquina e seus ajustes específicos." icon="fitness_center" maxWidth="max-w-6xl">
       {loading ? <p role="status" className="flex items-center gap-2 py-8 text-sm text-muted"><LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" />Carregando referência…</p> : null}
       {error ? <p role="alert" className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-on-surface">{error}</p> : null}
       {exercise ? <div className="space-y-4">

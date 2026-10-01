@@ -38,28 +38,28 @@ Backend:
 - `api/training-library.php`: endpoint autenticado e rate-limited para consulta.
 - Cache upstream de 6 horas no diretório temporário do servidor; os datasets externos não são redistribuídos pelo repositório.
 - Wger continua prioritário quando já possui imagem/tradução/vídeo; RepDB e Free Exercise DB completam ou ampliam o catálogo visual.
-- Validação de 01/10/2026 após deduplicação: 1.596 exercícios publicados e 0 sem imagem (343 Wger, 509 RepDB, 744 Free Exercise DB).
+- Validação de 01/10/2026 após deduplicação e exigência de tutorial: 1.587 exercícios publicados, 0 sem imagem, 0 sem etapas e 0 sem mídia visual de orientação (338 Wger, 509 RepDB, 740 Free Exercise DB).
 - Busca por texto, grupo muscular e equipamento; paginação com máximo de 60 itens por chamada.
 - O backend remove HTML, limita tamanhos e normaliza apenas campos necessários para a experiência.
 
 Frontend:
-- `trainingKnowledge.ts`: contrato da API, incluindo filtro de itens com vídeo nativo.
-- `ExerciseLibraryPicker.tsx`: busca, filtros LevelSelect, videoteca, cards, imagem, instrução e atribuição.
-- `NativeTrainingVideo.tsx`: player HTML5 interno, com poster, licença, autoria e modal reutilizável.
-- `ExerciseReferenceButton.tsx`: consulta contextual com player nativo dentro de ficha e treino ao vivo.
-- `TrainingMachineScanner.tsx`: identifica aparelho, seleciona conteúdo compatível e prioriza mídia licenciada.
+- `trainingKnowledge.ts`: contrato da API, incluindo etapas estruturadas e frames visuais do tutorial.
+- `ExerciseLibraryPicker.tsx`: busca, filtros LevelSelect, cards e acesso ao tutorial em todos os exercícios publicados.
+- `NativeTrainingVideo.tsx`: player responsivo único. Reproduz vídeo direto quando licenciado; caso contrário executa tutorial visual automático com etapas, frames, play/pause, anterior, próximo e reinício.
+- `ExerciseReferenceButton.tsx`: consulta contextual com o mesmo tutorial dentro de ficha e treino ao vivo.
+- `TrainingMachineScanner.tsx`: identifica aparelho e abre o tutorial compatível, sem depender da existência de MP4.
 - `TrainingScreen.tsx`: **Central de treino** com acesso direto a scanner, fichas, biblioteca, sessões e medidas.
 
 O catálogo local antigo permanece como fallback quando o usuário não está autenticado ou a fonte externa está temporariamente indisponível.
-## Vídeos nativos na plataforma
+## Tutorial visual para todos os exercícios
 Prioridade de mídia:
-1. vídeo direto retornado pela Wger com licença/autoria explícita;
-2. reprodução pelo player HTML5 do próprio Level OS, sem abrir YouTube ou nova aba;
-3. estado claro de indisponibilidade quando a fonte não possui vídeo licenciado.
+1. vídeo direto retornado pela Wger quando a licença/autoria permitem reprodução;
+2. quando não existe vídeo direto, o Level OS monta um tutorial visual nativo com as imagens licenciadas disponíveis e as instruções estruturadas em etapas;
+3. exercícios sem imagem ou sem instruções suficientes não entram no catálogo publicado.
 
-A biblioteca possui filtro **Com vídeo nativo**. O mesmo player é reutilizado na biblioteca, na referência de exercício e no fluxo de reconhecimento por câmera.
-Não copiamos a mídia da Wger para hospedagem própria: o arquivo continua vindo da fonte licenciada, mas a experiência de reprodução acontece dentro do Level OS.
-O fallback legado de buscas do YouTube foi removido do módulo para impedir que um exercício seja associado a vídeo genérico ou incorreto.
+O player é o mesmo na biblioteca, na referência da ficha, no treino ao vivo e no reconhecimento por câmera. Em telas grandes, demonstração e etapas ficam lado a lado; em celular, o conteúdo empilha verticalmente e os controles usam grade compacta para evitar overflow.
+O tutorial visual possui reprodução automática de etapas, pausa, anterior, próximo, reinício e barra de progresso. Ele não transforma imagens estáticas em um vídeo falso: quando a fonte oferece somente frames, a interface os apresenta explicitamente como **tutorial guiado**.
+Não copiamos vídeo da Wger para hospedagem própria e não incorporamos GIFs/vídeos de repositórios cuja licença de mídia não esteja clara. O fallback legado de buscas do YouTube continua removido.
 
 Próxima evolução possível:
 - catálogo editorial próprio de vídeos Level OS;
@@ -78,7 +78,7 @@ Fluxo:
 4. O usuário inicia a análise; a imagem é enviada ao provedor de IA configurado e não é gravada pelo endpoint.
 5. O modelo só pode escolher uma taxonomia fechada de aparelhos e retornar confiança/alternativas.
 6. A orientação não vem do modelo visual. Ela vem da taxonomia do Level OS.
-7. Com confiança alta (>= 72%), o aparelho é selecionado automaticamente e o Level OS busca primeiro exercícios com vídeo licenciado para montar o player classificado.
+7. Com confiança alta (>= 72%), o aparelho é selecionado automaticamente e o Level OS abre o melhor tutorial compatível; vídeo direto é preferido quando existe, mas o fluxo funciona também com o tutorial visual guiado.
 8. Com confiança baixa, ou se a classificação estiver incorreta, o usuário escolhe manualmente qualquer aparelho da taxonomia suportada antes de consultar conteúdo.
 ## Taxonomia inicial reconhecida
 Cobertura inicial inclui, entre outros:

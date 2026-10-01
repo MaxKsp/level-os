@@ -7,6 +7,8 @@ describe("training knowledge normalization", () => {
       id: "wger-75", name: "Supino com halteres", language: "pt", group: "Peito", modality: "forca",
       equipment: ["Halteres", "Banco"], instructions: "Controle a descida. Mantenha os pés apoiados.",
       imageUrl: "https://wger.de/media/exercise.png", imageLicense: "CC-BY-SA 4", imageAuthor: "Imagem",
+      motionFrames: ["https://wger.de/media/exercise.png"],
+      steps: ["Controle a descida.", "Mantenha os pés apoiados."],
       video: { url: "https://wger.de/media/video.mp4", author: "Goulart", license: "CC-BY-SA 4" },
       source: "wger", sourceUrl: "https://wger.de/exercise/75/view", license: "CC-BY-SA 3", author: "Autor",
     })
@@ -14,6 +16,8 @@ describe("training knowledge normalization", () => {
     expect(item.cue).toBe("Controle a descida.")
     expect(item.imageLicense).toBe("CC-BY-SA 4")
     expect(item.video).toMatchObject({ author: "Goulart", license: "CC-BY-SA 4" })
+    expect(item.steps).toEqual(["Controle a descida.", "Mantenha os pés apoiados."])
+    expect(item.motionFrames).toEqual(["https://wger.de/media/exercise.png"])
     expect(item.source).toBe("wger")
   })
 

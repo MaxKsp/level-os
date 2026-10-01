@@ -115,8 +115,8 @@ export function ExerciseLibraryPicker({
           options={groups.map((value) => ({ value, label: value === "Todos" ? "Todos os grupos" : value }))} />
         <LevelSelect label="Equipamento" value={equipment} onChange={setEquipment}
           options={equipmentSelect} />
-        <LevelSelect label="Mídia" value={videoOnly ? "video" : "all"} onChange={(value) => setVideoOnly(value === "video")}
-          options={[{ value: "all", label: "Toda mídia" }, { value: "video", label: "Com vídeo nativo" }]} />
+        <LevelSelect label="Formato" value={videoOnly ? "video" : "all"} onChange={(value) => setVideoOnly(value === "video")}
+          options={[{ value: "all", label: "Todos os tutoriais" }, { value: "video", label: "Vídeo direto" }]} />
       </div>
       {hasFilters ? <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-outline-variant pt-3">
         <p className="text-xs text-on-surface-variant">Filtros ativos · {items.length.toLocaleString("pt-BR")} exibidos</p>
@@ -143,9 +143,9 @@ export function ExerciseLibraryPicker({
                   <div className="text-center"><Symbol className="mx-auto size-8" strokeWidth={1.5} />
                     <p className="mt-2 text-[10px] font-semibold uppercase tracking-[.12em]">Sem imagem de referência</p></div>
                 </div>}
-            {nativeVideo ? <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-[#08100f]/85 px-2 py-1 text-[9px] font-bold text-[#8ff8ed] shadow-sm">
-              <Play className="size-3" /> VÍDEO
-            </span> : null}
+            <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-[#08100f]/85 px-2 py-1 text-[9px] font-bold text-[#8ff8ed] shadow-sm">
+              <Play className="size-3" /> {nativeVideo ? "VÍDEO" : "PASSO A PASSO"}
+            </span>
           </div>
           <div className="flex flex-1 flex-col p-4">
             <div className="flex items-start gap-3">
@@ -176,10 +176,10 @@ export function ExerciseLibraryPicker({
                 className="min-h-9 rounded-lg border border-outline bg-surface-container px-3 text-xs font-semibold text-on-surface hover:bg-surface-container-high">
                 {isOpen ? "Ocultar detalhes" : "Como executar"}
               </button>
-              {nativeVideo ? <button type="button" onClick={() => setVideoExercise(item)}
-                aria-label={"Assistir vídeo de " + item.name}
+              <button type="button" onClick={() => setVideoExercise(item)}
+                aria-label={"Ver passo a passo de " + item.name}
                 className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-primary/35 bg-primary/5 px-3 text-xs font-semibold text-primary hover:bg-primary/10">
-                <Play className="size-3.5" />Assistir vídeo</button> : null}
+                <Play className="size-3.5" />Ver passo a passo</button>
               {onSelect ? <button type="button"
                 className="ml-auto inline-flex min-h-9 items-center gap-1 rounded-lg bg-primary px-3 text-xs font-semibold text-on-primary hover:opacity-90"
                 onClick={() => onSelect(item)}><Plus className="size-3.5" />Adicionar</button> : null}
