@@ -17,6 +17,15 @@ describe("training knowledge normalization", () => {
     expect(item.source).toBe("wger")
   })
 
+  it("remove numeração solta do resumo exibido nos cards", () => {
+    const item = normalizeLibraryExercise({
+      id: "wger-2", name: "Abdominal", language: "pt", group: "Core", modality: "calistenia",
+      equipment: ["Colchonete"], instructions: "1. Deite-se de costas com os joelhos flexionados. Eleve o tronco com controle.",
+      source: "wger", sourceUrl: "https://wger.de/exercise/2/view",
+    })
+    expect(item.cue).toBe("Deite-se de costas com os joelhos flexionados.")
+  })
+
   it("expõe fallback de idioma e nunca inventa mídia", () => {
     const item = normalizeLibraryExercise({
       id: "wger-1", name: "English exercise", language: "fallback", group: "Costas", modality: "forca",
