@@ -112,21 +112,31 @@ function training_reference_normalize_free(array $row): ?array {
     $name = training_knowledge_text($row['name'] ?? '', 120);
     $id = training_knowledge_text($row['id'] ?? '', 140);
     $images = is_array($row['images'] ?? null) ? $row['images'] : [];
-    $imagePath = is_string($images[0] ?? null) ? $images[0] : '';
-    $imageUrl = training_reference_asset_url(TRAINING_REFERENCE_FREE_DB_ASSET_BASE, $imagePath);
+    $motionFrames = [];
+    foreach ($images as $path) {
+        if (!is_string($path)) continue;
+        $url = training_reference_asset_url(TRAINING_REFERENCE_FREE_DB_ASSET_BASE, $path);
+        if ($url !== null) $motionFrames[$url] = true;
+    }
+    $imageUrl = array_key_first($motionFrames);
     if ($name === '' || $id === '' || $imageUrl === null) return null;
     $primary = is_array($row['primaryMuscles'] ?? null) ? $row['primaryMuscles'] : [];
     $secondary = is_array($row['secondaryMuscles'] ?? null) ? $row['secondaryMuscles'] : [];
     $category = training_knowledge_text($row['category'] ?? '', 80);
     $equipmentRaw = training_knowledge_text($row['equipment'] ?? '', 80);
-    $instructions = is_array($row['instructions'] ?? null)
-        ? implode(' ', array_map(static fn($v): string => training_knowledge_text($v, 500), $row['instructions'])) : '';
+    $instructionRows = is_array($row['instructions'] ?? null) ? $row['instructions'] : [];
+    $steps = array_values(array_filter(array_map(
+        static fn($v): string => training_knowledge_text($v, 420), $instructionRows,
+    ), static fn(string $v): bool => mb_strlen($v, 'UTF-8') >= 12));
+    $instructions = implode(' ', $steps);
     return [
         'id'=>'free-' . $id, 'name'=>$name, 'language'=>'fallback',
         'group'=>training_reference_group_from_text($category . ' ' . implode(' ', $primary) . ' ' . implode(' ', $secondary)),
         'modality'=>training_reference_modality($category, $equipmentRaw),
         'equipment'=>[training_reference_equipment_name($equipmentRaw)],
         'instructions'=>training_knowledge_text($instructions, 2400),
+        'steps'=>array_slice($steps, 0, 8),
+        'motionFrames'=>array_slice(array_keys($motionFrames), 0, 4),
         'imageUrl'=>$imageUrl, 'imageLicense'=>'Unlicense / Public Domain',
         'imageLicenseUrl'=>'https://github.com/yuhonas/free-exercise-db/blob/main/LICENSE.md',
         'imageAuthor'=>'free-exercise-db contributors', 'video'=>null,
@@ -143,22 +153,32 @@ function training_reference_normalize_repdb(array $row): ?array {
     $id = training_knowledge_text($row['id'] ?? '', 140);
     $name = training_knowledge_text($row['name_en'] ?? '', 120);
     $flat = is_array($row['images']['flat'] ?? null) ? $row['images']['flat'] : [];
-    $imagePath = (string)($flat['start'] ?? $flat['main'] ?? $flat['peak'] ?? '');
-    $imageUrl = training_reference_asset_url(TRAINING_REFERENCE_REPDB_ASSET_BASE, $imagePath);
+    $motionFrames = [];
+    foreach (['start','main','peak','end'] as $slot) {
+        $path = is_string($flat[$slot] ?? null) ? $flat[$slot] : '';
+        $url = training_reference_asset_url(TRAINING_REFERENCE_REPDB_ASSET_BASE, $path);
+        if ($url !== null) $motionFrames[$url] = true;
+    }
+    $imageUrl = array_key_first($motionFrames);
     if ($id === '' || $name === '' || $imageUrl === null) return null;
     $primary = is_array($row['primary_muscles'] ?? null) ? $row['primary_muscles'] : [];
     $secondary = is_array($row['secondary_muscles'] ?? null) ? $row['secondary_muscles'] : [];
     $category = training_knowledge_text($row['category'] ?? '', 80);
     $equipmentRaw = training_knowledge_text($row['equipment'] ?? '', 80);
     $bodyPart = training_knowledge_text($row['body_part'] ?? '', 80);
-    $instructions = is_array($row['instructions_en'] ?? null)
-        ? implode(' ', array_map(static fn($v): string => training_knowledge_text($v, 500), $row['instructions_en'])) : '';
+    $instructionRows = is_array($row['instructions_en'] ?? null) ? $row['instructions_en'] : [];
+    $steps = array_values(array_filter(array_map(
+        static fn($v): string => training_knowledge_text($v, 420), $instructionRows,
+    ), static fn(string $v): bool => mb_strlen($v, 'UTF-8') >= 12));
+    $instructions = implode(' ', $steps);
     return [
         'id'=>'repdb-' . $id, 'name'=>$name, 'language'=>'fallback',
         'group'=>training_reference_group_from_text($category . ' ' . $bodyPart . ' ' . implode(' ', $primary) . ' ' . implode(' ', $secondary)),
         'modality'=>training_reference_modality($category, $equipmentRaw),
         'equipment'=>[training_reference_equipment_name($equipmentRaw)],
         'instructions'=>training_knowledge_text($instructions, 2400),
+        'steps'=>array_slice($steps, 0, 8),
+        'motionFrames'=>array_slice(array_keys($motionFrames), 0, 4),
         'imageUrl'=>$imageUrl, 'imageLicense'=>'RepDB Free Tier License v1.0',
         'imageLicenseUrl'=>'https://github.com/RepDB/exercise-dataset/blob/main/LICENSE-DATA.md',
         'imageAuthor'=>'RepDB', 'video'=>null, 'source'=>'repdb',

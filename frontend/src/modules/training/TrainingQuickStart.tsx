@@ -27,9 +27,9 @@ export function TrainingQuickStart({ suggested, onStart, onCreate, onScanner, on
       </Button>}
     </div>    <div className="mt-4 grid gap-2 sm:grid-cols-3">
       <QuickAction icon={<Camera className="size-4" />} title="Reconhecer aparelho"
-        description="Tire uma foto e veja o exercício e o vídeo compatível." onClick={onScanner} />
+        description="Tire uma foto e abra o tutorial passo a passo compatível." onClick={onScanner} />
       <QuickAction icon={<BookOpen className="size-4" />} title="Explorar exercícios"
-        description="Pesquise por músculo, equipamento ou vídeos nativos." onClick={onLibrary} />
+        description="Pesquise por músculo ou equipamento; todos têm tutorial visual." onClick={onLibrary} />
       <QuickAction icon={<LineChart className="size-4" />} title="Ver evolução"
         description="Acompanhe medidas, histórico e evolução corporal." onClick={onProgress} />
     </div>

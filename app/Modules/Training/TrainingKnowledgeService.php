@@ -19,6 +19,21 @@ function training_knowledge_text(mixed $value, int $max = 4000): string {
     return mb_substr($plain, 0, $max, 'UTF-8');
 }
 
+/** @return list<string> */
+function training_knowledge_steps_from_text(string $text): array {
+    $plain = training_knowledge_text($text, 2400);
+    if ($plain === '') return [];
+    $parts = preg_split('/(?<=[.!?])\s+/u', $plain) ?: [];
+    $steps = [];
+    foreach ($parts as $part) {
+        $step = training_knowledge_text((string)$part, 420);
+        $step = trim((string)preg_replace('/^(?:step|passo)\s*:?\s*\d+\s*[:.\-)]+\s*/iu', '', $step));
+        if (mb_strlen($step, 'UTF-8') >= 12) $steps[] = $step;
+        if (count($steps) >= 8) break;
+    }
+    return $steps;
+}
+
 function training_knowledge_key(string $value): string {
     $value = mb_strtolower(trim($value), 'UTF-8');
     $value = strtr($value, [
@@ -161,6 +176,18 @@ function training_knowledge_image(array $row): ?array {
 }
 
 /** @return array<string,mixed>|null */
+/** @return list<string> */
+function training_knowledge_motion_frames(array $row): array {
+    $frames = [];
+    foreach (is_array($row['images'] ?? null) ? $row['images'] : [] as $image) {
+        if (!is_array($image)) continue;
+        $url = (string)($image['thumbnails']['medium'] ?? $image['image'] ?? '');
+        if (str_starts_with($url, 'https://wger.de/')) $frames[$url] = true;
+    }
+    return array_slice(array_keys($frames), 0, 4);
+}
+
+/** @return array<string,mixed>|null */
 function training_knowledge_video(array $row): ?array {
     $videos = is_array($row['videos'] ?? null) ? $row['videos'] : [];
     if ($videos === []) return null;
@@ -190,12 +217,15 @@ function training_knowledge_normalize(array $row): ?array {
     )));
     $license = is_array($row['license'] ?? null) ? $row['license'] : [];
     $image = training_knowledge_image($row);
+    $instructions = training_knowledge_text(
+        $translation['description_source'] ?? $translation['description'] ?? '', 2400);
     return [
         'id'=>'wger-' . (int)($row['id'] ?? 0), 'name'=>$name,
         'language'=>(int)($translation['language'] ?? 0) === 7 ? 'pt' : 'fallback',
         'group'=>training_knowledge_group($row), 'modality'=>training_knowledge_modality($row),
-        'equipment'=>$equipment, 'instructions'=>training_knowledge_text(
-            $translation['description_source'] ?? $translation['description'] ?? '', 2400),
+        'equipment'=>$equipment, 'instructions'=>$instructions,
+        'steps'=>training_knowledge_steps_from_text($instructions),
+        'motionFrames'=>training_knowledge_motion_frames($row),
         'imageUrl'=>$image['url'] ?? null,
         'imageLicense'=>$image['license'] ?? '', 'imageLicenseUrl'=>$image['licenseUrl'] ?? '',
         'imageAuthor'=>$image['author'] ?? '', 'video'=>training_knowledge_video($row),
@@ -238,7 +268,7 @@ function training_knowledge_upstream_rows(): array {
 
 /** @return list<array<string,mixed>> */
 function training_knowledge_catalog_items(): array {
-    $cache = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'levelos-training-catalog-v3.json';
+    $cache = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'levelos-training-catalog-v4.json';
     if (is_file($cache) && (time() - (int)filemtime($cache)) < TRAINING_KNOWLEDGE_TTL) {
         $raw = file_get_contents($cache, false, null, 0, TRAINING_KNOWLEDGE_MAX_BYTES + 1);
         $decoded = is_string($raw) ? json_decode($raw, true) : null;
@@ -252,17 +282,23 @@ function training_knowledge_catalog_items(): array {
         $item = training_knowledge_normalize($row);
         if ($item === null) continue;
         $canonical = training_knowledge_key(training_knowledge_english_name($row) ?: (string)$item['name']);
-        if (empty($item['imageUrl']) && isset($imageIndex[$canonical])) {
+        if (isset($imageIndex[$canonical])) {
             $fallback = $imageIndex[$canonical];
-            foreach (['imageUrl','imageLicense','imageLicenseUrl','imageAuthor'] as $field) {
-                $item[$field] = $fallback[$field] ?? $item[$field] ?? null;
+            if (empty($item['imageUrl'])) {
+                foreach (['imageUrl','imageLicense','imageLicenseUrl','imageAuthor'] as $field) {
+                    $item[$field] = $fallback[$field] ?? $item[$field] ?? null;
+                }
             }
+            if (count($item['motionFrames'] ?? []) < 2 && !empty($fallback['motionFrames'])) {
+                $item['motionFrames'] = $fallback['motionFrames'];
+            }
+            if (empty($item['steps']) && !empty($fallback['steps'])) $item['steps'] = $fallback['steps'];
         }
-        if (empty($item['imageUrl'])) continue;
+        if (empty($item['imageUrl']) || empty($item['steps'])) continue;
         $itemsByKey[$canonical !== '' ? $canonical : training_knowledge_key((string)$item['name'])] = $item;
     }
     foreach ($references as $item) {
-        if (empty($item['imageUrl'])) continue;
+        if (empty($item['imageUrl']) || empty($item['steps'])) continue;
         $key = training_knowledge_key((string)$item['name']);
         if ($key !== '' && !isset($itemsByKey[$key])) $itemsByKey[$key] = $item;
     }
@@ -305,5 +341,5 @@ function training_knowledge_search(string $query, string $group, string $equipme
     $page = array_slice($items, max(0, $offset), max(1, min(60, $limit)));
     return ['items'=>$page, 'total'=>$total, 'offset'=>max(0, $offset),
         'equipmentOptions'=>$options,
-        'attribution'=>'Biblioteca combinada: Wger + Free Exercise DB + RepDB. Todos os exercícios exibidos possuem imagem de referência; licenças e autorias são preservadas por item.'];
+        'attribution'=>'Biblioteca combinada: Wger + Free Exercise DB + RepDB. Todos os exercícios publicados possuem imagem, instruções em etapas e tutorial visual; vídeos diretos são usados quando a fonte os licencia.'];
 }

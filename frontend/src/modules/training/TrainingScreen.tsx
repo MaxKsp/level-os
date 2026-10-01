@@ -205,8 +205,8 @@ export function TrainingScreen() {
     {tab === "library" ? <div className="space-y-5">
       <div id="training-scanner" className="scroll-mt-24"><TrainingMachineScanner /></div>
       <div id="training-library" className="scroll-mt-24">
-        <ExerciseLibraryPicker title="Biblioteca e videoteca de exercícios"
-          description="Filtre exercícios com vídeo nativo, veja a execução dentro do Level OS e use a referência antes ou durante o treino." />
+        <ExerciseLibraryPicker title="Biblioteca de exercícios com tutorial"
+          description="Todos os exercícios publicados têm referência visual e passo a passo reproduzido dentro do Level OS, no computador e no celular." />
       </div>
     </div> : null}
 

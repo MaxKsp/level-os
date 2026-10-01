@@ -22,6 +22,8 @@ interface RawExercise {
   imageLicenseUrl?: string
   imageAuthor?: string
   video?: { url: string; durationSec?: number; author?: string; license?: string; licenseUrl?: string } | null
+  steps?: string[]
+  motionFrames?: string[]
   source: "wger" | "free-exercise-db" | "repdb"
   sourceUrl: string
   license?: string
@@ -50,6 +52,8 @@ export function normalizeLibraryExercise(raw: RawExercise): LibraryExercise {
     imageLicenseUrl: raw.imageLicenseUrl ?? "",
     imageAuthor: raw.imageAuthor ?? "",
     video: raw.video ?? null,
+    steps: Array.isArray(raw.steps) ? raw.steps.filter((step): step is string => typeof step === "string" && step.trim().length > 0) : [],
+    motionFrames: Array.isArray(raw.motionFrames) ? raw.motionFrames.filter((frame): frame is string => typeof frame === "string" && frame.startsWith("https://")) : [],
     source: raw.source,
     sourceUrl: raw.sourceUrl,
     license: raw.license ?? "",

@@ -22,6 +22,8 @@ export interface LibraryExercise {
   imageLicenseUrl?: string
   imageAuthor?: string
   video?: ExerciseVideoReference | null
+  steps?: string[]
+  motionFrames?: string[]
   source?: "local" | "wger" | "free-exercise-db" | "repdb"
   sourceUrl?: string
   license?: string
