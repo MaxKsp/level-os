@@ -1,5 +1,4 @@
 import { Icon } from "../../design-system"
-import { LevelSelect } from "../../components/ui/LevelSelect"
 import { LevelDateInput } from "../../components/ui/LevelDateInput"
 import { cn } from "../../lib/cn"
 import type { FinanceDateRange, FinancePeriodPreset } from "./period"
@@ -50,11 +49,8 @@ export function FinancePeriodFilter({
         </div>
 
         <div className="flex w-full min-w-0 flex-col gap-2 lg:w-[25.5rem] lg:shrink-0">
-          <div className="sm:hidden">
-            <LevelSelect aria-label="Período rápido" value={preset} onChange={onPresetChange}
-              options={[...options, { value: "custom", label: "Personalizado" }]} />
-          </div>
-          <div className="hidden max-w-full flex-wrap gap-1 rounded-lg border border-outline-variant bg-surface-container p-1 sm:flex" role="group" aria-label="Períodos rápidos">
+          <div className="-mx-1 max-w-full overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex sm:flex-wrap sm:overflow-visible sm:rounded-lg sm:border sm:border-outline-variant sm:bg-surface-container sm:p-1" role="group" aria-label="Períodos rápidos">
+            <div className="flex min-w-max gap-1 sm:min-w-0 sm:flex-wrap">
             {options.map((option) => (
               <button
                 key={option.value}
@@ -84,6 +80,7 @@ export function FinancePeriodFilter({
             >
               Personalizado
             </button>
+            </div>
           </div>
 
           <div className="grid min-h-11 min-w-0 grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]" aria-label="Intervalo personalizado"
