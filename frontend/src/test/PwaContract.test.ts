@@ -20,7 +20,9 @@ describe("PWA — documentos instaláveis", () => {
       icons: { src: string; sizes: string }[]
     }
     expect(manifest.display).toBe("standalone")
-    expect(manifest.start_url).toBeTruthy()
+    expect(manifest.start_url).toBe("/app.php")
+    expect(read("app.php")).toContain("dashboard_view_render")
+    expect(read("app.php")).not.toContain("landing")
     expect(manifest.icons.length).toBeGreaterThanOrEqual(3)
     // Ícone ausente quebra instalação; o arquivo precisa existir de fato.
     manifest.icons.forEach((icon) => expect(() => read(icon.src)).not.toThrow())
@@ -34,6 +36,12 @@ describe("PWA — documentos instaláveis", () => {
       expect(source).toContain("registerServiceWorker")
       expect(source).toMatch(/addEventListener\(["']load["']/)
     }
+  })
+
+  it("nunca mantém a landing aberta quando executado como app instalado", () => {
+    const marketingEntry = read("frontend/src/marketing/main.tsx")
+    expect(marketingEntry).toContain('(display-mode: standalone)')
+    expect(marketingEntry).toContain('window.location.replace("/app.php")')
   })
 
   it("usa bootstrap de tema externo, compatível com script-src 'self'", () => {

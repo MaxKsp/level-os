@@ -7,7 +7,15 @@ import { LandingPage } from "./LandingPage"
 import { startMarketingAnalytics } from "./analytics"
 import "./marketing.css"
 
-startMarketingAnalytics()
+const installedApp = window.matchMedia("(display-mode: standalone)").matches
+  || Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
+
+if (installedApp) {
+  document.documentElement.style.visibility = "hidden"
+  window.location.replace("/app.php")
+} else {
+  startMarketingAnalytics()
+}
 
 // A entrada pública também precisa registrar o worker para cumprir o contrato
 // instalável quando a primeira visita acontece pela landing.
