@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Camera, CircleAlert, ExternalLink, ImagePlus, LoaderCircle, Play, ScanSearch, ShieldCheck, X } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Modal } from "../../components/ui/Modal"
+import { LevelStepList, type LevelStepStatus } from "../../components/ui/LevelStepList"
 import { LevelSelect } from "../../components/ui/LevelSelect"
 import { SectionCard } from "../../design-system"
 import { fetchTrainingLibrary } from "./trainingKnowledge"
@@ -144,14 +145,36 @@ export function TrainingMachineScanner() {
     .filter((item, index, all) => all.findIndex((candidate) => candidate.id === item.id) === index) : []
   const supportedMachines = recognition?.catalog?.length ? recognition.catalog : candidates
   const featuredExercise = related.find((exercise) => Boolean(exercise.video?.url)) ?? null
+  const captureDone = Boolean(preview || analyzing || recognition)
+  const identifyDone = Boolean(selected)
+  const identifyStatus: LevelStepStatus = identifyDone ? "complete" : captureDone ? "active" : "pending"
+  const playbackStatus: LevelStepStatus = selected ? "active" : "pending"
 
   return <SectionCard title="Reconhecer aparelho" description="Tire uma foto, confira o aparelho identificado e veja a execução dentro do Level OS."
     icon={<ScanSearch className="size-5 text-primary" />}>
-    <div className="mb-4 grid gap-2 sm:grid-cols-3" aria-label="Como funciona o reconhecimento">
-      <ScannerStep number="1" icon={<Camera className="size-4" />} title="Fotografe" text="Centralize o aparelho na câmera." active={!recognition && !analyzing} />
-      <ScannerStep number="2" icon={<ScanSearch className="size-4" />} title="Identificação" text="A IA sugere o aparelho e mostra a confiança." active={analyzing || Boolean(recognition && !selected)} />
-      <ScannerStep number="3" icon={<Play className="size-4" />} title="Execução" text="Veja orientações e vídeo nativo compatível." active={Boolean(selected)} />
-    </div>
+    <LevelStepList ariaLabel="Etapas do reconhecimento de aparelho" className="mb-4" items={[
+      {
+        id: "capture",
+        title: "Fotografe o aparelho",
+        description: "Centralize a máquina e evite enquadrar pessoas.",
+        icon: <Camera className="size-4" />,
+        status: captureDone ? "complete" : "active",
+      },
+      {
+        id: "identify",
+        title: "Confirme a identificação",
+        description: analyzing ? "Analisando a imagem e comparando com os aparelhos suportados." : "Confira o aparelho sugerido e ajuste manualmente se necessário.",
+        icon: <ScanSearch className="size-4" />,
+        status: identifyStatus,
+      },
+      {
+        id: "playback",
+        title: "Veja a execução",
+        description: "O Level OS seleciona orientações e prioriza um vídeo nativo compatível.",
+        icon: <Play className="size-4" />,
+        status: playbackStatus,
+      },
+    ]} />
     <div className="grid gap-4 lg:grid-cols-[.9fr_1.1fr]">
       <div className="rounded-xl border border-outline-variant bg-surface-container-low p-4">
         <div className="flex flex-wrap gap-2">
@@ -235,22 +258,4 @@ export function TrainingMachineScanner() {
     </div></Modal>
     <TrainingVideoModal exercise={videoExercise} open={Boolean(videoExercise)} onClose={() => setVideoExercise(null)} />
   </SectionCard>
-}
-
-function ScannerStep({ number, icon, title, text, active }: {
-  number: string
-  icon: ReactNode
-  title: string
-  text: string
-  active: boolean
-}) {
-  return <div className={"flex items-start gap-3 rounded-xl border p-3 transition-colors " +
-    (active ? "border-primary/35 bg-primary/5" : "border-outline-variant bg-surface-container-low/55")}>
-    <span className={"grid size-8 shrink-0 place-items-center rounded-lg text-xs font-bold " +
-      (active ? "bg-primary text-on-primary" : "bg-surface-container-high text-muted")}>{number}</span>
-    <span className="min-w-0">
-      <span className={"flex items-center gap-1.5 text-xs font-semibold " + (active ? "text-primary" : "text-on-surface")}>{icon}{title}</span>
-      <span className="mt-1 block text-[10px] leading-4 text-muted">{text}</span>
-    </span>
-  </div>
 }

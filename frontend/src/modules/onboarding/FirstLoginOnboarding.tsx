@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom"
 import { PixelCard } from "@/components/ui/pixel-card"
 import { Button } from "../../components/ui/button"
 import { Modal } from "../../components/ui/Modal"
+import { LevelStepList } from "../../components/ui/LevelStepList"
 import { useApp } from "../../context/AppContext"
 import { Icon } from "../../design-system/Icon"
 import { useFinance } from "../finance/store"
@@ -117,15 +118,16 @@ export function FirstLoginOnboarding() {
             <div className="mb-2 flex items-center justify-between text-xs"><span className="text-on-surface-variant">Progresso da configuração</span><strong className="font-mono tabular-nums text-primary">{progress}%</strong></div>
             <div className="h-1.5 overflow-hidden rounded-full bg-surface-container-high" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}><span className="block h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none" style={{ width: `${progress}%` }} /></div>
           </div>
-          <div className="divide-y divide-outline-variant border-y border-outline-variant">
-            {steps.map((item) => (
-              <section key={item.id} className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center">
-                <span className={`grid size-10 shrink-0 place-items-center rounded-lg ${item.complete ? "bg-primary/12 text-primary" : "bg-surface-container text-on-surface-variant"}`}><Icon name={item.complete ? "check" : item.icon} /></span>
-                <div className="min-w-0 flex-1"><h3 className="text-sm font-semibold text-on-surface">{item.title}</h3><p className="mt-1 text-xs leading-5 text-on-surface-variant">{item.description}</p></div>
-                {item.complete ? <span className="text-xs font-semibold text-primary">Concluído</span> : <Button type="button" variant="outline" size="sm" onClick={item.action}>{item.actionLabel}</Button>}
-              </section>
-            ))}
-          </div>
+          <LevelStepList ariaLabel="Etapas de configuração do Level OS" items={steps.map((item) => ({
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            icon: <Icon name={item.icon} />,
+            status: item.complete ? "complete" : "pending",
+            trailing: item.complete
+              ? <span className="text-xs font-semibold text-primary">Concluído</span>
+              : <Button type="button" variant="outline" size="sm" onClick={item.action}>{item.actionLabel}</Button>,
+          }))} />
           <footer className="flex flex-col-reverse justify-between gap-3 sm:flex-row">
             <Button type="button" variant="ghost" size="lg" onClick={() => setIntro(true)}>Voltar</Button>
             <Button type="button" size="lg" onClick={finish}>{completedCount === steps.length ? "Ir para a Visão Geral" : "Continuar depois"}<Icon name="arrow_forward" /></Button>
