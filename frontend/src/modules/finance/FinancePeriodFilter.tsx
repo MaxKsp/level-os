@@ -49,8 +49,8 @@ export function FinancePeriodFilter({
         </div>
 
         <div className="flex w-full min-w-0 flex-col gap-2 lg:w-[25.5rem] lg:shrink-0">
-          <div className="-mx-1 max-w-full overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex sm:flex-wrap sm:overflow-visible sm:rounded-lg sm:border sm:border-outline-variant sm:bg-surface-container sm:p-1" role="group" aria-label="Períodos rápidos">
-            <div className="flex min-w-max gap-1 sm:min-w-0 sm:flex-wrap">
+          <div className="max-w-full overflow-x-auto rounded-lg border border-outline-variant bg-surface-container p-1" role="group" aria-label="Períodos rápidos">
+            <div className="flex min-w-max gap-1">
             {options.map((option) => (
               <button
                 key={option.value}
