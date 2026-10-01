@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react"
 import { Activity, Bike, Dumbbell, ExternalLink, LibraryBig, LoaderCircle, Play, Plus, Search, Waves } from "lucide-react"
 import { LevelSelect } from "../../components/ui/LevelSelect"
-import { findExerciseVideo } from "./exerciseVideos"
 import { EXERCISE_CATALOG, searchExercises, type LibraryExercise, type MuscleGroup } from "./exerciseCatalog"
 import { fetchTrainingLibrary } from "./trainingKnowledge"
+import { TrainingVideoModal } from "./NativeTrainingVideo"
 
 const groups: Array<MuscleGroup | "Todos"> = ["Todos", "Peito", "Costas", "Pernas", "Ombros", "Braços", "Core", "Cardio", "Mobilidade"]
 const icons = { forca: Dumbbell, cardio: Bike, calistenia: Activity, mobilidade: Waves }
@@ -22,6 +22,7 @@ export function ExerciseLibraryPicker({
   const [query, setQuery] = useState("")
   const [group, setGroup] = useState<MuscleGroup | "Todos">("Todos")
   const [equipment, setEquipment] = useState("")
+  const [videoOnly, setVideoOnly] = useState(false)
   const [items, setItems] = useState<LibraryExercise[]>([])
   const [equipmentOptions, setEquipmentOptions] = useState<string[]>([])
   const [total, setTotal] = useState(0)
@@ -30,10 +31,11 @@ export function ExerciseLibraryPicker({
   const [error, setError] = useState("")
   const [attribution, setAttribution] = useState("")
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [videoExercise, setVideoExercise] = useState<LibraryExercise | null>(null)
 
   const fallback = useMemo(() => searchExercises(query, group)
-    .filter((item) => !equipment || item.equipment.toLocaleLowerCase("pt-BR").includes(equipment.toLocaleLowerCase("pt-BR")))
-    .slice(0, 36), [query, group, equipment])
+    .filter((item) => (!equipment || item.equipment.toLocaleLowerCase("pt-BR").includes(equipment.toLocaleLowerCase("pt-BR"))) && (!videoOnly || Boolean(item.video?.url)))
+    .slice(0, 36), [query, group, equipment, videoOnly])
 
   useEffect(() => {
     if (!window.CSRF_TOKEN) {
@@ -43,7 +45,7 @@ export function ExerciseLibraryPicker({
     const controller = new AbortController()
     const timer = window.setTimeout(() => {
       setLoading(true); setError("")
-      void fetchTrainingLibrary({ query, group, equipment, limit: 36 }, controller.signal)
+      void fetchTrainingLibrary({ query, group, equipment, videoOnly, limit: 36 }, controller.signal)
         .then((data) => {
           setItems(data.items); setTotal(data.total)
           setEquipmentOptions(data.equipmentOptions); setAttribution(data.attribution)
@@ -56,12 +58,12 @@ export function ExerciseLibraryPicker({
         .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     }, 260)
     return () => { controller.abort(); window.clearTimeout(timer) }
-  }, [query, group, equipment, fallback])
+  }, [query, group, equipment, videoOnly, fallback])
   const loadMore = async () => {
     if (loadingMore || items.length >= total || !window.CSRF_TOKEN) return
     setLoadingMore(true)
     try {
-      const data = await fetchTrainingLibrary({ query, group, equipment, limit: 36, offset: items.length })
+      const data = await fetchTrainingLibrary({ query, group, equipment, videoOnly, limit: 36, offset: items.length })
       setItems((current) => [...current, ...data.items])
       setTotal(data.total); setEquipmentOptions(data.equipmentOptions); setAttribution(data.attribution)
     } catch (cause) {
@@ -80,7 +82,7 @@ export function ExerciseLibraryPicker({
       <span className="rounded-lg border border-primary/25 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary">
         {loading ? "Atualizando…" : total.toLocaleString("pt-BR") + " exercícios"}</span>
     </div>
-    <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_12rem_14rem]">
+    <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_11rem_13rem_11rem]">
       <label className="flex min-h-11 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container px-3">
         <Search className="size-4 shrink-0 text-muted" />
         <input className="w-full min-w-0 bg-transparent text-sm text-on-surface outline-none placeholder:text-muted"
@@ -90,6 +92,8 @@ export function ExerciseLibraryPicker({
         options={groups.map((value) => ({ value, label: value === "Todos" ? "Todos os grupos" : value }))} />
       <LevelSelect aria-label="Equipamento" value={equipment} onChange={setEquipment}
         options={equipmentSelect} />
+      <LevelSelect aria-label="Mídia" value={videoOnly ? "video" : "all"} onChange={(value) => setVideoOnly(value === "video")}
+        options={[{ value: "all", label: "Toda mídia" }, { value: "video", label: "Com vídeo nativo" }]} />
     </div>
     {error ? <p role="status" className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-on-surface">{error}</p> : null}
     <div className={compact ? "grid max-h-[28rem] gap-2 overflow-y-auto pr-1 sm:grid-cols-2" : "grid gap-3 sm:grid-cols-2 xl:grid-cols-3"}>
@@ -97,7 +101,7 @@ export function ExerciseLibraryPicker({
         const key = item.id ?? "local-" + item.name
         const Symbol = icons[item.modality]
         const isOpen = expanded === key
-        const externalVideo = item.video?.url ?? findExerciseVideo(item.name)
+        const nativeVideo = Boolean(item.video?.url)
         return <article key={key} className="group flex min-w-0 flex-col overflow-hidden rounded-xl border border-outline-variant bg-surface-container/55 transition-colors hover:border-primary/35">
           {item.imageUrl ? <div className="aspect-[16/9] overflow-hidden border-b border-outline-variant bg-surface-container-low">
             <img src={item.imageUrl} alt={"Referência visual de " + item.name} loading="lazy" className="h-full w-full object-contain" />
@@ -127,10 +131,10 @@ export function ExerciseLibraryPicker({
                 className="min-h-9 rounded-lg border border-outline-variant px-2.5 text-[11px] font-semibold text-on-surface hover:bg-surface-container-high">
                 {isOpen ? "Ocultar detalhes" : "Como executar"}
               </button>
-              {externalVideo ? <a href={externalVideo} target="_blank" rel="noopener noreferrer"
-                aria-label={"Ver vídeo de " + item.name}
+              {nativeVideo ? <button type="button" onClick={() => setVideoExercise(item)}
+                aria-label={"Assistir vídeo de " + item.name}
                 className="inline-flex min-h-9 items-center gap-1 rounded-lg border border-primary/25 px-2.5 text-[11px] font-semibold text-primary hover:bg-primary/10">
-                <Play className="size-3.5" />{item.video ? "Vídeo da base" : "Buscar vídeo"}</a> : null}
+                <Play className="size-3.5" />Assistir aqui</button> : null}
               {onSelect ? <button type="button" className="inline-flex min-h-9 items-center gap-1 rounded-lg bg-primary px-2.5 text-[11px] font-semibold text-on-primary hover:opacity-90"
                 onClick={() => onSelect(item)}><Plus className="size-3.5" />Adicionar</button> : null}
             </div>
@@ -144,5 +148,6 @@ export function ExerciseLibraryPicker({
       className="min-h-10 rounded-lg border border-primary/25 px-4 text-xs font-semibold text-primary hover:bg-primary/10 disabled:opacity-50">{loadingMore ? "Carregando…" : "Carregar mais"}</button></div> : null}
     {attribution ? <p className="text-center text-[10px] text-muted">{attribution}</p> : null}
     {!window.CSRF_TOKEN && EXERCISE_CATALOG.length ? <p className="text-center text-[10px] text-muted">Catálogo local limitado disponível fora de sessão autenticada.</p> : null}
+    <TrainingVideoModal exercise={videoExercise} open={Boolean(videoExercise)} onClose={() => setVideoExercise(null)} />
   </section>
 }
