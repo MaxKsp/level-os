@@ -11,6 +11,22 @@ return static function (): void {
     test_assert_true(in_array('leg extension', training_knowledge_search_needles('cadeira extensora'), true),
         'Machine aliases must support Portuguese searches over English upstream content.');
 
+    $videoCatalog = training_video_catalog_items();
+    test_assert_true(count($videoCatalog) >= 900, 'Bundled video catalog must provide broad exercise coverage.');
+    foreach (array_slice($videoCatalog, 0, 40) as $videoItem) {
+        test_assert_true(!empty($videoItem['steps']), 'Every published video exercise must include ordered steps.');
+        test_assert_same('youtube', $videoItem['video']['provider'] ?? null, 'Bundled tutorials must use the expected video provider.');
+        test_assert_true(str_starts_with((string)($videoItem['imageUrl'] ?? ''), 'https://i.ytimg.com/vi/'),
+            'Video cards must use lightweight YouTube thumbnails.');
+    }
+    $videoPage = training_knowledge_search('', '', '', 24, 0);
+    test_assert_same(24, count($videoPage['items']), 'Initial library page must stay compact for fast rendering.');
+    test_assert_true(($videoPage['videoRequired'] ?? false) === true, 'Public library must explicitly guarantee video coverage.');
+    foreach ($videoPage['items'] as $videoItem) {
+        test_assert_true(!empty($videoItem['video']['youtubeId']) && !empty($videoItem['steps']),
+            'Every public library item must have video and steps.');
+    }
+
     $row = [
         'id'=>75, 'category'=>['name'=>'Chest'],
         'muscles'=>[['name_en'=>'Pectoralis major']], 'muscles_secondary'=>[],

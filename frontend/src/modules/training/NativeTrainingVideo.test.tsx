@@ -25,6 +25,20 @@ describe("NativeTrainingVideo", () => {
     expect(screen.getByText("VÍDEO LEVEL OS")).toBeInTheDocument()
   })
 
+  it("incorpora vídeo explicativo do YouTube junto do passo a passo", () => {
+    const exercise: LibraryExercise = { ...base, source: "workout-db", formCues: ["Mantenha o tronco estável."], video: {
+      url: "https://www.youtube.com/watch?v=gBZkSn-zsD0",
+      provider: "youtube", youtubeId: "gBZkSn-zsD0", startSeconds: 12, author: "Coach",
+    } }
+    render(<NativeTrainingVideo exercise={exercise} />)
+    const player = screen.getByTitle("Vídeo explicativo de Leg press")
+    expect(player.tagName).toBe("IFRAME")
+    expect(player).toHaveAttribute("src", expect.stringContaining("youtube-nocookie.com/embed/gBZkSn-zsD0"))
+    expect(player).toHaveAttribute("src", expect.stringContaining("start=12"))
+    expect(screen.getByText("VÍDEO EXPLICATIVO")).toBeInTheDocument()
+    expect(screen.getByText("Mantenha o tronco estável.")).toBeInTheDocument()
+  })
+
   it("oferece tutorial guiado quando não existe vídeo direto", () => {
     render(<NativeTrainingVideo exercise={{ ...base, video: null }} />)
     expect(screen.getByText("TUTORIAL GUIADO")).toBeInTheDocument()

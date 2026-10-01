@@ -3,7 +3,12 @@ import type { TrainingModality } from "./contracts"
 export type MuscleGroup = "Peito" | "Costas" | "Pernas" | "Ombros" | "Braços" | "Core" | "Cardio" | "Mobilidade"
 export interface ExerciseVideoReference {
   url: string
+  provider?: "direct" | "youtube"
+  youtubeId?: string
+  startSeconds?: number
   durationSec?: number
+  type?: string
+  language?: string
   author?: string
   license?: string
   licenseUrl?: string
@@ -23,8 +28,9 @@ export interface LibraryExercise {
   imageAuthor?: string
   video?: ExerciseVideoReference | null
   steps?: string[]
+  formCues?: string[]
   motionFrames?: string[]
-  source?: "local" | "wger" | "free-exercise-db" | "repdb"
+  source?: "local" | "wger" | "free-exercise-db" | "repdb" | "workout-db"
   sourceUrl?: string
   license?: string
   licenseUrl?: string

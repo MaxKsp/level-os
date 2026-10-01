@@ -28,27 +28,42 @@ export function NativeTrainingVideo({ exercise, compact = false, autoPlay = fals
   const [step, setStep] = useState(0)
   const [playing, setPlaying] = useState(autoPlay)
   const [failed, setFailed] = useState(false)
-  const directVideo = exercise.video?.url ?? ""
+  const youtubeId = exercise.video?.provider === "youtube" ? exercise.video.youtubeId ?? "" : ""
+  const directVideo = youtubeId ? "" : exercise.video?.url ?? ""
 
   useEffect(() => {
     setStep(0); setPlaying(autoPlay); setFailed(false)
     if (autoPlay && directVideo) void videoRef.current?.play().catch(() => undefined)
-  }, [exercise.id, directVideo, autoPlay])
+  }, [exercise.id, directVideo, youtubeId, autoPlay])
 
   useEffect(() => {
-    if (!playing || directVideo || steps.length <= 1) return
+    if (!playing || directVideo || youtubeId || steps.length <= 1) return
     const timer = window.setInterval(() => {
       setStep((current) => current >= steps.length - 1 ? 0 : current + 1)
     }, 4200)
     return () => window.clearInterval(timer)
-  }, [playing, directVideo, steps.length])
+  }, [playing, directVideo, youtubeId, steps.length])
 
   const currentFrame = frames.length ? frames[step % frames.length] : ""
   const progress = steps.length ? ((step + 1) / steps.length) * 100 : 0
+  const startSeconds = Math.max(0, exercise.video?.startSeconds ?? 0)
+  const youtubeSrc = youtubeId
+    ? `https://www.youtube-nocookie.com/embed/${youtubeId}?rel=0&playsinline=1&modestbranding=1${startSeconds ? `&start=${startSeconds}` : ""}${autoPlay ? "&autoplay=1" : ""}`
+    : ""
 
   return <div className={compact ? "space-y-3" : "grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,.75fr)]"}>
     <div className="min-w-0">
-      {directVideo ? <div className="overflow-hidden rounded-xl border border-outline bg-black">
+      {youtubeSrc ? <div className="overflow-hidden rounded-xl border border-outline bg-black">
+        <div className="relative aspect-video">
+          <iframe src={youtubeSrc} title={"Vídeo explicativo de " + exercise.name}
+            loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen referrerPolicy="strict-origin-when-cross-origin"
+            className="h-full w-full border-0" />
+          <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-black/75 px-2 py-1 text-[9px] font-bold tracking-wide text-white">
+            VÍDEO EXPLICATIVO
+          </span>
+        </div>
+      </div> : directVideo ? <div className="overflow-hidden rounded-xl border border-outline bg-black">
         <div className="relative aspect-video">
           <video ref={videoRef} src={directVideo} poster={exercise.imageUrl ?? undefined} controls playsInline
             preload="metadata" onError={() => setFailed(true)}
@@ -73,7 +88,7 @@ export function NativeTrainingVideo({ exercise, compact = false, autoPlay = fals
       </div>
       <ol className={compact ? "mt-3 space-y-2" : "mt-3 max-h-[24rem] space-y-2 overflow-y-auto pr-1"}>
         {steps.length ? steps.map((item, index) => <li key={index}>
-          <button type="button" onClick={() => { setStep(index); if (!directVideo) setPlaying(false) }}
+          <button type="button" onClick={() => { setStep(index); if (!directVideo && !youtubeId) setPlaying(false) }}
             className={"flex w-full items-start gap-3 rounded-lg border p-3 text-left transition-colors " +
               (index === step ? "border-primary/40 bg-primary/8" : "border-outline-variant bg-surface hover:bg-surface-container-high")}>
             <span className={"grid size-7 shrink-0 place-items-center rounded-full text-[10px] font-bold " +
@@ -82,6 +97,13 @@ export function NativeTrainingVideo({ exercise, compact = false, autoPlay = fals
           </button>
         </li>) : <li className="text-xs leading-5 text-on-surface-variant">{exercise.cue}</li>}
       </ol>
+      {exercise.formCues?.length ? <div className="mt-4 border-t border-outline-variant pt-3">
+        <p className="text-[10px] font-bold uppercase tracking-[.15em] text-primary">Pontos importantes</p>
+        <ul className="mt-2 space-y-2">{exercise.formCues.slice(0, 5).map((cue) =>
+          <li key={cue} className="flex gap-2 text-xs leading-5 text-on-surface-variant">
+            <span className="mt-2 size-1.5 shrink-0 rounded-full bg-primary" />{cue}
+          </li>)}</ul>
+      </div> : null}
     </div>
   </div>
 }
@@ -161,7 +183,7 @@ export function TrainingVideoModal({ exercise, open, onClose }: {
 }) {
   return <Modal isOpen={open} onClose={onClose}
     title={exercise ? "Como fazer · " + exercise.name : "Tutorial do exercício"}
-    description="Demonstração visual e instruções em etapas, adaptadas para computador e celular."
+    description="Vídeo demonstrativo real, execução em etapas e pontos de técnica no mesmo tutorial."
     icon="play_circle" maxWidth="max-w-6xl">
     {exercise ? <NativeTrainingVideo exercise={exercise} autoPlay /> : null}
   </Modal>

@@ -9,8 +9,11 @@ declare(strict_types=1);
 const TRAINING_KNOWLEDGE_UPSTREAM = 'https://wger.de/api/v2/exerciseinfo/?limit=1000';
 const TRAINING_KNOWLEDGE_TTL = 21600;
 const TRAINING_KNOWLEDGE_MAX_BYTES = 12_000_000;
+const TRAINING_VIDEO_CATALOG_FILE = __DIR__ . '/data/workout-video-catalog.json';
+const TRAINING_VIDEO_CATALOG_SOURCE = 'https://github.com/rthepen/workout-database';
 
 require_once __DIR__ . '/TrainingReferenceCatalogService.php';
+require_once __DIR__ . '/TrainingVideoCatalogService.php';
 
 function training_knowledge_text(mixed $value, int $max = 4000): string {
     if (!is_string($value)) return '';
@@ -57,9 +60,13 @@ function training_knowledge_equipment_name(string $raw): string {
     $map = [
         'barbell'=>'Barra', 'dumbbell'=>'Halteres', 'kettlebell'=>'Kettlebell',
         'bench'=>'Banco', 'pull-up bar'=>'Barra fixa', 'pull up bar'=>'Barra fixa',
-        'gym mat'=>'Colchonete', 'mat'=>'Colchonete', 'bodyweight exercise'=>'Peso corporal',
-        'body weight'=>'Peso corporal', 'none (bodyweight exercise)'=>'Peso corporal',
-        'cable'=>'Cabo / polia', 'sz-bar'=>'Barra EZ', 'swiss ball'=>'Bola suíça',
+        'gym mat'=>'Colchonete', 'mat'=>'Colchonete', 'bodyweight'=>'Peso corporal',
+        'bodyweight exercise'=>'Peso corporal', 'body weight'=>'Peso corporal', 'none (bodyweight exercise)'=>'Peso corporal',
+        'cable'=>'Cabo / polia', 'cable machine'=>'Cabo / polia', 'sz-bar'=>'Barra EZ', 'swiss ball'=>'Bola suíça',
+        'dumbbells'=>'Halteres', 'resistance band'=>'Faixa elástica', 'ab wheel'=>'Roda abdominal',
+        'leverage machine'=>'Máquina articulada', 'cardio equipment'=>'Equipamento de cardio',
+        'spinning bike'=>'Bicicleta spinning', 'trx suspension'=>'TRX', 'jump rope'=>'Corda',
+        'medicine ball'=>'Medicine ball', 'plyo box'=>'Caixa pliométrica', 'battle rope'=>'Corda naval',
     ];
     $key = training_knowledge_key($raw);
     return $map[$key] ?? training_knowledge_text($raw, 80);
@@ -317,11 +324,13 @@ function training_knowledge_search(string $query, string $group, string $equipme
     $group = mb_substr(trim($group), 0, 40, 'UTF-8');
     $equipmentNeedle = training_knowledge_key(mb_substr($equipment, 0, 80, 'UTF-8'));
     $candidates = [];
-    foreach (training_knowledge_catalog_items() as $item) {
-        if (($group !== '' && $group !== 'Todos' && $item['group'] !== $group) || empty($item['imageUrl'])) continue;
+    foreach (training_video_catalog_items() as $item) {
+        if (($group !== '' && $group !== 'Todos' && $item['group'] !== $group)
+            || empty($item['imageUrl']) || !is_array($item['video'] ?? null)) continue;
         if ($needles !== []) {
-            $haystack = training_knowledge_key($item['name'] . ' ' . $item['group'] . ' '
-                . implode(' ', $item['equipment']) . ' ' . $item['instructions']);
+            $haystack = (string)($item['_search'] ?? training_knowledge_key(
+                $item['name'] . ' ' . $item['group'] . ' ' . implode(' ', $item['equipment']) . ' ' . $item['instructions']
+            ));
             if (!array_filter($needles, static fn(string $needle): bool => str_contains($haystack, $needle))) continue;
         }
         $candidates[] = $item;
@@ -330,16 +339,16 @@ function training_knowledge_search(string $query, string $group, string $equipme
     foreach ($candidates as $item) foreach ($item['equipment'] as $name) $equipmentOptions[$name] = true;
     $items = $equipmentNeedle === '' ? $candidates : array_values(array_filter($candidates,
         static fn(array $item): bool => str_contains(training_knowledge_key(implode(' ', $item['equipment'])), $equipmentNeedle)));
-    if ($videoOnly) {
-        $items = array_values(array_filter($items, static fn(array $item): bool => is_array($item['video'] ?? null) && trim((string)($item['video']['url'] ?? '')) !== ''));
-    }
+    // A biblioteca pública é video-first: nenhum card é publicado sem vídeo e passos.
     usort($items, static fn(array $a, array $b): int =>
-        ((int)($b['language'] === 'pt') <=> (int)($a['language'] === 'pt'))
+        ((int)(($b['video']['type'] ?? '') === 'standard') <=> (int)(($a['video']['type'] ?? '') === 'standard'))
         ?: strcasecmp((string)$a['name'], (string)$b['name']));
     $options = array_keys($equipmentOptions); sort($options, SORT_NATURAL | SORT_FLAG_CASE);
     $total = count($items);
     $page = array_slice($items, max(0, $offset), max(1, min(60, $limit)));
+    foreach ($page as &$item) unset($item['_search']);
+    unset($item);
     return ['items'=>$page, 'total'=>$total, 'offset'=>max(0, $offset),
-        'equipmentOptions'=>$options,
-        'attribution'=>'Biblioteca combinada: Wger + Free Exercise DB + RepDB. Todos os exercícios publicados possuem imagem, instruções em etapas e tutorial visual; vídeos diretos são usados quando a fonte os licencia.'];
+        'equipmentOptions'=>$options, 'videoRequired'=>true,
+        'attribution'=>'Biblioteca em vídeo: Workout Database (metadados MIT) com tutoriais externos incorporados do YouTube. Cada exercício exibido possui vídeo real e execução em etapas.'];
 }

@@ -21,10 +21,14 @@ interface RawExercise {
   imageLicense?: string
   imageLicenseUrl?: string
   imageAuthor?: string
-  video?: { url: string; durationSec?: number; author?: string; license?: string; licenseUrl?: string } | null
+  video?: {
+    url: string; provider?: "direct" | "youtube"; youtubeId?: string; startSeconds?: number
+    durationSec?: number; type?: string; language?: string; author?: string; license?: string; licenseUrl?: string
+  } | null
   steps?: string[]
+  formCues?: string[]
   motionFrames?: string[]
-  source: "wger" | "free-exercise-db" | "repdb"
+  source: "wger" | "free-exercise-db" | "repdb" | "workout-db"
   sourceUrl: string
   license?: string
   licenseUrl?: string
@@ -53,6 +57,7 @@ export function normalizeLibraryExercise(raw: RawExercise): LibraryExercise {
     imageAuthor: raw.imageAuthor ?? "",
     video: raw.video ?? null,
     steps: Array.isArray(raw.steps) ? raw.steps.filter((step): step is string => typeof step === "string" && step.trim().length > 0) : [],
+    formCues: Array.isArray(raw.formCues) ? raw.formCues.filter((cue): cue is string => typeof cue === "string" && cue.trim().length > 0) : [],
     motionFrames: Array.isArray(raw.motionFrames) ? raw.motionFrames.filter((frame): frame is string => typeof frame === "string" && frame.startsWith("https://")) : [],
     source: raw.source,
     sourceUrl: raw.sourceUrl,
@@ -62,6 +67,9 @@ export function normalizeLibraryExercise(raw: RawExercise): LibraryExercise {
   }
 }
 
+const TRAINING_LIBRARY_MEMORY_TTL = 5 * 60 * 1000
+const trainingLibraryMemory = new Map<string, { at: number; data: TrainingLibraryResponse }>()
+
 export async function fetchTrainingLibrary(params: {
   query?: string; group?: MuscleGroup | "Todos"; equipment?: string; videoOnly?: boolean; limit?: number; offset?: number
 }, signal?: AbortSignal): Promise<TrainingLibraryResponse> {
@@ -70,16 +78,19 @@ export async function fetchTrainingLibrary(params: {
   if (params.group && params.group !== "Todos") search.set("group", params.group)
   if (params.equipment?.trim()) search.set("equipment", params.equipment.trim())
   if (params.videoOnly) search.set("video", "1")
-  search.set("limit", String(Math.max(1, Math.min(60, params.limit ?? 36))))
+  search.set("limit", String(Math.max(1, Math.min(60, params.limit ?? 24))))
   search.set("offset", String(Math.max(0, params.offset ?? 0)))
-  const response = await fetch("/api/training-library.php?" + search.toString(), {
+  const cacheKey = search.toString()
+  const cached = trainingLibraryMemory.get(cacheKey)
+  if (cached && Date.now() - cached.at < TRAINING_LIBRARY_MEMORY_TTL) return cached.data
+  const response = await fetch("/api/training-library.php?" + cacheKey, {
     credentials: "same-origin", headers: { Accept: "application/json" }, signal,
   })
   const body = await response.json().catch(() => null) as {
     items?: RawExercise[]; total?: number; offset?: number; equipmentOptions?: string[]; attribution?: string; message?: string
   } | null
   if (!response.ok || !body?.items) throw new Error(body?.message ?? "Biblioteca de exercícios indisponível.")
-  return {
+  const data: TrainingLibraryResponse = {
     ok: true,
     items: body.items.map(normalizeLibraryExercise),
     total: Number(body.total ?? body.items.length),
@@ -87,4 +98,6 @@ export async function fetchTrainingLibrary(params: {
     equipmentOptions: Array.isArray(body.equipmentOptions) ? body.equipmentOptions.filter((x): x is string => typeof x === "string") : [],
     attribution: String(body.attribution ?? ""),
   }
+  trainingLibraryMemory.set(cacheKey, { at: Date.now(), data })
+  return data
 }
