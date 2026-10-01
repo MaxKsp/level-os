@@ -2,12 +2,15 @@
 declare(strict_types=1);
 
 /**
- * Catálogo educacional externo. A fonte Wger expõe metadados por exercício,
- * incluindo licença/autoria de conteúdo e mídias. Nunca removemos essa atribuição.
+ * Catálogo educacional combinado. Wger fornece traduções/vídeos; Free Exercise DB
+ * e RepDB ampliam a cobertura de imagens. Só publicamos exercícios com imagem de
+ * referência e preservamos licença/autoria de cada fonte.
  */
 const TRAINING_KNOWLEDGE_UPSTREAM = 'https://wger.de/api/v2/exerciseinfo/?limit=1000';
 const TRAINING_KNOWLEDGE_TTL = 21600;
 const TRAINING_KNOWLEDGE_MAX_BYTES = 12_000_000;
+
+require_once __DIR__ . '/TrainingReferenceCatalogService.php';
 
 function training_knowledge_text(mixed $value, int $max = 4000): string {
     if (!is_string($value)) return '';
@@ -119,6 +122,18 @@ function training_knowledge_translation(array $row): ?array {
     }
     return null;
 }
+
+function training_knowledge_english_name(array $row): string {
+    $translations = is_array($row['translations'] ?? null) ? $row['translations'] : [];
+    foreach ($translations as $entry) {
+        if (is_array($entry) && (int)($entry['language'] ?? 0) === 2) {
+            $name = training_knowledge_text($entry['name'] ?? '', 120);
+            if ($name !== '') return $name;
+        }
+    }
+    return '';
+}
+
 /** @return array{short:string,url:string} */
 function training_knowledge_license_by_id(mixed $id): array {
     return match ((int)$id) {
@@ -220,15 +235,54 @@ function training_knowledge_upstream_rows(): array {
     if (!is_array($rows)) throw new RuntimeException('exercise_library_invalid_response');
     return array_values(array_filter($rows, 'is_array'));
 }
+
+/** @return list<array<string,mixed>> */
+function training_knowledge_catalog_items(): array {
+    $cache = rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'levelos-training-catalog-v3.json';
+    if (is_file($cache) && (time() - (int)filemtime($cache)) < TRAINING_KNOWLEDGE_TTL) {
+        $raw = file_get_contents($cache, false, null, 0, TRAINING_KNOWLEDGE_MAX_BYTES + 1);
+        $decoded = is_string($raw) ? json_decode($raw, true) : null;
+        if (is_array($decoded)) return array_values(array_filter($decoded, 'is_array'));
+    }
+
+    $references = training_reference_catalog();
+    $imageIndex = training_reference_image_index($references);
+    $itemsByKey = [];
+    foreach (training_knowledge_upstream_rows() as $row) {
+        $item = training_knowledge_normalize($row);
+        if ($item === null) continue;
+        $canonical = training_knowledge_key(training_knowledge_english_name($row) ?: (string)$item['name']);
+        if (empty($item['imageUrl']) && isset($imageIndex[$canonical])) {
+            $fallback = $imageIndex[$canonical];
+            foreach (['imageUrl','imageLicense','imageLicenseUrl','imageAuthor'] as $field) {
+                $item[$field] = $fallback[$field] ?? $item[$field] ?? null;
+            }
+        }
+        if (empty($item['imageUrl'])) continue;
+        $itemsByKey[$canonical !== '' ? $canonical : training_knowledge_key((string)$item['name'])] = $item;
+    }
+    foreach ($references as $item) {
+        if (empty($item['imageUrl'])) continue;
+        $key = training_knowledge_key((string)$item['name']);
+        if ($key !== '' && !isset($itemsByKey[$key])) $itemsByKey[$key] = $item;
+    }
+    $items = array_values($itemsByKey);
+    $encoded = json_encode($items, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if (is_string($encoded) && strlen($encoded) <= TRAINING_KNOWLEDGE_MAX_BYTES) {
+        @file_put_contents($cache . '.tmp', $encoded, LOCK_EX);
+        @rename($cache . '.tmp', $cache);
+    }
+    return $items;
+}
+
 /** @return array<string,mixed> */
 function training_knowledge_search(string $query, string $group, string $equipment, int $limit, int $offset, bool $videoOnly = false): array {
     $needles = training_knowledge_search_needles($query);
     $group = mb_substr(trim($group), 0, 40, 'UTF-8');
     $equipmentNeedle = training_knowledge_key(mb_substr($equipment, 0, 80, 'UTF-8'));
     $candidates = [];
-    foreach (training_knowledge_upstream_rows() as $row) {
-        $item = training_knowledge_normalize($row);
-        if ($item === null || ($group !== '' && $group !== 'Todos' && $item['group'] !== $group)) continue;
+    foreach (training_knowledge_catalog_items() as $item) {
+        if (($group !== '' && $group !== 'Todos' && $item['group'] !== $group) || empty($item['imageUrl'])) continue;
         if ($needles !== []) {
             $haystack = training_knowledge_key($item['name'] . ' ' . $item['group'] . ' '
                 . implode(' ', $item['equipment']) . ' ' . $item['instructions']);
@@ -251,5 +305,5 @@ function training_knowledge_search(string $query, string $group, string $equipme
     $page = array_slice($items, max(0, $offset), max(1, min(60, $limit)));
     return ['items'=>$page, 'total'=>$total, 'offset'=>max(0, $offset),
         'equipmentOptions'=>$options,
-        'attribution'=>'Conteúdo de exercícios por Wger (wger.de); licença e autoria preservadas em cada item.'];
+        'attribution'=>'Biblioteca combinada: Wger + Free Exercise DB + RepDB. Todos os exercícios exibidos possuem imagem de referência; licenças e autorias são preservadas por item.'];
 }

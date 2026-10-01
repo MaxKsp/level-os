@@ -7,6 +7,12 @@ import { TrainingVideoModal } from "./NativeTrainingVideo"
 
 const groups: Array<MuscleGroup | "Todos"> = ["Todos", "Peito", "Costas", "Pernas", "Ombros", "Braços", "Core", "Cardio", "Mobilidade"]
 const icons = { forca: Dumbbell, cardio: Bike, calistenia: Activity, mobilidade: Waves }
+const sourceLabels = {
+  local: "Level OS",
+  wger: "Wger",
+  "free-exercise-db": "Free Exercise DB",
+  repdb: "RepDB",
+} as const
 type Props = {
   onSelect?: (exercise: LibraryExercise) => void
   title?: string
@@ -160,7 +166,7 @@ export function ExerciseLibraryPicker({
               <p className="whitespace-pre-line text-on-surface">{item.instructions || "Sem instruções detalhadas nesta fonte."}</p>
               {item.sourceUrl ? <a href={item.sourceUrl} target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 font-semibold text-primary">
-                Fonte do exercício <ExternalLink className="size-3" /></a> : null}
+                Fonte: {item.source ? sourceLabels[item.source] : "referência"} <ExternalLink className="size-3" /></a> : null}
               {item.license ? <p className="text-[10px] text-on-surface-variant">Conteúdo: {item.license}{item.author ? " · " + item.author : ""}</p> : null}
               {item.imageUrl && item.imageLicense ? <p className="text-[10px] text-on-surface-variant">Imagem: {item.imageLicense}{item.imageAuthor ? " · " + item.imageAuthor : ""}</p> : null}
               {item.video?.license ? <p className="text-[10px] text-on-surface-variant">Vídeo: {item.video.license}{item.video.author ? " · " + item.video.author : ""}</p> : null}
@@ -186,7 +192,16 @@ export function ExerciseLibraryPicker({
     {loading ? <p role="status" className="flex items-center justify-center gap-2 py-5 text-xs text-muted"><LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" />Carregando biblioteca…</p> : null}
     {!loading && items.length < total ? <div className="flex justify-center"><button type="button" disabled={loadingMore} onClick={() => void loadMore()}
       className="min-h-10 rounded-lg border border-primary/25 px-4 text-xs font-semibold text-primary hover:bg-primary/10 disabled:opacity-50">{loadingMore ? "Carregando…" : "Carregar mais"}</button></div> : null}
-    {attribution ? <p className="text-center text-[10px] text-muted">{attribution}</p> : null}
+    {attribution ? <div className="rounded-lg border border-outline-variant bg-surface-container-low px-3 py-2 text-center text-[10px] leading-5 text-on-surface-variant">
+      <p>{attribution}</p>
+      <p className="mt-1">
+        <a href="https://repdb.co" target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline">Exercise data by RepDB</a>
+        {" · "}
+        <a href="https://github.com/yuhonas/free-exercise-db" target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline">Free Exercise DB</a>
+        {" · "}
+        <a href="https://wger.de" target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline">Wger</a>
+      </p>
+    </div> : null}
     {!window.CSRF_TOKEN && EXERCISE_CATALOG.length ? <p className="text-center text-[10px] text-muted">Catálogo local limitado disponível fora de sessão autenticada.</p> : null}
     <TrainingVideoModal exercise={videoExercise} open={Boolean(videoExercise)} onClose={() => setVideoExercise(null)} />
   </section>

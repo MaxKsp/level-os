@@ -26,6 +26,19 @@ describe("training knowledge normalization", () => {
     expect(item.cue).toBe("Deite-se de costas com os joelhos flexionados.")
   })
 
+  it("preserva a fonte de imagens complementares", () => {
+    const item = normalizeLibraryExercise({
+      id: "repdb-kettlebell-halo", name: "Kettlebell Halo", language: "fallback",
+      group: "Ombros", modality: "forca", equipment: ["Kettlebell"], instructions: "Move with control.",
+      imageUrl: "https://raw.githubusercontent.com/RepDB/exercise-dataset/main/images/flat/kettlebell-halo-start.webp",
+      imageLicense: "RepDB Free Tier License v1.0", imageAuthor: "RepDB",
+      source: "repdb", sourceUrl: "https://exercise-dataset.com/exercise/kettlebell-halo/",
+    })
+    expect(item.source).toBe("repdb")
+    expect(item.imageUrl).toContain("raw.githubusercontent.com/RepDB/exercise-dataset")
+    expect(item.imageLicense).toBe("RepDB Free Tier License v1.0")
+  })
+
   it("expõe fallback de idioma e nunca inventa mídia", () => {
     const item = normalizeLibraryExercise({
       id: "wger-1", name: "English exercise", language: "fallback", group: "Costas", modality: "forca",

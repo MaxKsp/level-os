@@ -18,20 +18,27 @@ A execução registrada pelo usuário continua separada do conteúdo educacional
 - O Level OS preserva fonte, licença e autor na interface; URLs de imagem/vídeo aceitas pelo normalizador precisam pertencer a `https://wger.de/`.
 - Tradução PT tem prioridade. Quando não existe, o conteúdo aparece marcado como idioma original/fallback, sem fingir tradução.
 
-### RepDB — avaliado, não incorporado nesta entrega
-- Projeto: https://github.com/RepDB/exercise-dataset
-- Dataset possui centenas de exercícios, imagens e estrutura consistente.
-- O uso gratuito permite conteúdo no aplicativo com atribuição, mas animações de produção pertencem ao plano/licença correspondente.
-- Não copiamos previews ou animações sem licença. Pode ser adicionado futuramente como fonte complementar se contratada/licenciada.
+### RepDB — integrado para imagens de referência
+- Projeto canônico: https://github.com/RepDB/exercise-dataset
+- Snapshot gratuito verificado em 01/10/2026: 601 exercícios e 601/601 com ilustração WebP.
+- O free tier permite uso pessoal/comercial dentro do aplicativo com atribuição visível.
+- O Level OS usa somente as ilustrações estáticas do free tier; animações premium não são copiadas nem utilizadas.
+- A atribuição “Exercise data by RepDB” fica visível na biblioteca e a licença é preservada por item.
 
-### free-exercise-db — avaliado
-- Projeto: https://github.com/yuhonas/free-exercise-db
-- Útil como fallback de dados/imagens, mas não resolve a necessidade de vídeos. Não foi necessário nesta entrega.
+### Free Exercise DB — integrado para ampliar cobertura
+- Projeto canônico: https://github.com/yuhonas/free-exercise-db
+- Snapshot verificado em 01/10/2026: 876 exercícios; 873 possuem imagens no repositório.
+- Conteúdo publicado sob Unlicense/Public Domain conforme o repositório.
+- Registros sem imagem são descartados da biblioteca; nenhum card autenticado é publicado sem referência visual.
+- As imagens são consumidas do repositório canônico, sem copiar o dataset para o repositório do Level OS.
 ## Biblioteca do Level OS
 Backend:
-- `app/Modules/Training/TrainingKnowledgeService.php`: busca, cache, normalização e atribuição.
+- `app/Modules/Training/TrainingKnowledgeService.php`: busca, merge, deduplicação, cache e atribuição.
+- `app/Modules/Training/TrainingReferenceCatalogService.php`: fontes de imagem Free Exercise DB + RepDB.
 - `api/training-library.php`: endpoint autenticado e rate-limited para consulta.
-- Cache upstream de 6 horas no diretório temporário do servidor; não vira fonte autoritativa de dados do usuário.
+- Cache upstream de 6 horas no diretório temporário do servidor; os datasets externos não são redistribuídos pelo repositório.
+- Wger continua prioritário quando já possui imagem/tradução/vídeo; RepDB e Free Exercise DB completam ou ampliam o catálogo visual.
+- Validação de 01/10/2026 após deduplicação: 1.596 exercícios publicados e 0 sem imagem (343 Wger, 509 RepDB, 744 Free Exercise DB).
 - Busca por texto, grupo muscular e equipamento; paginação com máximo de 60 itens por chamada.
 - O backend remove HTML, limita tamanhos e normaliza apenas campos necessários para a experiência.
 

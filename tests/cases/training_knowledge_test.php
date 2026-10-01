@@ -48,4 +48,32 @@ return static function (): void {
     $row['images'][0]['image'] = 'https://example.com/image.webp';
     $row['images'][0]['thumbnails'] = [];
     test_assert_same(null, training_knowledge_normalize($row)['imageUrl'], 'Foreign image hosts are rejected.');
+
+    $free = training_reference_normalize_free([
+        'id'=>'Barbell_Curl', 'name'=>'Barbell Curl', 'category'=>'strength', 'equipment'=>'barbell',
+        'primaryMuscles'=>['biceps'], 'secondaryMuscles'=>['forearms'],
+        'instructions'=>['Keep the elbows stable.'], 'images'=>['Barbell_Curl/0.jpg'],
+    ]);
+    test_assert_true(is_array($free), 'Free Exercise DB entries with images must normalize.');
+    test_assert_true(str_starts_with((string)$free['imageUrl'], TRAINING_REFERENCE_FREE_DB_ASSET_BASE),
+        'Free Exercise DB image must stay on the canonical GitHub raw host.');
+    test_assert_same('Braços', $free['group'], 'Free Exercise DB muscles must map to Level OS groups.');
+    test_assert_same('free-exercise-db', $free['source'], 'Free Exercise DB source attribution must be preserved.');
+    test_assert_same(null, training_reference_normalize_free([
+        'id'=>'No_Image','name'=>'No Image','category'=>'strength','equipment'=>'barbell',
+        'primaryMuscles'=>['biceps'],'secondaryMuscles'=>[],'instructions'=>[],'images'=>[],
+    ]), 'Image-less Free Exercise DB records must never enter the public library.');
+
+    $rep = training_reference_normalize_repdb([
+        'id'=>'kettlebell-halo', 'name_en'=>'Kettlebell Halo', 'category'=>'strength',
+        'equipment'=>'kettlebell', 'body_part'=>'shoulders', 'primary_muscles'=>['deltoids'],
+        'secondary_muscles'=>[], 'instructions_en'=>['Move with control.'],
+        'images'=>['flat'=>['start'=>'images/flat/kettlebell-halo-start.webp']],
+    ]);
+    test_assert_true(is_array($rep), 'RepDB illustrated entries must normalize.');
+    test_assert_same('Ombros', $rep['group'], 'RepDB body-part metadata must map to Level OS groups.');
+    test_assert_same('RepDB Free Tier License v1.0', $rep['imageLicense'], 'RepDB image license must remain explicit.');
+    test_assert_same('repdb', $rep['source'], 'RepDB source attribution must be preserved.');
+    test_assert_same(null, training_reference_asset_url(TRAINING_REFERENCE_REPDB_ASSET_BASE, '../secret.webp'),
+        'Reference asset paths must reject traversal.');
 };
