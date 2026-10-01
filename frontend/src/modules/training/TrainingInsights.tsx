@@ -29,23 +29,22 @@ export function TrainingInsights({ sessions, workouts, programs, onStart, onCrea
     { label: "Dias ativos / 28 dias", value: stats.activeDays28, suffix: "", icon: CalendarDays, detail: "Dias distintos com registro" },
   ]
   return (
-    <section aria-label="Central de performance" className="relative isolate overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-low p-4 shadow-[var(--shadow-panel)] sm:p-6">
-      <div aria-hidden="true" className="pointer-events-none absolute -right-20 -top-44 -z-10 size-[30rem] rounded-full bg-primary/10 blur-[110px]" />
+    <section aria-label="Resumo de desempenho" className="rounded-2xl border border-outline-variant bg-surface-container-low p-4 sm:p-6">
       <div className="flex flex-col justify-between gap-5 border-b border-outline-variant pb-5 md:flex-row md:items-end">
         <div className="min-w-0">
-          <div className="mb-3 inline-flex items-center gap-2 text-[10px] font-bold tracking-[.2em] text-primary"><span className="size-1.5 rounded-full bg-primary shadow-[0_0_12px_currentColor]" /> TRAINING / PERFORMANCE</div>
-          <h2 className="text-2xl font-semibold tracking-tight text-on-surface sm:text-3xl">Seu centro de treinamento.</h2>
-          <p className="mt-2 max-w-[52ch] text-sm leading-6 text-on-surface-variant">Acompanhe frequência, carga e consistência com base nas suas sessões reais.</p>
+          <div className="mb-2 inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.18em] text-primary"><span className="size-1.5 rounded-full bg-primary" /> Resumo do treino</div>
+          <h2 className="text-xl font-semibold tracking-tight text-on-surface sm:text-2xl">Seu desempenho em um só lugar</h2>
+          <p className="mt-2 max-w-[52ch] text-sm leading-6 text-on-surface-variant">Frequência, carga, duração e consistência calculadas a partir das suas sessões registradas.</p>
         </div>
         <Button variant="primary" size="md" className="w-full sm:w-auto" onClick={highlighted ? () => onStart(highlighted) : onCreate}>
-          <Play className="size-4" /> {highlighted ? "Iniciar proxima ficha" : "Criar primeira ficha"}
+          <Play className="size-4" /> {highlighted ? "Iniciar próxima ficha" : "Criar primeira ficha"}
         </Button>
       </div>
       {highlighted ? <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/5 p-3 sm:p-4">
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[.15em] text-primary">Proxima ficha sugerida</p>
+          <p className="text-[10px] font-bold uppercase tracking-[.15em] text-primary">Próxima ficha sugerida</p>
           <p className="mt-1 text-sm font-semibold text-on-surface">{highlighted.name}</p>
-          <p className="mt-1 text-xs text-muted">{highlighted.focus || "Foco livre"} · {highlighted.exercises.length} exercicio(s)</p>
+          <p className="mt-1 text-xs text-muted">{highlighted.focus || "Foco livre"} · {highlighted.exercises.length} exercício(s)</p>
         </div>
         <p className="max-w-[30ch] text-[11px] leading-5 text-muted">Rotacao pela ordem do programa e pelo seu ultimo registro. Nao substitui seu planejamento semanal.</p>
       </div> : null}

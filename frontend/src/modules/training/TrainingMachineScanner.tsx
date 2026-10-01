@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Camera, CircleAlert, ExternalLink, ImagePlus, LoaderCircle, Play, ScanSearch, ShieldCheck, X } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Modal } from "../../components/ui/Modal"
@@ -145,8 +145,13 @@ export function TrainingMachineScanner() {
   const supportedMachines = recognition?.catalog?.length ? recognition.catalog : candidates
   const featuredExercise = related.find((exercise) => Boolean(exercise.video?.url)) ?? null
 
-  return <SectionCard title="Reconhecer aparelho" description="Fotografe a máquina: o Level OS classifica o aparelho e seleciona um vídeo nativo compatível quando houver mídia licenciada."
+  return <SectionCard title="Reconhecer aparelho" description="Tire uma foto, confira o aparelho identificado e veja a execução dentro do Level OS."
     icon={<ScanSearch className="size-5 text-primary" />}>
+    <div className="mb-4 grid gap-2 sm:grid-cols-3" aria-label="Como funciona o reconhecimento">
+      <ScannerStep number="1" icon={<Camera className="size-4" />} title="Fotografe" text="Centralize o aparelho na câmera." active={!recognition && !analyzing} />
+      <ScannerStep number="2" icon={<ScanSearch className="size-4" />} title="Identificação" text="A IA sugere o aparelho e mostra a confiança." active={analyzing || Boolean(recognition && !selected)} />
+      <ScannerStep number="3" icon={<Play className="size-4" />} title="Execução" text="Veja orientações e vídeo nativo compatível." active={Boolean(selected)} />
+    </div>
     <div className="grid gap-4 lg:grid-cols-[.9fr_1.1fr]">
       <div className="rounded-xl border border-outline-variant bg-surface-container-low p-4">
         <div className="flex flex-wrap gap-2">
@@ -214,9 +219,9 @@ export function TrainingMachineScanner() {
                 </article>
               })}</div> : <p className="mt-3 rounded-lg border border-outline-variant p-3 text-xs text-muted">Não encontrei correspondência licenciada na base para esta máquina. Use a busca da biblioteca.</p>}
           </div>
-        </div> : <div className="grid min-h-52 place-items-center rounded-xl border border-dashed border-outline-variant p-6 text-center">
-          <div><ScanSearch className="mx-auto size-7 text-muted" /><p className="mt-3 text-sm font-semibold text-on-surface">Fotografe um aparelho</p>
-            <p className="mt-1 max-w-sm text-xs leading-5 text-muted">O resultado será tratado como sugestão; você confirma a máquina antes de ver instruções.</p></div></div>}
+        </div> : <div className="grid min-h-52 place-items-center rounded-xl border border-dashed border-outline-variant bg-surface-container-low/45 p-6 text-center">
+          <div><ScanSearch className="mx-auto size-7 text-primary" /><p className="mt-3 text-sm font-semibold text-on-surface">Tire uma foto para começar</p>
+            <p className="mt-1 max-w-sm text-xs leading-5 text-muted">Com boa confiança, o Level OS seleciona o aparelho automaticamente. Você pode corrigir a identificação antes de seguir.</p></div></div>}
       </div>
     </div>
     <Modal isOpen={cameraOpen} onClose={() => setCameraOpen(false)} title="Escanear aparelho" description="Centralize a máquina e evite enquadrar pessoas." icon="photo_camera" maxWidth="max-w-2xl">
@@ -230,4 +235,22 @@ export function TrainingMachineScanner() {
     </div></Modal>
     <TrainingVideoModal exercise={videoExercise} open={Boolean(videoExercise)} onClose={() => setVideoExercise(null)} />
   </SectionCard>
+}
+
+function ScannerStep({ number, icon, title, text, active }: {
+  number: string
+  icon: ReactNode
+  title: string
+  text: string
+  active: boolean
+}) {
+  return <div className={"flex items-start gap-3 rounded-xl border p-3 transition-colors " +
+    (active ? "border-primary/35 bg-primary/5" : "border-outline-variant bg-surface-container-low/55")}>
+    <span className={"grid size-8 shrink-0 place-items-center rounded-lg text-xs font-bold " +
+      (active ? "bg-primary text-on-primary" : "bg-surface-container-high text-muted")}>{number}</span>
+    <span className="min-w-0">
+      <span className={"flex items-center gap-1.5 text-xs font-semibold " + (active ? "text-primary" : "text-on-surface")}>{icon}{title}</span>
+      <span className="mt-1 block text-[10px] leading-4 text-muted">{text}</span>
+    </span>
+  </div>
 }

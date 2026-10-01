@@ -73,26 +73,31 @@ export function ExerciseLibraryPicker({
   const equipmentSelect = [{ value: "", label: "Todos os equipamentos" },
     ...equipmentOptions.map((value) => ({ value, label: value }))]
 
-  return <section aria-label="Biblioteca de exercícios" className="space-y-4 rounded-2xl border border-outline-variant bg-surface/50 p-3 sm:p-4">
+  return <section aria-label="Biblioteca de exercícios" className={compact
+    ? "space-y-4 rounded-2xl border border-outline-variant bg-surface/50 p-3 sm:p-4"
+    : "space-y-4 border-t border-outline-variant/80 pt-5"}>
     <div className="flex flex-wrap items-end justify-between gap-3">
       <div><span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[.16em] text-primary">
-        <LibraryBig className="size-3.5" /> Base de conteúdo</span>
+        <LibraryBig className="size-3.5" /> Biblioteca de exercícios</span>
         <h3 className="mt-1 text-base font-semibold text-on-surface">{title}</h3>
         <p className="mt-1 max-w-2xl text-xs leading-5 text-muted">{description}</p></div>
-      <span className="rounded-lg border border-primary/25 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary">
-        {loading ? "Atualizando…" : total.toLocaleString("pt-BR") + " exercícios"}</span>
+      <span className="rounded-lg border border-outline-variant bg-surface-container px-3 py-1.5 text-xs font-semibold text-on-surface">
+        {loading ? "Atualizando…" : total.toLocaleString("pt-BR") + " resultados"}</span>
     </div>
-    <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_11rem_13rem_11rem]">
-      <label className="flex min-h-11 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container px-3">
-        <Search className="size-4 shrink-0 text-muted" />
-        <input className="w-full min-w-0 bg-transparent text-sm text-on-surface outline-none placeholder:text-muted"
-          aria-label="Buscar exercícios" placeholder="Nome, músculo ou equipamento" value={query} onChange={(e) => setQuery(e.target.value)} />
-      </label>
-      <LevelSelect aria-label="Grupo muscular" value={group} onChange={setGroup}
+    <div className="grid items-end gap-2 md:grid-cols-[minmax(0,1fr)_11rem_13rem_11rem]">
+      <div>
+        <label htmlFor="training-library-search" className="mb-1.5 block text-xs font-medium text-on-surface-variant">Buscar exercício</label>
+        <div className="flex min-h-11 items-center gap-2 rounded-lg border border-outline-variant bg-surface-container px-3 transition-colors focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+          <Search className="size-4 shrink-0 text-muted" />
+          <input id="training-library-search" className="w-full min-w-0 bg-transparent text-sm text-on-surface outline-none placeholder:text-muted"
+            placeholder="Nome, músculo ou equipamento" value={query} onChange={(e) => setQuery(e.target.value)} />
+        </div>
+      </div>
+      <LevelSelect label="Grupo muscular" value={group} onChange={setGroup}
         options={groups.map((value) => ({ value, label: value === "Todos" ? "Todos os grupos" : value }))} />
-      <LevelSelect aria-label="Equipamento" value={equipment} onChange={setEquipment}
+      <LevelSelect label="Equipamento" value={equipment} onChange={setEquipment}
         options={equipmentSelect} />
-      <LevelSelect aria-label="Mídia" value={videoOnly ? "video" : "all"} onChange={(value) => setVideoOnly(value === "video")}
+      <LevelSelect label="Mídia" value={videoOnly ? "video" : "all"} onChange={(value) => setVideoOnly(value === "video")}
         options={[{ value: "all", label: "Toda mídia" }, { value: "video", label: "Com vídeo nativo" }]} />
     </div>
     {error ? <p role="status" className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-on-surface">{error}</p> : null}
@@ -112,6 +117,7 @@ export function ExerciseLibraryPicker({
                 <Symbol className="size-5" strokeWidth={1.5} /></span>
               <div className="min-w-0"><div className="flex flex-wrap items-center gap-1.5">
                 <h4 className="text-sm font-semibold text-on-surface">{item.name}</h4>
+                {nativeVideo ? <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold text-primary">VÍDEO</span> : null}
                 {item.language === "fallback" ? <span className="rounded bg-warning/10 px-1.5 py-0.5 text-[9px] font-bold text-warning">IDIOMA ORIGINAL</span> : null}
               </div>
                 <p className="mt-1 text-[10px] text-muted">{item.group} · {item.equipment}</p>
