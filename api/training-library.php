@@ -5,7 +5,7 @@ require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../app/Modules/Training/TrainingKnowledgeService.php';
 
 header('Content-Type: application/json; charset=utf-8');
-header('Cache-Control: private, max-age=300');
+header('Cache-Control: private, max-age=600, stale-while-revalidate=3600');
 require_login();
 require_rate_limit('training-library', 60, 60);
 if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'GET') {
@@ -24,7 +24,14 @@ session_write_close();
 
 try {
     $result = training_knowledge_search($query, $group, $equipment, $limit, $offset, $videoOnly);
-    echo json_encode(['ok'=>true] + $result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    $payload = json_encode(['ok'=>true] + $result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    $etag = '"' . hash('sha256', $payload) . '"';
+    header('ETag: ' . $etag);
+    if (trim((string)($_SERVER['HTTP_IF_NONE_MATCH'] ?? '')) === $etag) {
+        http_response_code(304);
+        exit;
+    }
+    echo $payload;
 } catch (Throwable $error) {
     error_log('training library failed (' . get_class($error) . ').');
     http_response_code(503);

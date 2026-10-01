@@ -25,7 +25,11 @@ return static function (): void {
     test_assert_true(str_contains((string)$security, 'camera=(self)'), 'PWA camera must be available only to the Level OS origin.');
     test_assert_true(str_contains((string)$security, 'https://wger.de'), 'Licensed exercise media host must be explicit in CSP.');
     test_assert_true(str_contains((string)$security, 'https://raw.githubusercontent.com'), 'Open exercise reference images must use an explicit CSP host.');
+    test_assert_true(str_contains((string)$security, 'https://i.ytimg.com'), 'Video thumbnails must use an explicit CSP image host.');
+    test_assert_true(str_contains((string)$security, 'frame-src https://www.youtube-nocookie.com'), 'YouTube tutorials must use the privacy-enhanced embed host.');
     test_assert_true(str_contains((string)$htaccess, 'camera=(self)'), 'Apache fallback must preserve same-origin camera permission.');
     test_assert_true(str_contains((string)$frontendShell, 'https://wger.de'), 'React meta CSP must allow the licensed exercise media host.');
     test_assert_true(str_contains((string)$frontendShell, 'https://raw.githubusercontent.com'), 'React meta CSP must allow the open exercise image host.');
+    test_assert_true(str_contains((string)$frontendShell, 'https://i.ytimg.com'), 'React meta CSP must allow tutorial thumbnails.');
+    test_assert_true(str_contains((string)$frontendShell, 'https://www.youtube-nocookie.com'), 'React meta CSP must allow privacy-enhanced video embeds.');
 };

@@ -21,6 +21,21 @@ describe("training knowledge normalization", () => {
     expect(item.source).toBe("wger")
   })
 
+  it("preserva vídeo YouTube e pontos de técnica do catálogo rápido", () => {
+    const item = normalizeLibraryExercise({
+      id: "workoutdb-bench-press", name: "Bench Press", language: "fallback", group: "Peito", modality: "forca",
+      equipment: ["Barra"], instructions: "Lower the bar under control. Press it back up.",
+      steps: ["Lower the bar under control.", "Press it back up."],
+      formCues: ["Keep your upper back stable."],
+      imageUrl: "https://i.ytimg.com/vi/gBZkSn-zsD0/mqdefault.jpg",
+      video: { url: "https://www.youtube.com/watch?v=gBZkSn-zsD0", provider: "youtube", youtubeId: "gBZkSn-zsD0" },
+      source: "workout-db", sourceUrl: "https://github.com/rthepen/workout-database",
+    })
+    expect(item.video).toMatchObject({ provider: "youtube", youtubeId: "gBZkSn-zsD0" })
+    expect(item.formCues).toEqual(["Keep your upper back stable."])
+    expect(item.source).toBe("workout-db")
+  })
+
   it("remove numeração solta do resumo exibido nos cards", () => {
     const item = normalizeLibraryExercise({
       id: "wger-2", name: "Abdominal", language: "pt", group: "Core", modality: "calistenia",

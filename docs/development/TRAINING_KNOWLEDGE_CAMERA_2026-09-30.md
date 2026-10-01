@@ -3,14 +3,22 @@ Data: 30/09/2026 · branch `feature/training-knowledge-camera-20260930`
 
 ## Objetivo do módulo
 Academia não deve ser apenas um formulário de registro. A experiência passa a ter quatro camadas:
-1. **Aprender**: biblioteca pesquisável de exercícios, músculos, equipamentos, instruções, imagens e vídeos licenciados quando disponíveis.
+1. **Aprender**: biblioteca pesquisável em vídeo; todo exercício publicado possui vídeo demonstrativo real, execução em etapas e orientações de técnica.
 2. **Planejar**: montar fichas usando a mesma biblioteca, preservando séries, repetições, carga e descanso.
 3. **Executar**: durante a sessão, abrir “Como executar” sem sair do treino e consultar a referência do movimento.
 4. **Reconhecer**: no PWA, fotografar um aparelho, receber candidatos com confiança e confirmar a máquina antes de mostrar boas práticas/conteúdo.
 
 A execução registrada pelo usuário continua separada do conteúdo educacional. Foto, reconhecimento ou visualização de vídeo nunca registram uma série automaticamente.
 ## Fonte de conteúdo e decisão de licenciamento
-### Wger — integrado
+### Workout Database — fonte primária da biblioteca em vídeo
+- Projeto: https://github.com/rthepen/workout-database
+- Snapshot local verificado em 01/10/2026: 951 exercícios com vídeo do YouTube e instruções em etapas.
+- Os metadados do projeto são MIT; o Level OS armazena somente o snapshot compacto de metadados necessário à busca.
+- Os vídeos não são copiados nem redistribuídos: continuam hospedados no YouTube e são incorporados via `youtube-nocookie.com`.
+- Canal/origem do vídeo permanece visível quando disponível. Direitos do vídeo continuam com o respectivo canal/publicador.
+- A biblioteca pública do Level OS não publica exercício sem vídeo e sem passos.
+
+### Wger — integrado como referência complementar
 - Projeto open source: https://github.com/wger-project/wger
 - API consumida pelo backend: `https://wger.de/api/v2/exerciseinfo/?limit=1000`.
 - Verificação feita em 30/09/2026: 912 registros retornados; 273 com imagens, 46 exercícios com vídeo e 66 com tradução em português.
@@ -33,38 +41,36 @@ A execução registrada pelo usuário continua separada do conteúdo educacional
 - As imagens são consumidas do repositório canônico, sem copiar o dataset para o repositório do Level OS.
 ## Biblioteca do Level OS
 Backend:
-- `app/Modules/Training/TrainingKnowledgeService.php`: busca, merge, deduplicação, cache e atribuição.
-- `app/Modules/Training/TrainingReferenceCatalogService.php`: fontes de imagem Free Exercise DB + RepDB.
-- `api/training-library.php`: endpoint autenticado e rate-limited para consulta.
-- Cache upstream de 6 horas no diretório temporário do servidor; os datasets externos não são redistribuídos pelo repositório.
-- Wger continua prioritário quando já possui imagem/tradução/vídeo; RepDB e Free Exercise DB completam ou ampliam o catálogo visual.
-- Validação de 01/10/2026 após deduplicação e exigência de tutorial: 1.587 exercícios publicados, 0 sem imagem, 0 sem etapas e 0 sem mídia visual de orientação (338 Wger, 509 RepDB, 740 Free Exercise DB).
-- Busca por texto, grupo muscular e equipamento; paginação com máximo de 60 itens por chamada.
-- O backend remove HTML, limita tamanhos e normaliza apenas campos necessários para a experiência.
+- `app/Modules/Training/data/workout-video-catalog.json`: snapshot compacto local com 951 exercícios em vídeo.
+- `app/Modules/Training/TrainingVideoCatalogService.php`: normalização, grupos, equipamento, passos, técnica e vídeo.
+- `app/Modules/Training/TrainingKnowledgeService.php`: busca e filtros sobre o snapshot local.
+- `api/training-library.php`: endpoint autenticado/rate-limited, cache privado de 10 minutos, stale-while-revalidate e ETag.
+- A consulta não baixa mais o dataset externo no caminho crítico da requisição.
+- Primeira página limitada a 24 itens para reduzir payload e custo de renderização.
+- Cada resultado publicado exige vídeo real e instruções estruturadas.
 
 Frontend:
-- `trainingKnowledge.ts`: contrato da API, incluindo etapas estruturadas e frames visuais do tutorial.
-- `ExerciseLibraryPicker.tsx`: busca, filtros LevelSelect, cards e acesso ao tutorial em todos os exercícios publicados.
-- `NativeTrainingVideo.tsx`: player responsivo único. Reproduz vídeo direto quando licenciado; caso contrário executa tutorial visual automático com etapas, frames, play/pause, anterior, próximo e reinício.
+- `trainingKnowledge.ts`: cache em memória por combinação de filtros durante 5 minutos.
+- `ExerciseLibraryPicker.tsx`: primeira carga imediata, busca textual com debounce curto, thumbnails leves e carregamento lazy após os primeiros cards.
+- `NativeTrainingVideo.tsx`: incorpora vídeo do YouTube em modo de privacidade e mantém execução em etapas/pontos de técnica ao lado.
 - `ExerciseReferenceButton.tsx`: consulta contextual com o mesmo tutorial dentro de ficha e treino ao vivo.
-- `TrainingMachineScanner.tsx`: identifica aparelho e abre o tutorial compatível, sem depender da existência de MP4.
-- `TrainingScreen.tsx`: **Central de treino** com acesso direto a scanner, fichas, biblioteca, sessões e medidas.
+- `TrainingMachineScanner.tsx`: identifica aparelho e busca somente referências que tenham vídeo.
 
-O catálogo local antigo permanece como fallback quando o usuário não está autenticado ou a fonte externa está temporariamente indisponível.
-## Tutorial visual para todos os exercícios
-Prioridade de mídia:
-1. vídeo direto retornado pela Wger quando a licença/autoria permitem reprodução;
-2. quando não existe vídeo direto, o Level OS monta um tutorial visual nativo com as imagens licenciadas disponíveis e as instruções estruturadas em etapas;
-3. exercícios sem imagem ou sem instruções suficientes não entram no catálogo publicado.
+Se a API autenticada estiver indisponível, a interface mantém os resultados em vídeo já carregados; não substitui por cards sem vídeo.
+## Vídeo + passo a passo em todos os exercícios
+Contrato atual da biblioteca:
+1. o item só entra na biblioteca autenticada se possuir um vídeo real e ao menos uma etapa de execução;
+2. vídeos do Workout Database são incorporados do YouTube em modo de privacidade, sem copiar o arquivo;
+3. vídeos diretos licenciados de fontes anteriores continuam suportados pelo player, mas não são necessários para a cobertura principal;
+4. ao lado do vídeo, o usuário sempre vê as etapas de execução e, quando disponíveis, pontos de técnica.
 
-O player é o mesmo na biblioteca, na referência da ficha, no treino ao vivo e no reconhecimento por câmera. Em telas grandes, demonstração e etapas ficam lado a lado; em celular, o conteúdo empilha verticalmente e os controles usam grade compacta para evitar overflow.
-O tutorial visual possui reprodução automática de etapas, pausa, anterior, próximo, reinício e barra de progresso. Ele não transforma imagens estáticas em um vídeo falso: quando a fonte oferece somente frames, a interface os apresenta explicitamente como **tutorial guiado**.
-Não copiamos vídeo da Wger para hospedagem própria e não incorporamos GIFs/vídeos de repositórios cuja licença de mídia não esteja clara. O fallback legado de buscas do YouTube continua removido.
+O player é o mesmo na biblioteca, na referência da ficha, no treino ao vivo e no reconhecimento por câmera. Em telas grandes, vídeo e etapas ficam lado a lado; em celular, o conteúdo empilha verticalmente.
+O tutorial visual guiado por frames permanece apenas como fallback técnico para registros legados; ele não é usado para preencher a biblioteca principal quando falta vídeo.
 
 Próxima evolução possível:
+- tradução editorial para português dos 951 registros;
 - catálogo editorial próprio de vídeos Level OS;
-- CDN própria apenas para mídias que o Level OS tenha direito de distribuir;
-- curadoria humana de execução antes de marcar um vídeo como “verificado”.
+- curadoria humana antes de marcar um vídeo externo como “verificado”.
 ## Reconhecimento de aparelhos no PWA
 Arquivos:
 - `TrainingMachineScanner.tsx`
@@ -74,11 +80,11 @@ Arquivos:
 Fluxo:
 1. Usuário toca **Abrir câmera** ou **Enviar foto**.
 2. PWA pede câmera somente nesse momento; microfone e geolocalização continuam bloqueados.
-3. A foto é reamostrada no navegador (máximo aproximado de 1280 px) e convertida para JPEG, removendo metadados do arquivo no fluxo padrão.
+3. A câmera abre em tela cheia, prioriza a lente traseira e a foto é reamostrada no navegador (máximo aproximado de 1800 px) antes do JPEG, removendo metadados no fluxo padrão.
 4. O usuário inicia a análise; a imagem é enviada ao provedor de IA configurado e não é gravada pelo endpoint.
 5. O modelo só pode escolher uma taxonomia fechada de aparelhos e retornar confiança/alternativas.
 6. A orientação não vem do modelo visual. Ela vem da taxonomia do Level OS.
-7. Com confiança alta (>= 72%), o aparelho é selecionado automaticamente e o Level OS abre o melhor tutorial compatível; vídeo direto é preferido quando existe, mas o fluxo funciona também com o tutorial visual guiado.
+7. Com foto considerada boa e confiança alta (>= 82%), o aparelho pode ser selecionado automaticamente e o Level OS abre uma referência compatível que tenha vídeo.
 8. Com confiança baixa, ou se a classificação estiver incorreta, o usuário escolhe manualmente qualquer aparelho da taxonomia suportada antes de consultar conteúdo.
 ## Taxonomia inicial reconhecida
 Cobertura inicial inclui, entre outros:
