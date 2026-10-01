@@ -420,33 +420,41 @@ export function FinanceScreen() {
 }
 
 const FinanceSummaryRow = memo(function FinanceSummaryRow({ summary, accountCount, cardCount }: { summary: ReturnType<typeof financeSummary>; accountCount: number; cardCount: number }) {
-  return <div data-testid="finance-summary-row" className="grid grid-cols-2 border-y border-outline-variant py-3 sm:grid-cols-4">
-    <SummaryCell label="Patrimônio" value={summary.netWorth} animationKey="finance-summary-net-worth" />
-    <SummaryCell label="Saldo" value={summary.totalBalance} animationKey="finance-summary-balance" sub={`${accountCount} contas`} />
-    <SummaryCell label="Fatura" value={summary.totalInvoice} animationKey="finance-summary-invoice" sub={`${cardCount} cartões`} />
-    <SummaryCell label="Crédito livre" value={summary.availableCredit} animationKey="finance-summary-credit" />
+  return <div data-testid="finance-summary-row" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <SummaryCell icon="account_balance_wallet" label="Patrimônio" value={summary.netWorth} animationKey="finance-summary-net-worth" />
+    <SummaryCell icon="account_balance" label="Saldo disponível" value={summary.totalBalance} animationKey="finance-summary-balance" sub={`${accountCount} contas`} />
+    <SummaryCell icon="credit_card" label="Faturas" value={summary.totalInvoice} animationKey="finance-summary-invoice" sub={`${cardCount} cartões`} tone="danger" />
+    <SummaryCell icon="credit_score" label="Crédito livre" value={summary.availableCredit} animationKey="finance-summary-credit" tone="positive" />
   </div>
 });
 
 function SummaryCell({
+  icon,
   label,
   value,
   animationKey,
   sub,
+  tone = "neutral",
 }: {
+  icon: string;
   label: string;
   value: number;
   animationKey: string;
   sub?: string;
+  tone?: "neutral" | "positive" | "danger";
 }) {
+  const valueTone = tone === "positive" ? "text-tertiary" : tone === "danger" ? "text-error" : "text-on-surface";
   return (
-    <div className="level-metric-cell border-l border-outline-variant p-4 first:border-l-0">
-      <p className="text-sm text-muted">
-        {label}
-      </p>
-      <AnimatedNumber value={value} animationKey={animationKey} formatValue={formatCurrency} className="mt-1 block text-right text-lg font-semibold text-on-surface" />
-      {sub ? <p className="numeric-value text-[11px] text-muted">{sub}</p> : null}
-    </div>
+    <article className="group min-w-0 rounded-xl border border-outline-variant bg-surface-container/55 p-3.5 transition-colors hover:border-primary/30 hover:bg-surface-container-high/70">
+      <div className="flex items-center justify-between gap-2">
+        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+          <Icon name={icon} className="text-[17px]" />
+        </span>
+        {sub ? <span className="numeric-value truncate text-[10px] text-muted">{sub}</span> : null}
+      </div>
+      <p className="mt-3 truncate text-xs font-medium text-muted">{label}</p>
+      <AnimatedNumber value={value} animationKey={animationKey} formatValue={formatCurrency} className={cn("mt-1 block truncate font-mono text-base font-semibold sm:text-lg", valueTone)} />
+    </article>
   );
 }
 function RowActions({
