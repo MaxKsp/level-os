@@ -24,6 +24,8 @@ return static function (): void {
     test_assert_true(str_contains((string)$frontendShell, 'http-equiv="Content-Security-Policy"'), 'The React shell must enforce CSP even when the hosting provider rewrites response headers.');
     test_assert_true(str_contains((string)$security, 'camera=(self)'), 'PWA camera must be available only to the Level OS origin.');
     test_assert_true(str_contains((string)$security, 'https://wger.de'), 'Licensed exercise media host must be explicit in CSP.');
+    test_assert_true(str_contains((string)$security, 'https://raw.githubusercontent.com'), 'Open exercise reference images must use an explicit CSP host.');
     test_assert_true(str_contains((string)$htaccess, 'camera=(self)'), 'Apache fallback must preserve same-origin camera permission.');
     test_assert_true(str_contains((string)$frontendShell, 'https://wger.de'), 'React meta CSP must allow the licensed exercise media host.');
+    test_assert_true(str_contains((string)$frontendShell, 'https://raw.githubusercontent.com'), 'React meta CSP must allow the open exercise image host.');
 };

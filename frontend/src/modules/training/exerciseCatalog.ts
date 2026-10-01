@@ -22,7 +22,7 @@ export interface LibraryExercise {
   imageLicenseUrl?: string
   imageAuthor?: string
   video?: ExerciseVideoReference | null
-  source?: "local" | "wger"
+  source?: "local" | "wger" | "free-exercise-db" | "repdb"
   sourceUrl?: string
   license?: string
   licenseUrl?: string

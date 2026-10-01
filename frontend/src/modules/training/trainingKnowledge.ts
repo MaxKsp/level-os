@@ -22,7 +22,7 @@ interface RawExercise {
   imageLicenseUrl?: string
   imageAuthor?: string
   video?: { url: string; durationSec?: number; author?: string; license?: string; licenseUrl?: string } | null
-  source: "wger"
+  source: "wger" | "free-exercise-db" | "repdb"
   sourceUrl: string
   license?: string
   licenseUrl?: string
@@ -50,7 +50,7 @@ export function normalizeLibraryExercise(raw: RawExercise): LibraryExercise {
     imageLicenseUrl: raw.imageLicenseUrl ?? "",
     imageAuthor: raw.imageAuthor ?? "",
     video: raw.video ?? null,
-    source: "wger",
+    source: raw.source,
     sourceUrl: raw.sourceUrl,
     license: raw.license ?? "",
     licenseUrl: raw.licenseUrl ?? "",
