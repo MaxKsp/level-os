@@ -35,7 +35,7 @@ export interface LibraryExercise {
   license?: string
   licenseUrl?: string
   author?: string
-  language?: "pt" | "fallback"
+  language?: "pt-BR" | "pt" | "fallback"
 }
 export const EXERCISE_CATALOG: LibraryExercise[] = [
   { name: "Supino reto", group: "Peito", modality: "forca", equipment: "Barra / banco", cue: "Pés apoiados; controle a descida." },

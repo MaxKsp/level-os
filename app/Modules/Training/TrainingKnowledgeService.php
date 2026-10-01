@@ -11,6 +11,7 @@ const TRAINING_KNOWLEDGE_TTL = 21600;
 const TRAINING_KNOWLEDGE_MAX_BYTES = 12_000_000;
 const TRAINING_VIDEO_CATALOG_FILE = __DIR__ . '/data/workout-video-catalog.json';
 const TRAINING_VIDEO_PTBR_FILE = __DIR__ . '/data/training-video-ptbr.json';
+const TRAINING_VIDEO_PTBR_LOCALIZATION_FILE = __DIR__ . '/data/training-video-localization-ptbr.json';
 const TRAINING_VIDEO_CATALOG_SOURCE = 'https://github.com/rthepen/workout-database';
 
 require_once __DIR__ . '/TrainingReferenceCatalogService.php';
@@ -342,7 +343,8 @@ function training_knowledge_search(string $query, string $group, string $equipme
         static fn(array $item): bool => str_contains(training_knowledge_key(implode(' ', $item['equipment'])), $equipmentNeedle)));
     // A biblioteca pública é video-first: nenhum card é publicado sem vídeo e passos.
     usort($items, static fn(array $a, array $b): int =>
-        ((int)(($b['video']['type'] ?? '') === 'standard') <=> (int)(($a['video']['type'] ?? '') === 'standard'))
+        ((int)(($b['video']['language'] ?? '') === 'pt-BR') <=> (int)(($a['video']['language'] ?? '') === 'pt-BR'))
+        ?: ((int)(($b['video']['type'] ?? '') === 'standard') <=> (int)(($a['video']['type'] ?? '') === 'standard'))
         ?: strcasecmp((string)$a['name'], (string)$b['name']));
     $options = array_keys($equipmentOptions); sort($options, SORT_NATURAL | SORT_FLAG_CASE);
     $total = count($items);
@@ -351,5 +353,5 @@ function training_knowledge_search(string $query, string $group, string $equipme
     unset($item);
     return ['items'=>$page, 'total'=>$total, 'offset'=>max(0, $offset),
         'equipmentOptions'=>$options, 'videoRequired'=>true,
-        'attribution'=>'Biblioteca em vídeo: Workout Database (metadados MIT) com tutoriais externos incorporados do YouTube. Cada exercício exibido possui vídeo real e execução em etapas.'];
+        'attribution'=>'Biblioteca em vídeo: Workout Database (metadados MIT) com tutoriais externos incorporados do YouTube. O passo a passo e as orientações são entregues em PT-BR; vídeos em português aparecem primeiro quando disponíveis.'];
 }

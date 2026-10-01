@@ -214,6 +214,7 @@ html[data-theme="light"] .text-primary { color: #087c72; }
 
 .level-app-main .level-page {
   width: 100%;
+  padding-top: max(7rem, calc(5.5rem + env(safe-area-inset-top, 0px)));
 }
 
 .level-trial-active .level-page { padding-top: 8.25rem; }
@@ -714,7 +715,6 @@ textarea:focus-visible,
   }
 
   .level-app-main .level-page {
-    padding-top: calc(6rem + env(safe-area-inset-top, 0px));
     padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
   }
 

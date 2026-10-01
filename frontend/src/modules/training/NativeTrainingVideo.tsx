@@ -60,7 +60,7 @@ export function NativeTrainingVideo({ exercise, compact = false, autoPlay = fals
             allowFullScreen referrerPolicy="strict-origin-when-cross-origin"
             className="h-full w-full border-0" />
           <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-black/75 px-2 py-1 text-[9px] font-bold tracking-wide text-white">
-            VÍDEO EXPLICATIVO
+            {exercise.video?.language === "pt-BR" ? "VÍDEO PT-BR" : "VÍDEO DEMONSTRATIVO"}
           </span>
         </div>
       </div> : directVideo ? <div className="overflow-hidden rounded-xl border border-outline bg-black">
@@ -80,7 +80,7 @@ export function NativeTrainingVideo({ exercise, compact = false, autoPlay = fals
     <div className={compact ? "rounded-xl border border-outline-variant bg-surface-container p-3" :
       "min-w-0 rounded-xl border border-outline-variant bg-surface-container-low p-3 sm:p-4"}>
       <div className="flex items-center justify-between gap-3">
-        <div><p className="text-[10px] font-bold uppercase tracking-[.15em] text-primary">Passo a passo</p>
+        <div><p className="text-[10px] font-bold uppercase tracking-[.15em] text-primary">Passo a passo · PT-BR</p>
           <h3 className="mt-1 text-sm font-semibold text-on-surface">{exercise.name}</h3></div>
         <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold text-primary">
           {steps.length || 1} ETAPAS
@@ -97,6 +97,11 @@ export function NativeTrainingVideo({ exercise, compact = false, autoPlay = fals
           </button>
         </li>) : <li className="text-xs leading-5 text-on-surface-variant">{exercise.cue}</li>}
       </ol>
+      {exercise.video?.provider === "youtube" && exercise.video.language !== "pt-BR"
+        ? <p className="mt-3 rounded-lg border border-outline-variant bg-surface px-3 py-2 text-[10px] leading-4 text-on-surface-variant">
+            O vídeo pode estar no idioma original. O passo a passo e as orientações ao lado estão em PT-BR.
+          </p>
+        : null}
       {exercise.formCues?.length ? <div className="mt-4 border-t border-outline-variant pt-3">
         <p className="text-[10px] font-bold uppercase tracking-[.15em] text-primary">Pontos importantes</p>
         <ul className="mt-2 space-y-2">{exercise.formCues.slice(0, 5).map((cue) =>
@@ -183,7 +188,7 @@ export function TrainingVideoModal({ exercise, open, onClose }: {
 }) {
   return <Modal isOpen={open} onClose={onClose}
     title={exercise ? "Como fazer · " + exercise.name : "Tutorial do exercício"}
-    description="Vídeo demonstrativo real, execução em etapas e pontos de técnica no mesmo tutorial."
+    description="Vídeo demonstrativo real com passo a passo e pontos de técnica em PT-BR."
     icon="play_circle" maxWidth="max-w-6xl">
     {exercise ? <NativeTrainingVideo exercise={exercise} autoPlay /> : null}
   </Modal>

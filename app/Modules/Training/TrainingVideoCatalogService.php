@@ -66,46 +66,92 @@ function training_video_catalog_ptbr(): array {
     return $rows = is_array($decoded) ? $decoded : [];
 }
 
+/** @return array<string,array<string,mixed>> */
+function training_video_catalog_ptbr_localization(): array {
+    static $rows = null;
+    if (is_array($rows)) return $rows;
+    if (!is_file(TRAINING_VIDEO_PTBR_LOCALIZATION_FILE)) return $rows = [];
+    $decoded = json_decode((string)file_get_contents(TRAINING_VIDEO_PTBR_LOCALIZATION_FILE), true);
+    return $rows = is_array($decoded) ? $decoded : [];
+}
+
+/** @return list<string> */
+function training_video_catalog_generic_ptbr_steps(string $group, string $equipment): array {
+    if ($group === 'Cardio') return [
+        'Ajuste o equipamento e comece em um ritmo leve para estabilizar a postura.',
+        'Aumente a intensidade gradualmente, mantendo respiração e movimento sob controle.',
+        'Evite mudanças bruscas de ritmo e reduza a intensidade se perder a técnica.',
+        'Finalize desacelerando aos poucos antes de encerrar o exercício.',
+    ];
+    if ($group === 'Mobilidade') return [
+        'Adote uma posição confortável e estável antes de iniciar o movimento.',
+        'Movimente-se devagar e sem usar impulso, respeitando a amplitude sem dor.',
+        'Mantenha a respiração contínua e evite compensações do tronco.',
+        'Retorne à posição inicial de forma controlada e repita com a mesma qualidade.',
+    ];
+    return [
+        'Ajuste ' . mb_strtolower($equipment, 'UTF-8') . ' e escolha uma carga que permita controlar o movimento.',
+        'Mantenha o tronco estável e execute a fase principal sem usar impulso.',
+        'Respeite uma amplitude confortável, sem perder o alinhamento das articulações.',
+        'Retorne lentamente à posição inicial e repita mantendo a mesma técnica.',
+    ];
+}
+
 /** @return list<array<string,mixed>> */
 function training_video_catalog_items(): array {
     static $items = null;
     if (is_array($items)) return $items;
     $items = [];
     $ptbr = training_video_catalog_ptbr();
+    $localizedRows = training_video_catalog_ptbr_localization();
     foreach (training_video_catalog_rows() as $row) {
         $rowId = training_knowledge_text($row['id'] ?? '', 100);
         $override = is_array($ptbr[$rowId] ?? null) ? $ptbr[$rowId] : [];
+        $localized = is_array($localizedRows[$rowId] ?? null) ? $localizedRows[$rowId] : [];
         $video = is_array($row['video'] ?? null) ? $row['video'] : [];
         $youtubeId = trim((string)($override['youtubeId'] ?? $video['youtubeId'] ?? ''));
         if (preg_match('/\A[A-Za-z0-9_-]{8,16}\z/D', $youtubeId) !== 1) continue;
+        $group = training_video_catalog_group($row);
+        $equipment = training_knowledge_equipment_name((string)($row['equipment'] ?? ''));
+        if ($equipment === '') $equipment = 'Equipamento não informado';
+
+        $sourceSteps = is_array($override['steps'] ?? null)
+            ? $override['steps']
+            : (is_array($localized['steps'] ?? null)
+                ? $localized['steps']
+                : training_video_catalog_generic_ptbr_steps($group, $equipment));
         $steps = [];
-        $sourceSteps = is_array($override['steps'] ?? null) ? $override['steps'] : (is_array($row['steps'] ?? null) ? $row['steps'] : []);
         foreach ($sourceSteps as $step) {
             $clean = training_knowledge_text($step, 420);
             if ($clean !== '') $steps[] = $clean;
             if (count($steps) >= 10) break;
         }
-        if ($steps === []) continue;
+        if ($steps === []) $steps = training_video_catalog_generic_ptbr_steps($group, $equipment);
+
         $cues = [];
-        foreach ($override !== [] ? [] : (is_array($row['cues'] ?? null) ? $row['cues'] : []) as $cue) {
+        $sourceCues = is_array($localized['cues'] ?? null) ? $localized['cues'] : [];
+        foreach ($sourceCues as $cue) {
             $clean = training_knowledge_text($cue, 320);
             if ($clean !== '') $cues[] = $clean;
             if (count($cues) >= 6) break;
         }
-        $group = training_video_catalog_group($row);
-        $equipment = training_knowledge_equipment_name((string)($row['equipment'] ?? ''));
-        if ($equipment === '') $equipment = 'Equipamento não informado';        $aliases = array_values(array_filter(array_map(
+
+        $aliases = array_values(array_filter(array_map(
             static fn($alias): string => training_knowledge_text($alias, 120),
             is_array($row['aliases'] ?? null) ? $row['aliases'] : [],
         )));
-        $isPtBr = $override !== [];
-        $displayName = $isPtBr ? training_knowledge_text($override['name'] ?? $row['name'] ?? '', 120) : training_knowledge_text($row['name'] ?? '', 120);
-        $videoAuthor = $isPtBr ? training_knowledge_text($override['channel'] ?? 'Smart Fit', 100) : training_knowledge_text($video['channel'] ?? '', 100);
+        $displayName = training_knowledge_text(
+            $override['name'] ?? $localized['name'] ?? $row['name'] ?? '', 120
+        );
+        $isPtBrVideo = training_knowledge_text($override['youtubeId'] ?? '', 20) !== '';
+        $videoAuthor = $isPtBrVideo
+            ? training_knowledge_text($override['channel'] ?? 'Smart Fit', 100)
+            : training_knowledge_text($video['channel'] ?? '', 100);
         $watchUrl = 'https://www.youtube.com/watch?v=' . $youtubeId;
         $items[] = [
             'id'=>'workoutdb-' . training_knowledge_text($row['id'] ?? '', 100),
             'name'=>$displayName,
-            'language'=>$isPtBr ? 'pt-BR' : 'fallback',
+            'language'=>'pt-BR',
             'group'=>$group,
             'modality'=>training_video_catalog_modality($row, $group),
             'equipment'=>[$equipment],
@@ -124,7 +170,7 @@ function training_video_catalog_items(): array {
                 'startSeconds'=>max(0, (int)($video['startSeconds'] ?? 0)),
                 'durationSec'=>max(0, (int)($video['durationSeconds'] ?? 0)),
                 'type'=>training_knowledge_text($video['type'] ?? '', 30),
-                'language'=>$isPtBr ? 'pt-BR' : training_knowledge_text($video['language'] ?? '', 20),
+                'language'=>$isPtBrVideo ? 'pt-BR' : training_knowledge_text($video['language'] ?? '', 20),
                 'author'=>$videoAuthor,
             ],            'source'=>'workout-db',
             'sourceUrl'=>TRAINING_VIDEO_CATALOG_SOURCE,
@@ -143,6 +189,8 @@ function training_video_catalog_items(): array {
             ])),
         ];
     }
-    usort($items, static fn(array $a, array $b): int => (($a['language'] ?? '') === 'pt-BR' ? 0 : 1) <=> (($b['language'] ?? '') === 'pt-BR' ? 0 : 1));
+    usort($items, static fn(array $a, array $b): int =>
+        ((($b['video']['language'] ?? '') === 'pt-BR') <=> (($a['video']['language'] ?? '') === 'pt-BR'))
+        ?: strcasecmp((string)$a['name'], (string)$b['name']));
     return $items;
 }
