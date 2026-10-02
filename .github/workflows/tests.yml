@@ -28,6 +28,10 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Auditar dependencias de alta severidade
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
       - name: Validar tipos, testes e build
         working-directory: frontend
         run: npm run validate
