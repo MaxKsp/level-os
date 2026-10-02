@@ -15,10 +15,17 @@ return static function (): void {
     test_assert_true(count($videoCatalog) >= 900, 'Bundled video catalog must provide broad exercise coverage.');
     foreach (array_slice($videoCatalog, 0, 40) as $videoItem) {
         test_assert_true(!empty($videoItem['steps']), 'Every published video exercise must include ordered steps.');
+        test_assert_same('pt-BR', $videoItem['language'] ?? null, 'Public video guidance must always be localized to Brazilian Portuguese.');
         test_assert_same('youtube', $videoItem['video']['provider'] ?? null, 'Bundled tutorials must use the expected video provider.');
         test_assert_true(str_starts_with((string)($videoItem['imageUrl'] ?? ''), 'https://i.ytimg.com/vi/'),
             'Video cards must use lightweight YouTube thumbnails.');
     }
+    $wallRollout = current(array_values(array_filter($videoCatalog,
+        static fn(array $item): bool => ($item['id'] ?? '') === 'workoutdb-ab_wheel_wall_rollout')));
+    test_assert_true(is_array($wallRollout), 'Localized fallback sample must exist in bundled catalog.');
+    test_assert_true(str_contains(mb_strtolower((string)($wallRollout['instructions'] ?? ''), 'UTF-8'), 'parede'),
+        'Fallback tutorial instructions must be translated instead of exposing the English source text.');
+
     $videoPage = training_knowledge_search('', '', '', 24, 0);
     test_assert_same(24, count($videoPage['items']), 'Initial library page must stay compact for fast rendering.');
     test_assert_true(($videoPage['videoRequired'] ?? false) === true, 'Public library must explicitly guarantee video coverage.');

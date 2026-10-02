@@ -12,7 +12,7 @@ export interface TrainingLibraryResponse {
 interface RawExercise {
   id: string
   name: string
-  language: "pt" | "fallback"
+  language: "pt-BR" | "pt" | "fallback"
   group: MuscleGroup
   modality: LibraryExercise["modality"]
   equipment: string[]

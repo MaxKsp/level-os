@@ -35,7 +35,9 @@ describe("NativeTrainingVideo", () => {
     expect(player.tagName).toBe("IFRAME")
     expect(player).toHaveAttribute("src", expect.stringContaining("youtube-nocookie.com/embed/gBZkSn-zsD0"))
     expect(player).toHaveAttribute("src", expect.stringContaining("start=12"))
-    expect(screen.getByText("VÍDEO EXPLICATIVO")).toBeInTheDocument()
+    expect(screen.getByText("VÍDEO DEMONSTRATIVO")).toBeInTheDocument()
+    expect(screen.getByText("Passo a passo · PT-BR")).toBeInTheDocument()
+    expect(screen.getByText(/O vídeo pode estar no idioma original/)).toBeInTheDocument()
     expect(screen.getByText("Mantenha o tronco estável.")).toBeInTheDocument()
   })
 

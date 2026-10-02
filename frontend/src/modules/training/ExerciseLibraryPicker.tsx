@@ -23,7 +23,7 @@ type Props = {
 
 export function ExerciseLibraryPicker({
   onSelect, title = "Biblioteca de movimentos",
-  description = "Pesquise exercícios com prioridade para vídeos em português, execução em etapas e orientações de técnica.",
+  description = "Passo a passo e orientações sempre em PT-BR; vídeos em português aparecem primeiro quando disponíveis.",
   compact = false,
 }: Props) {
   const [query, setQuery] = useState("")
@@ -154,9 +154,9 @@ export function ExerciseLibraryPicker({
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   <span className="rounded-md bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary">{item.group}</span>
                   <span className="rounded-md border border-outline-variant bg-surface-container-high px-2 py-1 text-[10px] font-medium text-on-surface-variant">{item.equipment}</span>
-                  {item.language === "pt-BR"
-                    ? <span className="rounded-md bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary">PT-BR · padrão Smart Fit</span>
-                    : <span className="rounded-md bg-warning/10 px-2 py-1 text-[10px] font-semibold text-warning">Vídeo original · fallback</span>}
+                  {item.video?.language === "pt-BR"
+                    ? <span className="rounded-md bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary">Vídeo PT-BR · {item.video.author || "fonte em português"}</span>
+                    : <span className="rounded-md bg-primary/10 px-2 py-1 text-[10px] font-semibold text-primary">Passo a passo PT-BR · vídeo original</span>}
                 </div>
               </div>
             </div>
