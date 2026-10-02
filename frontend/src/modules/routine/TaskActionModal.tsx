@@ -23,7 +23,7 @@ interface TaskActionModalProps {
 type Confirmation = "future" | "series" | null
 
 export function TaskActionModal({ task, occurrenceDate, onClose }: TaskActionModalProps) {
-  const { setTasks } = useApp()
+  const { setTasks, handleToggleTask } = useApp()
   const [editing, setEditing] = useState(false)
   const [confirmation, setConfirmation] = useState<Confirmation>(null)
   const recurring = Boolean(task?.repeat && task.repeat !== "none")
@@ -62,13 +62,25 @@ export function TaskActionModal({ task, occurrenceDate, onClose }: TaskActionMod
       <div className="space-y-5">
         <div className="flex flex-wrap items-center gap-2 border-y border-outline-variant py-3 text-xs text-muted">
           <span className="rounded-md bg-surface-container-high px-2 py-1">{task.subtitle || "Geral"}</span>
+          {task.durationMin ? <span className="rounded-md bg-surface-container-high px-2 py-1">{task.durationMin} min</span> : null}
+          {task.priority ? <span className="rounded-md bg-surface-container-high px-2 py-1">Prioridade {task.priority}</span> : null}
           {recurring ? <span className="rounded-md bg-primary/10 px-2 py-1 text-primary">{taskRepeatLabel(task)}</span> : null}
           {(task.reminderMinutes ?? [0]).map((minutes) => (
             <span key={minutes} className="rounded-md border border-outline-variant px-2 py-1">
-              {minutes === 0 ? "Na hora" : `${minutes} min antes`}
+              {minutes === 0 ? "Na hora" : String(minutes) + " min antes"}
             </span>
           ))}
         </div>
+
+        <Button
+          type="button"
+          variant={task.completed ? "secondary" : "primary"}
+          className="w-full"
+          onClick={() => { handleToggleTask(task.id, occurrenceDate); onClose() }}
+        >
+          <Icon name={task.completed ? "undo" : "check_circle"} className="text-[18px]" />
+          {task.completed ? "Reabrir esta ocorrência" : "Concluir esta ocorrência"}
+        </Button>
 
         {confirmation ? (
           <div role="alert" className="space-y-4 rounded-xl border border-error/30 bg-error/[0.06] p-4">

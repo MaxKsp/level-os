@@ -150,6 +150,25 @@ export interface RoutineSummary {
   nextTask: Task | null
 }
 
+export interface RoutineDaySummary extends RoutineSummary {
+  plannedMinutes: number
+  highPriorityPending: number
+  recurring: number
+  categories: number
+}
+
+export function routineDaySummary(tasks: Task[], isoDate: string, fallbackIso?: string): RoutineDaySummary {
+  const day = tasksOn(tasks, isoDate, fallbackIso)
+  const base = routineSummary(day)
+  return {
+    ...base,
+    plannedMinutes: day.reduce((sum, task) => sum + Math.max(0, task.durationMin ?? 30), 0),
+    highPriorityPending: day.filter((task) => !task.completed && task.priority === "alta").length,
+    recurring: day.filter((task) => task.repeat && task.repeat !== "none").length,
+    categories: new Set(day.map((task) => task.category || task.subtitle || "Geral")).size,
+  }
+}
+
 export function routineSummary(tasks: Task[]): RoutineSummary {
   const completed = tasks.filter((t) => t.completed).length
   const sorted = [...tasks].sort((a, b) => a.time.localeCompare(b.time))
