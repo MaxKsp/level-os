@@ -98,7 +98,7 @@ export function NutritionInventoryBridge({ plan, workspace, save }: Props) {
       <p className="text-[11px] leading-5 text-muted sm:col-span-3">Confira quantidade e unidade na embalagem.
         Se o plano disser “1 bandeja” ou outra medida ambígua, informe o peso/unidade real.
         Itens adicionados ao carrinho não são compras concluídas nem entrada automática no estoque.</p>
-      <div className="sm:col-span-3"><Button submit disabled={!selected || busy}>
+      <div className="sm:col-span-3"><Button type="submit" disabled={!selected || busy}>
         <ArrowDownToLine className="size-4" />{busy ? "Salvando…" : "Confirmar entrada na despensa"}</Button></div>
       {feedback ? <p role="status" className="text-xs text-on-surface sm:col-span-3">{feedback}</p> : null}
     </form>

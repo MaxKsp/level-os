@@ -234,7 +234,7 @@ export function NutritionWorkspacePanel({ plan, workspace, loading, error, save,
         <label className={labelClass}>Refeição consumida<input required maxLength={100} placeholder="Ex.: arroz, feijão, frango" value={mealForm.title} className={inputClass} onChange={(e) => setMealForm({ ...mealForm, title: e.target.value })} /></label>
         <label className={labelClass}>Porção (opcional)<input maxLength={80} placeholder="Ex.: 1 prato" value={mealForm.portion} className={inputClass} onChange={(e) => setMealForm({ ...mealForm, portion: e.target.value })} /></label>
         <label className={labelClass}>Observação (opcional)<input maxLength={400} value={mealForm.note} className={inputClass} onChange={(e) => setMealForm({ ...mealForm, note: e.target.value })} /></label>
-        <div className="flex flex-wrap gap-2 sm:col-span-2"><Button submit disabled={pending} size="sm">{editing.diary ? <Pencil className="size-4" /> : <Plus className="size-4" />}{editing.diary ? "Salvar alterações" : "Registrar refeição"}</Button>
+        <div className="flex flex-wrap gap-2 sm:col-span-2"><Button type="submit" disabled={pending} size="sm">{editing.diary ? <Pencil className="size-4" /> : <Plus className="size-4" />}{editing.diary ? "Salvar alterações" : "Registrar refeição"}</Button>
           {editing.diary ? <Button type="button" variant="secondary" disabled={pending} size="sm" onClick={() => cancelEdit("diary")}>Cancelar edição</Button> : null}</div>
       </form>
       <ul className="mt-4 divide-y divide-outline-variant text-sm">{workspace.diary.slice(0, 30).map((item) =>

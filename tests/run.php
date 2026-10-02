@@ -2,6 +2,11 @@
 declare(strict_types=1);
 
 $repoRoot = dirname(__DIR__);
+if ((string)getenv('LEVELOS_CONFIG_PATH') === ''
+    && !is_file($repoRoot . '/config.php')
+    && !is_file(dirname($repoRoot) . '/level-os-config.php')) {
+    putenv('LEVELOS_CONFIG_PATH=' . $repoRoot . '/config.example.php');
+}
 $pattern = $repoRoot . '/tests/cases/*_test.php';
 $files = glob($pattern) ?: [];
 sort($files);
