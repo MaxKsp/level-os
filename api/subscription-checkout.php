@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../app/Modules/Subscription/MercadoPagoClient.php';
+require_once __DIR__ . '/../app/Modules/Subscription/CheckoutUrlPolicy.php';
 require_once __DIR__ . '/../app/Modules/Subscription/SubscriptionRepository.php';
 require_once __DIR__ . '/../app/Modules/Subscription/SubscriptionPolicy.php';
 require_once __DIR__ . '/../app/Core/Clock.php';
@@ -21,7 +22,9 @@ function subscription_checkout_public(array $row, string $environment): array {
         'external_id' => (string)$row['external_id'],
         'status' => strtolower((string)$row['status']),
         'provider_status' => isset($row['provider_status']) ? (string)$row['provider_status'] : null,
-        'checkout_url' => isset($row['checkout_url']) ? (string)$row['checkout_url'] : '',
+        // Valida tambem URLs antigas persistidas antes do hardening do gateway.
+        'checkout_url' => subscription_checkout_url_is_allowed((string)($row['checkout_url'] ?? ''))
+            ? (string)$row['checkout_url'] : '',
         'payment_code' => isset($row['payment_code']) ? (string)$row['payment_code'] : '',
         'qr_code_data' => isset($row['qr_code_data']) ? (string)$row['qr_code_data'] : '',
         'expires_at' => $row['expires_at'] !== null ? (string)$row['expires_at'] : null,
@@ -217,13 +220,9 @@ try {
     }
     $externalId = isset($provider['id']) ? (string)$provider['id'] : '';
     $providerStatus = isset($provider['status']) ? strtolower((string)$provider['status']) : 'pending';
-    $urlParts = parse_url($checkoutUrl);
     if (
         !preg_match('/\A[a-zA-Z0-9._:-]{1,128}\z/D', $externalId)
-        || !is_array($urlParts)
-        || strtolower((string)($urlParts['scheme'] ?? '')) !== 'https'
-        || !isset($urlParts['host'])
-        || strlen($checkoutUrl) > 2048
+        || !subscription_checkout_url_is_allowed($checkoutUrl)
     ) {
         throw new RuntimeException('Invalid payment response.');
     }

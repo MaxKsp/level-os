@@ -2,7 +2,8 @@
 declare(strict_types=1);
 
 const LEVEL_OS_MOBILE_SESSION_PREFIX = 'losm_';
-const LEVEL_OS_MOBILE_SESSION_TTL_SECONDS = 2592000; // 30 dias
+const LEVEL_OS_MOBILE_SESSION_TTL_SECONDS = 2592000; // 30 dias absolutos
+const LEVEL_OS_MOBILE_SESSION_IDLE_SECONDS = 604800; // expira apos 7 dias de inatividade
 
 function level_os_mobile_session_request_token(): string
 {
@@ -52,10 +53,11 @@ function level_os_mobile_session_resolve(PDO $db, string $token): ?array
          WHERE ms.token_hash = ?
            AND ms.revoked_at IS NULL
            AND ms.expires_at > UTC_TIMESTAMP()
+           AND ms.last_used_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)
            AND u.session_version = ms.session_version
          LIMIT 1'
     );
-    $stmt->execute([level_os_mobile_session_hash($token)]);
+    $stmt->execute([level_os_mobile_session_hash($token), LEVEL_OS_MOBILE_SESSION_IDLE_SECONDS]);
     $row = $stmt->fetch();
     if (!is_array($row)) {
         return null;
@@ -64,9 +66,11 @@ function level_os_mobile_session_resolve(PDO $db, string $token): ?array
     $touch = $db->prepare(
         'UPDATE mobile_sessions
          SET last_used_at = UTC_TIMESTAMP()
-         WHERE id = ? AND last_used_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 MINUTE)'
+         WHERE id = ? AND revoked_at IS NULL AND expires_at > UTC_TIMESTAMP()
+           AND last_used_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)
+           AND last_used_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 MINUTE)'
     );
-    $touch->execute([(int)$row['id']]);
+    $touch->execute([(int)$row['id'], LEVEL_OS_MOBILE_SESSION_IDLE_SECONDS]);
 
     return [
         'user_id' => (int)$row['user_id'],
@@ -129,9 +133,10 @@ function level_os_mobile_session_issue(PDO $db, int $userId, int $sessionVersion
     $cleanup = $db->prepare(
         'DELETE FROM mobile_sessions
          WHERE user_id = ?
-           AND (revoked_at IS NOT NULL OR expires_at <= UTC_TIMESTAMP())'
+           AND (revoked_at IS NOT NULL OR expires_at <= UTC_TIMESTAMP()
+                OR last_used_at <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND))'
     );
-    $cleanup->execute([$userId]);
+    $cleanup->execute([$userId, LEVEL_OS_MOBILE_SESSION_IDLE_SECONDS]);
 
     return $token;
 }

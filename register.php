@@ -10,7 +10,16 @@ if (current_user_id() !== null) {
 $error = '';
 $verificationDelivered = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!csrf_form_ok()) {
+    // Contabilizar toda tentativa, inclusive payload invalido e conta nova:
+    // contar apenas usernames duplicados permite cadastro ilimitado por IP.
+    $rateSubject = 'i:' . substr(hash('sha256', client_ip()), 0, 62);
+    $hourAllowed = rate_ok_for_subject('register-hour', $rateSubject, 20, 3600);
+    $minuteAllowed = rate_ok_for_subject('register-minute', $rateSubject, 5, 60);
+    if (!$hourAllowed || !$minuteAllowed) {
+        http_response_code(429);
+        header('Retry-After: ' . ($hourAllowed ? '60' : '3600'));
+        $error = 'Muitas tentativas de cadastro. Aguarde e tente novamente.';
+    } elseif (!csrf_form_ok()) {
         $error = 'Sessão expirada. Tente de novo.';
     } elseif (is_register_locked_out()) {
         $error = 'Muitos cadastros a partir do seu IP. Tente novamente mais tarde.';
