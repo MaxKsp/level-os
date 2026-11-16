@@ -15,6 +15,15 @@ function ofx_tag(string $blk, string $tag): ?string {
     return null;
 }
 
+/** TRNAMT -> float. O ultimo separador e o decimal; os demais sao milhar (1.234,56 e 1,234.56 = 1234.56). */
+function ofx_amount(string $raw): float {
+    $s = preg_replace('#[^0-9,.\-]#', '', $raw);
+    if (preg_match('#^(.*)([.,])(\d*)$#', $s, $m) && substr_count($s, $m[2]) === 1) {
+        return (float)(preg_replace('#[.,]#', '', $m[1]) . '.' . $m[3]);
+    }
+    return (float)preg_replace('#[.,]#', '', $s);
+}
+
 /** YYYYMMDD[HHMMSS][.xxx][tz] -> Y-m-d, ou null se invalido. */
 function ofx_date(?string $raw): ?string {
     if (!$raw || !preg_match('#^(\d{4})(\d{2})(\d{2})#', $raw, $m)) return null;
@@ -38,7 +47,7 @@ function parse_ofx(string $content): array {
     foreach ($chunks as $blk) {
         $amtRaw = ofx_tag($blk, 'TRNAMT');
         if ($amtRaw === null) continue;
-        $value = (float)str_replace(',', '.', preg_replace('#[^0-9,.\-]#', '', $amtRaw));
+        $value = ofx_amount($amtRaw);
         $date = ofx_date(ofx_tag($blk, 'DTPOSTED'));
         $desc = ofx_tag($blk, 'NAME') ?? ofx_tag($blk, 'MEMO') ?? '';
         $desc = trim(preg_replace('#\s+#', ' ', $desc));

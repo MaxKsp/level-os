@@ -35,4 +35,22 @@ return function (): void {
         $parsed['rows'][1],
         'Second OFX row must match current normalization rules.'
     );
+    // Regressao: TRNAMT com separador de milhar nao pode virar centavos (-1.234,56 chegava como 1.23).
+    $amountCases = [
+        ['-1234.56', 1234.56, 'expense'],
+        ['-1234,56', 1234.56, 'expense'],
+        ['-1.234,56', 1234.56, 'expense'],
+        ['-1,234.56', 1234.56, 'expense'],
+        ['1.234.567,89', 1234567.89, 'income'],
+        ['2.500', 2.5, 'income'],
+        ['1.234.567', 1234567.0, 'income'],
+        ['1200', 1200.0, 'income'],
+    ];
+    foreach ($amountCases as [$rawAmount, $expectedValue, $expectedKind]) {
+        $case = parse_ofx("<OFX><STMTTRN><TRNTYPE>X<DTPOSTED>20260710<TRNAMT>$rawAmount<FITID>A1<NAME>Teste</STMTTRN></OFX>");
+        test_assert_true($case['ok'] === true, "OFX TRNAMT $rawAmount must parse.");
+        test_assert_same($expectedValue, $case['rows'][0]['value'], "OFX TRNAMT $rawAmount must keep its magnitude.");
+        test_assert_same($expectedKind, $case['rows'][0]['kind'], "OFX TRNAMT $rawAmount must keep its sign.");
+    }
+
 };
