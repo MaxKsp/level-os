@@ -53,4 +53,17 @@ return function (): void {
         test_assert_same($expectedKind, $case['rows'][0]['kind'], "OFX TRNAMT $rawAmount must keep its sign.");
     }
 
+    // Fixture compartilhada com frontend/src/modules/finance/ofx.test.ts: os dois parsers devem concordar.
+    $milhar = parse_ofx((string)file_get_contents(test_repo_root() . '/tests/fixtures/milhar.ofx'));
+    test_assert_true($milhar['ok'] === true, 'Thousands OFX fixture must parse.');
+    test_assert_same(
+        [['MIL001', 1234.56, 'expense'], ['MIL002', 1234567.89, 'income'], ['MIL003', 1234.56, 'expense'], ['MIL005', 0.05, 'expense']],
+        array_map(static fn(array $row): array => [$row['fitid'], $row['value'], $row['kind']], $milhar['rows']),
+        'Thousands OFX fixture must keep cents and sign, and drop the trailing-minus TRNAMT.'
+    );
+    test_assert_same(
+        ['ok' => false, 'error' => 'nenhum lançamento válido no arquivo'],
+        parse_ofx('<OFX><STMTTRN><DTPOSTED>20260710<TRNAMT>abc<FITID>X</STMTTRN></OFX>'),
+        'A TRNAMT without digits must not become a zero-value row.'
+    );
 };

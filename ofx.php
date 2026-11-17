@@ -15,9 +15,14 @@ function ofx_tag(string $blk, string $tag): ?string {
     return null;
 }
 
-/** TRNAMT -> float. O ultimo separador e o decimal; os demais sao milhar (1.234,56 e 1,234.56 = 1234.56). */
-function ofx_amount(string $raw): float {
+/**
+ * TRNAMT -> float, ou null se nao for numero. O ultimo separador e o decimal; os demais sao
+ * milhar (1.234,56 e 1,234.56 = 1234.56). Mesma regra de parseOfxAmount() em frontend/src/modules/finance/ofx.ts.
+ */
+function ofx_amount(string $raw): ?float {
     $s = preg_replace('#[^0-9,.\-]#', '', $raw);
+    // Sinal fora do inicio (1234.56-) ou sem digito: descarta em vez de inverter o sinal ou multiplicar o valor.
+    if (!preg_match('#^-?[0-9.,]*[0-9][0-9.,]*$#', $s)) return null;
     if (preg_match('#^(.*)([.,])(\d*)$#', $s, $m) && substr_count($s, $m[2]) === 1) {
         return (float)(preg_replace('#[.,]#', '', $m[1]) . '.' . $m[3]);
     }
@@ -45,9 +50,8 @@ function parse_ofx(string $content): array {
 
     $rows = [];
     foreach ($chunks as $blk) {
-        $amtRaw = ofx_tag($blk, 'TRNAMT');
-        if ($amtRaw === null) continue;
-        $value = ofx_amount($amtRaw);
+        $value = ofx_amount(ofx_tag($blk, 'TRNAMT') ?? '');
+        if ($value === null) continue;
         $date = ofx_date(ofx_tag($blk, 'DTPOSTED'));
         $desc = ofx_tag($blk, 'NAME') ?? ofx_tag($blk, 'MEMO') ?? '';
         $desc = trim(preg_replace('#\s+#', ' ', $desc));
