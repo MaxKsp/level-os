@@ -24,6 +24,11 @@ export function formatWeight(value: number): string {
   return `${value.toFixed(1).replace(".", ",")} kg`
 }
 
+/** Contagem com substantivo concordando em número: "1 conta", "2 contas". */
+export function formatCount(count: number, singular: string, plural: string): string {
+  return `${count.toLocaleString("pt-BR")} ${count === 1 ? singular : plural}`
+}
+
 const LONG_DATE = new Intl.DateTimeFormat("pt-BR", {
   weekday: "long",
   day: "2-digit",

@@ -21,6 +21,15 @@ function field(block: string, name: string): string {
   return match?.[1]?.trim() ?? ""
 }
 
+/** Mesma regra de ofx_amount() em ofx.php: o último separador é o decimal, os demais são milhar. NaN se inválido. */
+function parseOfxAmount(raw: string): number {
+  const clean = raw.replace(/[^\d,.-]/g, "")
+  if (!/^-?[\d.,]*\d[\d.,]*$/.test(clean)) return Number.NaN
+  const last = Math.max(clean.lastIndexOf(","), clean.lastIndexOf("."))
+  if (last < 0 || clean.split(clean[last]).length > 2) return Number(clean.replace(/[.,]/g, ""))
+  return Number(`${clean.slice(0, last).replace(/[.,]/g, "")}.${clean.slice(last + 1)}`)
+}
+
 /** Parser leve para preview local. O deploy autenticado continua usando api/import-ofx.php. */
 export function parseOfxClient(content: string, existing: ExistingTransaction[] = []): OfxPreviewRow[] {
   const text = normalize(content)
@@ -30,10 +39,11 @@ export function parseOfxClient(content: string, existing: ExistingTransaction[] 
 
   return blocks.flatMap((block, index) => {
     const rawDate = field(block, "DTPOSTED")
-    const rawValue = field(block, "TRNAMT").replace(",", ".")
-    const value = Number(rawValue)
+    const value = parseOfxAmount(field(block, "TRNAMT"))
+    // Centavos como round(abs($value), 2) em ofx.php, para preview e gravação concordarem.
+    const amount = Math.round(Math.abs(value) * 100) / 100
     const dateDigits = rawDate.replace(/\D/g, "").slice(0, 8)
-    if (dateDigits.length !== 8 || !Number.isFinite(value) || value === 0) return []
+    if (dateDigits.length !== 8 || !Number.isFinite(value) || amount === 0) return []
 
     const date = `${dateDigits.slice(0, 4)}-${dateDigits.slice(4, 6)}-${dateDigits.slice(6, 8)}`
     const year = Number(dateDigits.slice(0, 4))
@@ -44,8 +54,7 @@ export function parseOfxClient(content: string, existing: ExistingTransaction[] 
     const fitid = field(block, "FITID") || null
     const repeatedFitid = fitid !== null && seenFitid.has(fitid)
     if (fitid !== null) seenFitid.add(fitid)
-    const desc = field(block, "MEMO") || field(block, "NAME") || field(block, "TRNTYPE") || "Lançamento OFX"
-    const amount = Math.abs(value)
+    const desc = field(block, "NAME") || field(block, "MEMO") || field(block, "TRNTYPE") || "Lançamento OFX"
     const matchKey = `${date}|${amount.toFixed(2)}`
     return [{
       id: `ofx-${date}-${fitid ?? "no-fitid"}-${index}`,

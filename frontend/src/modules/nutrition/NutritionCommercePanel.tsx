@@ -35,7 +35,7 @@ export function NutritionCommercePanel({ plan, items = [], purchased = new Set()
             <p className="text-xs font-semibold text-on-surface">iFood Mercado</p>
             <p className="mt-1 text-xs leading-5 text-on-surface-variant">Compare mercados disponíveis na sua região e use a função Lista de Compras do iFood.</p>
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-primary/5 px-3 py-2">
-              <span className="text-[11px] text-muted">{items.length - purchased.size} item(ns) pendente(s) no Level OS</span>
+              <span className="text-[11px] text-muted">{items.length - purchased.size === 1 ? "1 item pendente" : `${items.length - purchased.size} itens pendentes`} no Level OS</span>
               <Button type="button" variant="secondary" size="sm" disabled={!pending} onClick={() => void copy(pending, "Lista pendente copiada. Cole no iFood e revise os produtos.")}>
                 <Copy className="size-3.5" />Copiar lista
               </Button>
