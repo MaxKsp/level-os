@@ -74,7 +74,15 @@ if ($method === 'POST') {
         echo json_encode(['error' => 'invalid payload']);
         exit;
     }
-    if (in_array($key, FINANCE_AUX_KV_KEYS, true)) {
+    if ($key === 'bank_favorites') {
+        $favorites = finance_bank_favorites_normalize($body['value']);
+        if ($favorites === null) {
+            http_response_code(400);
+            echo json_encode(['error' => 'invalid value']);
+            exit;
+        }
+        finance_auxiliary_kv_save($db, $uid, $key, $favorites);
+    } elseif (in_array($key, FINANCE_AUX_KV_KEYS, true)) {
         finance_auxiliary_kv_save($db, $uid, $key, $body['value']);
     } else {
         $stmt = $db->prepare('INSERT INTO kv_store (user_id, data_key, data_value) VALUES (?, ?, ?)
