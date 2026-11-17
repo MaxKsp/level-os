@@ -5,6 +5,7 @@ require_once __DIR__ . '/../auth.php';
 
 header('Content-Type: application/json; charset=utf-8');
 $uid = require_login();
+require_verified_email($uid);
 require_rate_limit('totp', 20, 60);
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);

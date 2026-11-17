@@ -2,7 +2,10 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect } from 'react';
 import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -15,7 +18,7 @@ import {
   View,
   type ViewStyle,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -33,6 +36,7 @@ export function NativeScreen({
   refreshing,
   onRefresh,
 }: React.PropsWithChildren<{ refreshing?: boolean; onRefresh?: () => void }>) {
+  const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
   const entrance = useSharedValue(reducedMotion ? 1 : 0);
 
@@ -51,8 +55,15 @@ export function NativeScreen({
   return (
     <SafeAreaView edges={['top']} style={styles.safe}>
       <ScrollView
-        contentContainerStyle={styles.screen}
+        automaticallyAdjustKeyboardInsets
+        contentContainerStyle={[
+          styles.screen,
+          { paddingBottom: Math.max(112, insets.bottom + 92) },
+        ]}
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
         refreshControl={onRefresh ? (
           <RefreshControl
             colors={[levelTheme.colors.primary]}
@@ -95,17 +106,43 @@ export function PageHeader({
 export function Section({
   title,
   caption,
+  action,
   children,
-}: React.PropsWithChildren<{ title: string; caption?: string }>) {
+}: React.PropsWithChildren<{ title: string; caption?: string; action?: React.ReactNode }>) {
   return (
     <View style={styles.section}>
-      <View style={styles.sectionHeading}>
-        <Text style={styles.sectionTitle}>{title}</Text>
-        {caption ? <Text style={styles.sectionCaption}>{caption}</Text> : null}
+      <View style={styles.sectionHeadingRow}>
+        <View style={styles.sectionHeading}>
+          <Text style={styles.sectionTitle}>{title}</Text>
+          {caption ? <Text style={styles.sectionCaption}>{caption}</Text> : null}
+        </View>
+        {action}
       </View>
       <View style={styles.hairline} />
       {children}
     </View>
+  );
+}
+
+export function SectionLink({
+  label,
+  onPress,
+}: {
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      hitSlop={8}
+      onPress={() => {
+        void Haptics.selectionAsync();
+        onPress();
+      }}
+      style={({ pressed }) => [styles.sectionLink, pressed && styles.pressed]}>
+      <Text style={styles.sectionLinkText}>{label}</Text>
+      <Ionicons color={levelTheme.colors.primary} name="chevron-forward" size={15} />
+    </Pressable>
   );
 }
 
@@ -182,6 +219,7 @@ export function NativeButton({
   icon,
   onPress,
   disabled,
+  loading = false,
   variant = 'primary',
   style,
 }: {
@@ -189,13 +227,15 @@ export function NativeButton({
   icon?: IconName;
   onPress: () => void;
   disabled?: boolean;
+  loading?: boolean;
   variant?: 'primary' | 'secondary' | 'danger';
   style?: ViewStyle;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
-      disabled={disabled}
+      accessibilityState={{ busy: loading, disabled: disabled || loading }}
+      disabled={disabled || loading}
       onPress={() => {
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onPress();
@@ -204,10 +244,15 @@ export function NativeButton({
         styles.button,
         variant === 'secondary' && styles.buttonSecondary,
         variant === 'danger' && styles.buttonDanger,
-        (pressed || disabled) && styles.buttonDimmed,
+        (pressed || disabled || loading) && styles.buttonDimmed,
         style,
       ]}>
-      {icon ? (
+      {loading ? (
+        <ActivityIndicator
+          color={variant === 'primary' ? levelTheme.colors.background : levelTheme.colors.primary}
+          size="small"
+        />
+      ) : icon ? (
         <Ionicons
           color={variant === 'primary' ? levelTheme.colors.background : levelTheme.colors.text}
           name={icon}
@@ -215,8 +260,32 @@ export function NativeButton({
         />
       ) : null}
       <Text style={[styles.buttonText, variant !== 'primary' && styles.buttonTextSecondary]}>
-        {label}
+        {loading ? 'Aguarde…' : label}
       </Text>
+    </Pressable>
+  );
+}
+
+export function IconButton({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: IconName;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      hitSlop={8}
+      onPress={() => {
+        void Haptics.selectionAsync();
+        onPress();
+      }}
+      style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}>
+      <Ionicons color={levelTheme.colors.text} name={icon} size={21} />
     </Pressable>
   );
 }
@@ -227,6 +296,7 @@ export function ActionTile({
   description,
   onPress,
   accent = false,
+  compact = false,
   style,
 }: {
   icon: IconName;
@@ -234,6 +304,7 @@ export function ActionTile({
   description: string;
   onPress: () => void;
   accent?: boolean;
+  compact?: boolean;
   style?: ViewStyle;
 }) {
   return (
@@ -247,11 +318,16 @@ export function ActionTile({
       }}
       style={({ pressed }) => [
         styles.actionTile,
+        compact && styles.actionTileCompact,
         accent && styles.actionTileAccent,
         pressed && styles.actionTilePressed,
         style,
       ]}>
-      <View style={[styles.actionTileIcon, accent && styles.actionTileIconAccent]}>
+      <View style={[
+        styles.actionTileIcon,
+        compact && styles.actionTileIconCompact,
+        accent && styles.actionTileIconAccent,
+      ]}>
         <Ionicons
           color={accent ? levelTheme.colors.background : levelTheme.colors.primary}
           name={icon}
@@ -266,11 +342,11 @@ export function ActionTile({
           {description}
         </Text>
       </View>
-      <Ionicons
+      {!compact ? <Ionicons
         color={accent ? levelTheme.colors.background : levelTheme.colors.muted}
         name="arrow-forward"
         size={17}
-      />
+      /> : null}
     </Pressable>
   );
 }
@@ -292,6 +368,32 @@ export function ErrorState({ retry }: { retry: () => void }) {
       <Pressable accessibilityRole="button" onPress={retry}>
         <Text style={styles.retry}>Tentar novamente</Text>
       </Pressable>
+    </View>
+  );
+}
+
+export function LoadingState({
+  label = 'Atualizando seus dados…',
+  rows = 3,
+}: {
+  label?: string;
+  rows?: number;
+}) {
+  return (
+    <View accessibilityLabel={label} accessibilityRole="progressbar" style={styles.loadingState}>
+      <View style={styles.loadingHeading}>
+        <ActivityIndicator color={levelTheme.colors.primary} size="small" />
+        <Text style={styles.loadingLabel}>{label}</Text>
+      </View>
+      {Array.from({ length: rows }).map((_, index) => (
+        <View key={index} style={styles.skeletonRow}>
+          <View style={styles.skeletonIcon} />
+          <View style={styles.skeletonCopy}>
+            <View style={[styles.skeletonLine, { width: index % 2 ? '58%' : '72%' }]} />
+            <View style={[styles.skeletonLine, styles.skeletonLineSmall]} />
+          </View>
+        </View>
+      ))}
     </View>
   );
 }
@@ -366,7 +468,11 @@ export function NativeModal({
       transparent
       visible={visible}>
       <View style={styles.modalBackdrop}>
-        <SafeAreaView edges={['top', 'bottom']} style={styles.modalSheet}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalKeyboard}>
+        <SafeAreaView edges={['bottom']} style={styles.modalSheet}>
+          <View style={styles.sheetHandle} />
           <View style={styles.modalHeader}>
             <View style={styles.modalHeaderCopy}>
               <Text style={styles.modalTitle}>{title}</Text>
@@ -382,11 +488,14 @@ export function NativeModal({
             </Pressable>
           </View>
           <ScrollView
+            automaticallyAdjustKeyboardInsets
             contentContainerStyle={styles.modalBody}
+            keyboardDismissMode="interactive"
             keyboardShouldPersistTaps="handled">
             {children}
           </ScrollView>
         </SafeAreaView>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
@@ -406,8 +515,11 @@ export function NativeField({
     <View style={styles.field}>
       <Text style={styles.fieldLabel}>{label}</Text>
       <TextInput
+        accessibilityLabel={label}
+        cursorColor={levelTheme.colors.primary}
         multiline={multiline}
         placeholderTextColor={levelTheme.colors.muted}
+        selectionColor={levelTheme.colors.primaryMuted}
         style={[styles.fieldInput, multiline && styles.fieldInputMultiline, style]}
         {...props}
       />
@@ -434,7 +546,10 @@ export function ChoiceChips<T extends string>({
             accessibilityRole="radio"
             accessibilityState={{ checked: selected }}
             key={item.value}
-            onPress={() => onChange(item.value)}
+            onPress={() => {
+              void Haptics.selectionAsync();
+              onChange(item.value);
+            }}
             style={[styles.choice, selected && styles.choiceActive]}>
             <Text style={[styles.choiceText, selected && styles.choiceTextActive]}>
               {item.label}
@@ -465,7 +580,10 @@ export function ToggleRow({
       </View>
       <Switch
         accessibilityLabel={title}
-        onValueChange={onChange}
+        onValueChange={(nextValue) => {
+          void Haptics.selectionAsync();
+          onChange(nextValue);
+        }}
         thumbColor={value ? levelTheme.colors.background : '#D8E2E0'}
         trackColor={{ false: '#354440', true: levelTheme.colors.primary }}
         value={value}
@@ -488,17 +606,26 @@ export function ProgressBar({ value }: { value: number }) {
 
 const styles = StyleSheet.create({
   safe: { backgroundColor: 'transparent', flex: 1 },
-  screen: { paddingBottom: 120, paddingHorizontal: 20, paddingTop: 18 },
-  screenContent: { gap: 28 },
+  screen: { paddingHorizontal: 20, paddingTop: 18 },
+  screenContent: { alignSelf: 'center', gap: 28, maxWidth: 680, width: '100%' },
   header: { alignItems: 'flex-start', flexDirection: 'row', gap: 16, justifyContent: 'space-between' },
   headerCopy: { flex: 1, gap: 6 },
   eyebrow: { color: levelTheme.colors.primary, fontSize: 12, fontWeight: '700', letterSpacing: 1.2, textTransform: 'uppercase' },
   title: { color: levelTheme.colors.text, fontSize: 30, fontWeight: '700', letterSpacing: -1.1 },
   description: { color: levelTheme.colors.muted, fontSize: 15, lineHeight: 22 },
   section: { gap: 14 },
-  sectionHeading: { gap: 4 },
+  sectionHeading: { flex: 1, gap: 4 },
+  sectionHeadingRow: { alignItems: 'center', flexDirection: 'row', gap: 12 },
   sectionTitle: { color: levelTheme.colors.text, fontSize: 18, fontWeight: '600' },
   sectionCaption: { color: levelTheme.colors.muted, fontSize: 13 },
+  sectionLink: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 2,
+    minHeight: 44,
+    paddingLeft: 8,
+  },
+  sectionLinkText: { color: levelTheme.colors.primary, fontSize: 12, fontWeight: '700' },
   hairline: { backgroundColor: levelTheme.colors.border, height: StyleSheet.hairlineWidth },
   metric: { flex: 1, gap: 6, minWidth: 140, paddingVertical: 8 },
   metricLabel: { color: levelTheme.colors.muted, fontSize: 13 },
@@ -510,12 +637,26 @@ const styles = StyleSheet.create({
   rowSubtitle: { color: levelTheme.colors.muted, fontSize: 12, lineHeight: 17 },
   rowValue: { color: levelTheme.colors.text, fontSize: 14, fontVariant: ['tabular-nums'], fontWeight: '600' },
   pressed: { opacity: 0.65 },
-  button: { alignItems: 'center', backgroundColor: levelTheme.colors.primary, borderRadius: 14, flexDirection: 'row', gap: 8, justifyContent: 'center', minHeight: 48, paddingHorizontal: 18 },
+  button: { alignItems: 'center', backgroundColor: levelTheme.colors.primary, borderRadius: 14, flexDirection: 'row', gap: 8, justifyContent: 'center', minHeight: 50, paddingHorizontal: 18 },
   buttonSecondary: { backgroundColor: levelTheme.colors.surfaceRaised, borderColor: levelTheme.colors.border, borderWidth: 1 },
   buttonDanger: { backgroundColor: '#3A171A', borderColor: '#682328', borderWidth: 1 },
   buttonDimmed: { opacity: 0.55 },
   buttonText: { color: levelTheme.colors.background, fontSize: 15, fontWeight: '700' },
   buttonTextSecondary: { color: levelTheme.colors.text },
+  iconButton: {
+    alignItems: 'center',
+    backgroundColor: levelTheme.colors.surfaceRaised,
+    borderColor: levelTheme.colors.border,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    height: 46,
+    justifyContent: 'center',
+    width: 46,
+  },
+  iconButtonPressed: {
+    backgroundColor: levelTheme.colors.primaryMuted,
+    transform: [{ scale: 0.96 }],
+  },
   actionTile: {
     alignItems: 'center',
     backgroundColor: levelTheme.colors.surface,
@@ -532,6 +673,14 @@ const styles = StyleSheet.create({
     backgroundColor: levelTheme.colors.primary,
     borderColor: levelTheme.colors.primary,
   },
+  actionTileCompact: {
+    alignItems: 'flex-start',
+    flex: 1,
+    flexDirection: 'column',
+    minHeight: 128,
+    minWidth: 140,
+    padding: 14,
+  },
   actionTilePressed: {
     opacity: 0.72,
     transform: [{ scale: 0.985 }],
@@ -546,6 +695,10 @@ const styles = StyleSheet.create({
   },
   actionTileIconAccent: {
     backgroundColor: 'rgba(6, 17, 15, 0.12)',
+  },
+  actionTileIconCompact: {
+    height: 38,
+    width: 38,
   },
   actionTileCopy: {
     flex: 1,
@@ -573,6 +726,37 @@ const styles = StyleSheet.create({
   error: { alignItems: 'center', backgroundColor: '#2D1517', borderRadius: 14, gap: 8, padding: 18 },
   errorText: { color: levelTheme.colors.danger, fontSize: 14 },
   retry: { color: levelTheme.colors.text, fontSize: 14, fontWeight: '700' },
+  loadingState: {
+    backgroundColor: levelTheme.colors.surface,
+    borderColor: levelTheme.colors.border,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: 4,
+    padding: 16,
+  },
+  loadingHeading: { alignItems: 'center', flexDirection: 'row', gap: 10, paddingBottom: 10 },
+  loadingLabel: { color: levelTheme.colors.muted, fontSize: 13 },
+  skeletonRow: {
+    alignItems: 'center',
+    borderTopColor: levelTheme.colors.border,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 12,
+    minHeight: 60,
+  },
+  skeletonIcon: {
+    backgroundColor: levelTheme.colors.surfaceRaised,
+    borderRadius: 10,
+    height: 36,
+    width: 36,
+  },
+  skeletonCopy: { flex: 1, gap: 8 },
+  skeletonLine: {
+    backgroundColor: levelTheme.colors.surfaceRaised,
+    borderRadius: 999,
+    height: 9,
+  },
+  skeletonLineSmall: { height: 7, opacity: 0.72, width: '42%' },
   segmented: { marginHorizontal: -20 },
   segmentedContent: { gap: 8, paddingHorizontal: 20 },
   segment: {
@@ -596,6 +780,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
   },
+  modalKeyboard: { flex: 1, justifyContent: 'flex-end' },
   modalSheet: {
     backgroundColor: '#071310',
     borderColor: levelTheme.colors.border,
@@ -603,6 +788,14 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 26,
     borderWidth: StyleSheet.hairlineWidth,
     maxHeight: '94%',
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    backgroundColor: levelTheme.colors.border,
+    borderRadius: 999,
+    height: 4,
+    marginTop: 9,
+    width: 42,
   },
   modalHeader: {
     alignItems: 'flex-start',
@@ -644,7 +837,7 @@ const styles = StyleSheet.create({
     borderColor: levelTheme.colors.border,
     borderRadius: 999,
     borderWidth: 1,
-    minHeight: 40,
+    minHeight: 44,
     paddingHorizontal: 14,
     justifyContent: 'center',
   },

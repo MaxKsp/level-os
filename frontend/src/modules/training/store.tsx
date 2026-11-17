@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 import type { BodyMeasurement, TrainingSessionLog, TrainingSnapshot, Workout } from "./contracts"
 import { deleteMeasurement, deleteSession, deleteWorkout, hasTrainingBackend, loadTraining, restoreProgram, saveMeasurement, saveSession, saveWorkout } from "./api"
 import { useProgress } from "../progress/store"
@@ -18,7 +18,7 @@ interface TrainingContextValue extends TrainingSnapshot {
   removeWorkout: (id: string) => Promise<void>
   addMeasurement: (value: Omit<BodyMeasurement, "id">) => Promise<void>
   removeMeasurement: (id: string) => Promise<void>
-  addSession: (value: Omit<TrainingSessionLog, "id">) => Promise<void>
+  addSession: (value: Omit<TrainingSessionLog, "id"> & { id?: string }) => Promise<void>
   removeSession: (id: string) => Promise<void>
   restoreProgram: (id: string) => Promise<void>
 }
@@ -52,26 +52,26 @@ export function TrainingProvider({ children }: { children: ReactNode }) {
   }, [remote])
   useEffect(() => { void refresh() }, [refresh])
 
-  const run = async (operation: () => Promise<void>) => {
+  const run = useCallback(async (operation: () => Promise<void>) => {
     setStatus(remote ? "saving" : "local"); setError(null)
     try { await operation(); if (remote) await refresh() }
     catch (cause) { setStatus("error"); setError(cause instanceof Error ? cause.message : "Falha ao salvar treino."); throw cause }
-  }
-  const upsert = async (workout: Workout) => run(async () => {
+  }, [refresh, remote])
+  const upsert = useCallback(async (workout: Workout) => run(async () => {
     if (remote) await saveWorkout(workout)
     else setData((current) => ({ ...current, workouts: [...current.workouts.filter((item) => item.id !== workout.id), workout] }))
-  })
+  }), [remote, run])
 
-  const value: TrainingContextValue = {
+  const value = useMemo<TrainingContextValue>(() => ({
     ...data, status, error, refresh,
     addWorkout: upsert, updateWorkout: upsert,
     removeWorkout: (id) => run(async () => { if (remote) await deleteWorkout(id); else setData((c) => ({ ...c, workouts: c.workouts.filter((x) => x.id !== id) })) }),
     addMeasurement: (item) => run(async () => { if (remote) await saveMeasurement(item); else setData((c) => ({ ...c, measurements: [{ ...item, id: wid("bm") }, ...c.measurements] })) }),
     removeMeasurement: (id) => run(async () => { if (remote) await deleteMeasurement(id); else setData((c) => ({ ...c, measurements: c.measurements.filter((x) => x.id !== id) })) }),
-    addSession: (item) => run(async () => { if (remote) await saveSession(item); else setData((c) => ({ ...c, sessions: [{ ...item, id: wid("ts") }, ...c.sessions] })); await refreshProgress() }),
+    addSession: (item) => run(async () => { if (remote) await saveSession(item); else setData((c) => ({ ...c, sessions: [{ ...item, id: item.id ?? wid("ts") }, ...c.sessions] })); await refreshProgress() }),
     removeSession: (id) => run(async () => { if (remote) await deleteSession(id); else setData((c) => ({ ...c, sessions: c.sessions.filter((x) => x.id !== id) })); await refreshProgress() }),
     restoreProgram: (id) => run(async () => { if (remote) await restoreProgram(id) }),
-  }
+  }), [data, error, refresh, refreshProgress, remote, run, status, upsert])
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 

@@ -1,6 +1,8 @@
 import { useMemo, useState, type FormEvent } from "react"
-import { Button } from "../../components/ui/Button"
+import { Button } from "../../components/ui/button"
 import { Input } from "../../components/ui/Input"
+import { LevelDateInput } from "../../components/ui/LevelDateInput"
+import { LevelSelect } from "../../components/ui/LevelSelect"
 import { useApp, type Task } from "../../context/AppContext"
 import { Icon } from "../../design-system"
 import { cn } from "../../lib/cn"
@@ -42,6 +44,7 @@ export interface ScheduledTaskInput {
   repeatUntil?: string
   reminderMinutes?: number[]
   priority?: Priority
+  durationMin?: number
 }
 
 export function buildScheduledTask(input: ScheduledTaskInput, id = `task_${crypto.randomUUID()}`): Task {
@@ -69,6 +72,7 @@ export function buildScheduledTask(input: ScheduledTaskInput, id = `task_${crypt
     repeatUntil: input.repeat === "none" ? undefined : input.repeatUntil,
     completedDates: input.repeat === "none" ? undefined : [],
     reminderMinutes: [...new Set(input.reminderMinutes ?? [0])].sort((a, b) => a - b),
+    durationMin: Math.max(5, Math.min(480, input.durationMin ?? 30)),
   }
 }
 
@@ -84,6 +88,7 @@ export function TaskSchedulerForm({ onClose, task }: TaskSchedulerFormProps) {
   const [time, setTime] = useState(task?.time ?? "12:00")
   const [subtitle, setSubtitle] = useState(task?.subtitle ?? "Geral")
   const [priority, setPriority] = useState<Priority | "">(task?.priority ?? "")
+  const [durationMin, setDurationMin] = useState(String(task?.durationMin ?? 30))
   const [date, setDate] = useState(task?.date ?? TODAY_ISO)
   const [repeat, setRepeat] = useState<TaskRepeat>(task?.repeat ?? "none")
   const [repeatDays, setRepeatDays] = useState<number[]>(
@@ -127,6 +132,7 @@ export function TaskSchedulerForm({ onClose, task }: TaskSchedulerFormProps) {
       repeatUntil: hasEndDate && repeatUntil ? repeatUntil : undefined,
       reminderMinutes,
       priority: priority || undefined,
+      durationMin: Number(durationMin) || 30,
     }, task?.id)
 
     app.setTasks((current) => editing
@@ -160,20 +166,26 @@ export function TaskSchedulerForm({ onClose, task }: TaskSchedulerFormProps) {
       <Input label="Título da tarefa" required placeholder="Ex.: Tomar medicamento" value={title} onChange={(event) => setTitle(event.target.value)} />
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Input label="Começa em" type="date" required min={editing ? undefined : TODAY_ISO} value={date} onChange={(event) => setDate(event.target.value)} />
-        <Input label="Horário" type="time" required value={time} onChange={(event) => setTime(event.target.value)} fontFamily="mono" />
+        <div><LevelDateInput label="Começa em" required min={editing ? undefined : TODAY_ISO} value={date} onChange={(event) => setDate(event.target.value)} /></div>
+        <div><LevelDateInput label="Horário" type="time" required value={time} onChange={(event) => setTime(event.target.value)} /></div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <Input label="Categoria" placeholder="Ex.: Saúde" value={subtitle} onChange={(event) => setSubtitle(event.target.value)} />
         <label className="flex flex-col gap-1.5 text-sm font-medium text-on-surface-variant">
           Prioridade
-          <select value={priority} onChange={(event) => setPriority(event.target.value as Priority | "")} className="min-h-11 rounded-lg border border-outline-variant bg-surface-container px-3 text-sm font-normal text-on-surface outline-none focus:border-primary">
-            <option value="">Sem prioridade</option>
-            <option value="baixa">Baixa</option>
-            <option value="media">Média</option>
-            <option value="alta">Alta</option>
-          </select>
+          <LevelSelect value={priority} onChange={(v) => setPriority(v as Priority | "")} options={[{ value: "", label: "Sem prioridade" }, { value: "baixa", label: "Baixa" }, { value: "media", label: "Média" }, { value: "alta", label: "Alta" }]} />
+        </label>
+        <label className="flex flex-col gap-1.5 text-sm font-medium text-on-surface-variant">
+          Duração prevista
+          <LevelSelect value={durationMin} onChange={setDurationMin} options={[
+            { value: "15", label: "15 min" },
+            { value: "30", label: "30 min" },
+            { value: "45", label: "45 min" },
+            { value: "60", label: "1 hora" },
+            { value: "90", label: "1h30" },
+            { value: "120", label: "2 horas" },
+          ]} />
         </label>
       </div>
 
@@ -235,7 +247,7 @@ export function TaskSchedulerForm({ onClose, task }: TaskSchedulerFormProps) {
             </span>
             <input type="checkbox" checked={hasEndDate} onChange={(event) => setHasEndDate(event.target.checked)} className="size-5 accent-primary" />
           </label>
-          {hasEndDate ? <Input label="Repetir até" type="date" min={date} required value={repeatUntil} onChange={(event) => setRepeatUntil(event.target.value)} /> : null}
+          {hasEndDate ? <div><LevelDateInput label="Repetir até" min={date} required value={repeatUntil} onChange={(event) => setRepeatUntil(event.target.value)} /></div> : null}
         </div>
       ) : null}
 

@@ -47,15 +47,16 @@ interface ConfirmIconActionProps {
   description: string
   onConfirm: () => void
   children: ReactNode
+  disabled?: boolean
 }
 
-export function ConfirmIconAction({ label, title, description, onConfirm, children }: ConfirmIconActionProps) {
+export function ConfirmIconAction({ label, title, description, onConfirm, children, disabled = false }: ConfirmIconActionProps) {
   return (
     <AlertDialog>
       <Tooltip>
         <TooltipTrigger asChild>
           <AlertDialogTrigger asChild>
-            <button type="button" aria-label={label} className={cn(base, "hover:bg-error/10 hover:text-error")}>
+            <button type="button" aria-label={label} disabled={disabled} className={cn(base, "hover:bg-error/10 hover:text-error")}>
               {children}
             </button>
           </AlertDialogTrigger>

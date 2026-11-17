@@ -1,12 +1,25 @@
 import { useEffect, useState } from "react"
-import { Check, History, RotateCcw, ShoppingCart, Trash2, UtensilsCrossed } from "lucide-react"
-import { Button } from "../../components/ui/Button"
+import { Check, History, Pencil, Plus, RotateCcw, ShoppingCart, Trash2 } from "lucide-react"
+import { NutritionManualEditor } from "./NutritionManualEditor"
+import type { DietPlan } from "./store"
+import { Button } from "../../components/ui/button"
 import { ConfirmIconAction } from "../../components/ui/IconAction"
 import { EmptyState, SectionCard } from "../../design-system"
 import { cn } from "../../lib/cn"
 import { useAssistant } from "../assistant/store"
 import { AssistantAvatar } from "../assistant/AssistantAvatar"
 import { useNutrition, type ShoppingCategory, type ShoppingItem } from "./store"
+import { useTraining } from "../training/store"
+import { userStorageKey } from "../../lib/userStorage"
+import { NutritionPlanningPanel } from "./NutritionPlanningPanel"
+import { NutritionCommercePanel } from "./NutritionCommercePanel"
+import { NutritionPlanIntelligence } from "./NutritionPlanIntelligence"
+import { NutritionMealCheckin } from "./NutritionMealCheckin"
+import { NutritionWorkspacePanel } from "./NutritionWorkspacePanel"
+import { NutritionWeeklySnapshot } from "./NutritionWeeklySnapshot"
+import { NutritionInventoryBridge } from "./NutritionInventoryBridge"
+import { planWorkspaceId, useNutritionWorkspace, type PantryItem } from "./nutritionWorkspace"
+import { coverageText, inventoryCoverage, shoppingRemaining } from "./nutritionInventory"
 
 const SHOPPING_CATEGORY_LABEL: Record<ShoppingCategory, string> = {
   hortifruti: "Hortifrúti",
@@ -29,9 +42,15 @@ const brl = (value: number) => value.toLocaleString("pt-BR", { style: "currency"
 
 export function NutritionScreen() {
   const nutrition = useNutrition()
+  const workspace = useNutritionWorkspace(nutrition.plan)
   const assistant = useAssistant()
+  const training = useTraining()
   const [openDay, setOpenDay] = useState(1)
+  const [manualEdit, setManualEdit] = useState<{ initial: DietPlan | null; hasActivePlan: boolean; expectedActivePlanId: string | null } | null>(null)
   const plan = nutrition.plan
+  const openManual = (edit: boolean) => setManualEdit({
+    initial: edit ? plan : null, hasActivePlan: Boolean(plan), expectedActivePlanId: plan?.id ?? null,
+  })
 
   useEffect(() => {
     void nutrition.refresh()
@@ -50,10 +69,14 @@ export function NutritionScreen() {
           <h1 className="level-page-title text-3xl font-semibold tracking-tight text-on-surface">Alimentação</h1>
           <p className="mt-3 text-on-surface-variant">Plano alimentar por objetivo, período e orçamento.</p>
         </div>
-        <Button variant="primary" size="md" onClick={() => assistant.openFor("alimentacao")}>
-          <AssistantAvatar module="alimentacao" className="size-4" />
-          Cheff Rita
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="md" onClick={() => openManual(false)}>
+            <Plus className="size-4" /> Criar manualmente
+          </Button>
+          <Button variant="primary" size="md" onClick={() => assistant.openFor("alimentacao")}>
+            <AssistantAvatar module="alimentacao" className="size-4" />Nutricionista Rita
+          </Button>
+        </div>
       </header>
 
       {nutrition.status === "error" ? (
@@ -62,17 +85,23 @@ export function NutritionScreen() {
         </div>
       ) : null}
 
+      {workspace.workspace && window.CSRF_TOKEN ? <NutritionWeeklySnapshot plan={plan} workspace={workspace.workspace} /> : null}
+
       {!plan ? (
         <SectionCard title="Seu plano alimentar" description="Nenhum plano ativo" bodyClassName="p-0">
           <EmptyState
             title="Nenhuma dieta montada"
-            description="Diga à Cheff Rita seu objetivo, o período e quanto pode gastar. Ela monta o cardápio e grava aqui."
+            description="Crie seu próprio cardápio com refeições e custos, ou conte com a Nutricionista Rita para preparar uma sugestão."
             icon="restaurant"
-            action={<Button variant="primary" size="sm" onClick={() => assistant.openFor("alimentacao")}><AssistantAvatar module="alimentacao" className="size-4" />Cheff Rita</Button>}
+            action={<div className="flex flex-wrap gap-2"><Button variant="secondary" size="sm" onClick={() => openManual(false)}><Plus className="size-4" />Criar manualmente</Button><Button variant="primary" size="sm" onClick={() => assistant.openFor("alimentacao")}><AssistantAvatar module="alimentacao" className="size-4" />Nutricionista Rita</Button></div>}
           />
         </SectionCard>
       ) : (
         <div id="nutrition-plan" className="scroll-mt-24 space-y-6">
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted">
+            <span className="rounded-full border border-primary/25 bg-primary/5 px-3 py-1 font-semibold text-primary">{plan.source === "manual" ? "Criado manualmente" : "Criado com Nutricionista Rita"}</span>
+            {plan.version ? <span>Versão {plan.version}</span> : null}
+          </div>
           <section className="grid border-y border-outline-variant sm:grid-cols-4" aria-label="Resumo do plano">
             {[
               { label: "Objetivo", value: GOAL_LABELS[plan.goal] ?? plan.goal },
@@ -87,13 +116,19 @@ export function NutritionScreen() {
             ))}
           </section>
 
+          <NutritionPlanningPanel plan={plan} activeProgram={training.programs.find((program) => program.status === "active") ?? null} onOpenLeo={() => assistant.openFor("treinos")} />
+          <NutritionPlanIntelligence plan={plan} onSuggestion={(draft) => assistant.openFor("alimentacao", draft)} />
+
           <SectionCard
             title="Cardápio"
             description={plan.days.length < plan.periodDays ? `${plan.days.length} dia(s) de cardápio — repita a sequência até completar o período` : `${plan.days.length} dia(s)`}
             action={
-              <ConfirmIconAction label="Excluir plano" title="Excluir plano alimentar?" description="O plano atual será removido. Você pode montar outro com a IA quando quiser." onConfirm={() => void nutrition.clear()}>
-                <Trash2 className="size-4" />
-              </ConfirmIconAction>
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" size="sm" onClick={() => openManual(true)}><Pencil className="size-3.5" />Editar manualmente</Button>
+                <ConfirmIconAction label="Excluir plano" title="Excluir plano alimentar?" description="O plano será arquivado e poderá ser restaurado pelo histórico." onConfirm={() => void nutrition.clear()}>
+                  <Trash2 className="size-4" />
+                </ConfirmIconAction>
+              </div>
             }
             bodyClassName="p-0"
           >
@@ -110,26 +145,38 @@ export function NutritionScreen() {
                 </button>
               ))}
             </div>
-            <ul className="divide-y divide-outline-variant">
-              {(plan.days.find((d) => d.day === openDay) ?? plan.days[0])?.meals.map((meal, index) => (
-                <li key={index} className="flex items-start justify-between gap-4 px-5 py-4">
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-2 font-semibold text-on-surface">
-                      <UtensilsCrossed className="size-4 shrink-0 text-primary" />
-                      {meal.name}
-                    </p>
-                    <p className="mt-1 text-sm leading-6 text-on-surface-variant">{meal.description}</p>
-                  </div>
-                  <span className="numeric-value shrink-0 text-sm text-muted">{brl(meal.estimatedCostBRL)}</span>
-                </li>
-              ))}
-            </ul>
+            {window.CSRF_TOKEN && !workspace.workspace
+              ? <p role="status" className="px-5 py-4 text-xs text-muted">Sincronizando as marcacoes alimentares com sua conta...</p>
+              : <NutritionMealCheckin key={plan.id ?? plan.createdAt ?? String(plan.version)} plan={plan}
+                planKey={plan.id ?? plan.createdAt ?? String(plan.version ?? "current")} dayNumber={openDay}
+                syncedChecks={workspace.workspace?.mealChecks[planWorkspaceId(plan)]}
+                onSync={workspace.workspace && window.CSRF_TOKEN
+                  ? async (slot, status) => { await workspace.save("mark_meal", { planId: planWorkspaceId(plan), slot, status }) }
+                  : undefined} />}
           </SectionCard>
 
-          {plan.shoppingList && plan.shoppingList.length > 0 ? <ShoppingListCard items={plan.shoppingList} /> : null}
+          {plan.shoppingList && plan.shoppingList.length > 0
+            ? window.CSRF_TOKEN && !workspace.workspace
+              ? <p role="status" className="px-5 py-4 text-xs text-muted">Sincronizando a lista de compras...</p>
+              : <ShoppingListCard key={plan.id ?? plan.createdAt ?? String(plan.version)} plan={plan} planKey={plan.id ?? plan.createdAt ?? String(plan.version ?? "current")} items={plan.shoppingList}
+                  syncedCart={workspace.workspace?.cartChecks[planWorkspaceId(plan)]}
+                  pantry={workspace.workspace?.pantry ?? []}
+                  onSync={workspace.workspace && window.CSRF_TOKEN
+                    ? async (index, inCart) => { await workspace.save("mark_cart", { planId: planWorkspaceId(plan), index, inCart }) }
+                    : undefined}
+                  onReset={workspace.workspace && window.CSRF_TOKEN
+                    ? async () => { await workspace.save("reset_cart", { planId: planWorkspaceId(plan) }) }
+                    : undefined} />
+            : <NutritionCommercePanel plan={plan} />}
+          {workspace.workspace && window.CSRF_TOKEN && plan.shoppingList?.length
+            ? <NutritionInventoryBridge key={plan.id ?? plan.createdAt ?? String(plan.version)} plan={plan}
+                workspace={workspace.workspace} save={workspace.save} /> : null}
 
         </div>
       )}
+      {!plan ? <NutritionCommercePanel plan={null} /> : null}
+      <NutritionWorkspacePanel plan={plan} workspace={workspace.workspace} loading={workspace.status === "loading"} error={workspace.error}
+        save={workspace.save} refresh={workspace.refresh} askRita={(text) => assistant.openFor("alimentacao", text)} />
       {nutrition.history.length > 0 ? (
         <SectionCard title="Histórico de planos" description={`${nutrition.history.length} versão(ões) arquivada(s)`} bodyClassName="p-0">
           <ul className="divide-y divide-outline-variant">
@@ -138,7 +185,7 @@ export function NutritionScreen() {
                 <div className="flex min-w-0 items-start gap-3">
                   <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><History className="size-4" /></span>
                   <div className="min-w-0">
-                    <p className="font-semibold text-on-surface">Versão {item.version ?? "anterior"} · {GOAL_LABELS[item.goal] ?? item.goal}</p>
+                    <p className="font-semibold text-on-surface">Versão {item.version ?? "anterior"} · {GOAL_LABELS[item.goal] ?? item.goal} · {item.source === "manual" ? "Manual" : "Nutricionista Rita"}</p>
                     <p className="mt-1 text-xs text-muted">{item.periodDays} dias · {brl(item.estimatedCostBRL)} · {item.createdAt ? new Date(item.createdAt).toLocaleDateString("pt-BR") : "data indisponível"}</p>
                   </div>
                 </div>
@@ -148,29 +195,96 @@ export function NutritionScreen() {
           </ul>
         </SectionCard>
       ) : null}
+      {manualEdit ? <NutritionManualEditor key={manualEdit.initial?.id ?? "new"} initial={manualEdit.initial}
+        hasActivePlan={manualEdit.hasActivePlan} expectedActivePlanId={manualEdit.expectedActivePlanId}
+        onClose={() => setManualEdit(null)}
+        onSave={async (value) => { await nutrition.saveManual(value); setManualEdit(null); setOpenDay(1) }} /> : null}
     </main>
   )
 }
 
-function ShoppingListCard({ items }: { items: ShoppingItem[] }) {
-  const [checked, setChecked] = useState<Set<number>>(new Set())
-  const toggle = (index: number) => setChecked((current) => {
-    const next = new Set(current)
-    if (next.has(index)) next.delete(index); else next.add(index)
-    return next
+function ShoppingListCard({ items, planKey, plan, syncedCart, pantry = [], onSync, onReset }: { items: ShoppingItem[]; planKey: string; plan: NonNullable<ReturnType<typeof useNutrition>["plan"]>; key?: string
+  syncedCart?: Record<string, boolean>; pantry?: PantryItem[]; onSync?: (index: number, inCart: boolean) => Promise<void>
+  onReset?: () => Promise<void>
+}) {
+  const key = userStorageKey("level-os:nutrition:shopping:" + String(planKey).replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80))
+  const [localChecked, setLocalChecked] = useState<Set<number>>(() => {
+    try {
+      const data: unknown = JSON.parse(localStorage.getItem(key) ?? "[]")
+      if (!Array.isArray(data)) return new Set<number>()
+      return new Set<number>(data.filter((index): index is number => Number.isInteger(index) && index >= 0 && index < items.length))
+    } catch { return new Set<number>() }
   })
+  const [copyStatus, setCopyStatus] = useState("")
+  const [busy, setBusy] = useState(false)
+  const checked = onSync
+    ? new Set(Object.entries(syncedCart ?? {}).filter(([index, value]) => value && /^[0-9]+$/.test(index) && Number(index) < items.length).map(([index]) => Number(index)))
+    : localChecked
+  useEffect(() => {
+    if (onSync) return
+    try { localStorage.setItem(key, JSON.stringify([...localChecked])) } catch { /* storage opcional */ }
+  }, [localChecked, key, onSync])
+  const date = new Date().toLocaleDateString("sv-SE")
+  const remaining = shoppingRemaining(items, pantry, checked, date)
+  const copyPending = async () => {
+    try {
+      await navigator.clipboard.writeText(remaining.map((entry) => entry.line).join("\n"))
+      setCopyStatus("Sugestão de faltantes copiada. Confira estoque e quantidades antes da compra.")
+    } catch { setCopyStatus("Não foi possível copiar. Verifique a permissão do navegador.") }
+  }
+  const toggle = async (index: number) => {
+    if (busy) return
+    if (onSync) {
+      setBusy(true)
+      try { await onSync(index, !checked.has(index)); setCopyStatus("") }
+      catch (error) { setCopyStatus(error instanceof Error ? error.message : "Falha na sincronizacao.") }
+      finally { setBusy(false) }
+      return
+    }
+    setLocalChecked((current) => {
+      const next = new Set(current)
+      if (next.has(index)) next.delete(index); else next.add(index)
+      return next
+    })
+  }
+  const reset = async () => {
+    if (busy) return
+    if (onSync) {
+      setBusy(true)
+      try {
+        if (onReset) await onReset()
+        else for (const index of checked) await onSync(index, false)
+        setCopyStatus("")
+      }
+      catch (error) { setCopyStatus(error instanceof Error ? error.message : "Falha na sincronizacao.") }
+      finally { setBusy(false) }
+      return
+    }
+    setLocalChecked(new Set())
+  }
 
   const grouped = SHOPPING_CATEGORY_ORDER
     .map((category) => ({ category, entries: items.map((item, index) => ({ item, index })).filter(({ item }) => item.category === category) }))
     .filter((group) => group.entries.length > 0)
 
   return (
+    <>
     <SectionCard
       title="Lista de compras"
       description={`${items.length} ${items.length === 1 ? "item" : "itens"} para o período — ${checked.size} no carrinho`}
       icon={<ShoppingCart className="size-5 text-primary" />}
+      action={<Button variant="secondary" size="sm" onClick={() => void copyPending()} disabled={!remaining.length}>Copiar faltantes ({remaining.length})</Button>}
       bodyClassName="p-0"
     >
+      <div className="space-y-2 border-b border-outline-variant px-5 py-3">
+        <div className="flex items-center justify-between gap-3 text-[11px] text-muted"><span>{checked.size}/{items.length} no carrinho · {onSync ? "sincronizado com sua conta" : "seleção local neste dispositivo"}</span>
+          <button type="button" className="min-h-9 font-semibold text-primary hover:underline" onClick={() => void reset()} disabled={!checked.size || busy}>Reiniciar lista</button></div>
+        <p className="text-[11px] text-muted">{remaining.length} item(ns) para revisar/comprar após considerar o estoque cadastrado (estimativa por unidade).</p>
+        <div className="h-1.5 overflow-hidden rounded-full bg-outline-variant" role="progressbar" aria-label="Itens do plano marcados na lista de compras" aria-valuemin={0} aria-valuemax={items.length} aria-valuenow={checked.size}>
+          <div className="h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none" style={{ width: (items.length ? checked.size / items.length * 100 : 0) + "%" }} />
+        </div>
+        {copyStatus ? <p role="status" className="text-[11px] text-muted">{copyStatus}</p> : null}
+      </div>
       <div className="divide-y divide-outline-variant">
         {grouped.map(({ category, entries }) => (
           <div key={category} className="px-5 py-3">
@@ -182,14 +296,16 @@ function ShoppingListCard({ items }: { items: ShoppingItem[] }) {
                   <li key={index}>
                     <button
                       type="button"
-                      onClick={() => toggle(index)}
+                      onClick={() => void toggle(index)}
+                      disabled={busy}
                       aria-pressed={done}
                       className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-surface-container"
                     >
                       <span className={cn("grid size-5 shrink-0 place-items-center rounded-md border", done ? "border-primary bg-primary text-on-primary" : "border-outline-variant")}>
                         {done ? <Check className="size-3.5" /> : null}
                       </span>
-                      <span className={cn("min-w-0 flex-1 text-sm", done ? "text-muted line-through" : "text-on-surface")}>{item.item}</span>
+                      <span className="min-w-0 flex-1"><span className={cn("block text-sm", done ? "text-muted line-through" : "text-on-surface")}>{item.item}</span>
+                        <small className="mt-0.5 block text-[10px] text-muted">{coverageText(inventoryCoverage(item, pantry, date))}</small></span>
                       <span className="shrink-0 text-xs text-muted">{item.quantity}</span>
                     </button>
                   </li>
@@ -200,5 +316,7 @@ function ShoppingListCard({ items }: { items: ShoppingItem[] }) {
         ))}
       </div>
     </SectionCard>
+    <NutritionCommercePanel plan={plan} items={items} purchased={checked} />
+    </>
   )
 }

@@ -20,7 +20,7 @@ try {
     progress_reconcile_user($db, $uid);
     echo json_encode(progress_get_state($db, $uid));
 } catch (Throwable $e) {
-    error_log('progress.php: ' . $e->getMessage());
+    security_log_exception('progress.read', $e);
     http_response_code(500);
     echo json_encode(['error' => 'Não foi possível carregar a progressão.']);
 }

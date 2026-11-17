@@ -31,7 +31,7 @@ try {
         'auth_provider' => isset($user['auth_provider']) && $user['auth_provider'] === 'supabase' ? 'supabase' : null,
     ]);
 } catch (Throwable $e) {
-    error_log('me.php: ' . $e->getMessage());
+    security_log_exception('profile.read', $e);
     http_response_code(500);
     echo json_encode(['error' => 'Não foi possível carregar o perfil.']);
 }

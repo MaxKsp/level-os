@@ -1,4 +1,5 @@
-import { motion, useReducedMotion } from "motion/react"
+import { useReducedMotion } from "motion/react"
+import * as m from "motion/react-m"
 import { Icon } from "../../design-system"
 import { cn } from "../../lib/cn"
 import { usePreferences } from "../../modules/preferences/store"
@@ -16,7 +17,7 @@ export function ThemeToggle({ className, showLabel = false }: { className?: stri
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
       {showLabel ? <span className="text-sm text-on-surface-variant">{theme === "dark" ? "Escuro" : "Claro"}</span> : null}
-      <motion.button
+      <m.button
         type="button"
         role="switch"
         aria-checked={theme === "dark"}
@@ -28,13 +29,13 @@ export function ThemeToggle({ className, showLabel = false }: { className?: stri
       >
         <Icon name="dark_mode" className="z-10 grid h-6 w-6 place-items-center text-[15px] text-on-surface-variant" />
         <Icon name="light_mode" className="z-10 grid h-6 w-6 place-items-center text-[15px] text-on-surface-variant" />
-        <motion.span
+        <m.span
           aria-hidden="true"
           className="absolute left-1 top-1 h-6 w-6 rounded-full bg-primary shadow-[0_4px_14px_color-mix(in_srgb,var(--color-primary)_35%,transparent)]"
           animate={{ x: theme === "dark" ? 0 : 28 }}
           transition={reduceMotion ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 30 }}
         />
-      </motion.button>
+      </m.button>
     </div>
   )
 }

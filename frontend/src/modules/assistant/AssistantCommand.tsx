@@ -1,15 +1,18 @@
 import * as Dialog from "@radix-ui/react-dialog"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import { AnimatePresence, useReducedMotion } from "motion/react"
+import * as m from "motion/react-m"
 import { ArrowLeftRight, BarChart3, Bot, ChefHat, Command, Dumbbell, Gauge, GraduationCap, ListTodo, LoaderCircle, LockKeyhole, Ruler, Scale, SendHorizonal, Trash2, TrendingDown, TrendingUp, Undo2, X } from "lucide-react"
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react"
 import { cn } from "../../lib/cn"
-import type { AssistantResponse } from "./contracts"
+import type { AssistantInsight, AssistantQualitySummary, AssistantResponse } from "./contracts"
 import { AssistantAvatar } from "./AssistantAvatar"
 import { personaFor, personaFullName } from "./personas"
 import { useAssistant, type AssistantModule } from "./store"
 import { AssistantResultCard } from "./AssistantResultCard"
 import { agentHistoryKey, appendAgentHistory, createEmptyAgentHistory, type AgentHistoryKey } from "./agentHistory"
-import { clearAssistantHistory, getAssistantHistory, type AssistantApproval } from "./api"
+import { clearAssistantHistory, getAssistantHistory, getAssistantInsights, getAssistantQuality, type AssistantApproval } from "./api"
+import { TypewriterText } from "./TypewriterText"
+import { LevelSelect } from "../../components/ui/LevelSelect"
 
 interface Suggestion { icon: ReactNode; label: string; description: string; prefix: string; module: AssistantModule; template?: string; openWorkoutForm?: boolean; openDietForm?: boolean }
 
@@ -25,7 +28,10 @@ const SUGGESTIONS: Suggestion[] = [
   { module: "treinos", icon: <Scale className="size-4" />, label: "Medida", description: "Registrar peso ou medida", prefix: "/medida", template: "Registrar peso 79,4 kg hoje" },
   { module: "treinos", icon: <Ruler className="size-4" />, label: "IMC e medidas", description: "Consultar evolução corporal", prefix: "/imc", template: "Quais minhas últimas medidas e IMC?" },
   { module: "treinos", icon: <GraduationCap className="size-4" />, label: "Programa personalizado", description: "Professor de educação física monta seu treino", prefix: "/programa", openWorkoutForm: true },
-  { module: "alimentacao", icon: <ChefHat className="size-4" />, label: "Montar dieta", description: "Nutricionista por objetivo e orçamento", prefix: "/dieta", openDietForm: true },
+  { module: "alimentacao", icon: <ChefHat className="size-4" />, label: "Criar cardápio", description: "Plano por objetivo e orçamento", prefix: "/dieta", openDietForm: true },
+  { module: "alimentacao", icon: <ChefHat className="size-4" />, label: "Ideias de refeições", description: "Receitas com o que tenho", prefix: "/receitas", template: "Me sugira 3 ideias de refeições simples, econômicas e práticas. Pergunte quais ingredientes tenho, se precisar." },
+  { module: "alimentacao", icon: <BarChart3 className="size-4" />, label: "Meu cardápio", description: "Analisar plano ativo", prefix: "/cardapio", template: "Analise meu cardápio ativo: dias, refeições, variedade, custo estimado e sugestões práticas. Use somente os dados realmente disponíveis no Level OS." },
+  { module: "alimentacao", icon: <ListTodo className="size-4" />, label: "Organizar compras", description: "Aproveitar a lista atual", prefix: "/compras", template: "Com base na lista do meu plano, organize os ingredientes por categoria, com quantidades registradas, e sugira como evitar desperdício. Não diga que foram comprados." },
 ]
 
 const WORKOUT_FOCUS_OPTIONS = ["Hipertrofia", "Emagrecimento", "Força", "Resistência", "Condicionamento geral"]
@@ -33,7 +39,7 @@ const DIET_GOAL_OPTIONS = [["emagrecimento", "Emagrecimento"], ["hipertrofia", "
 
 type ChatMessage =
   | { id: number; role: "user"; text: string }
-  | { id: number; role: "assistant"; response: AssistantResponse }
+  | { id: number; role: "assistant"; response: AssistantResponse; animate?: boolean }
   | { id: number; role: "error"; text: string }
 
 let messageId = 0
@@ -76,7 +82,7 @@ function TypingDots() {
   return (
     <span className="inline-flex items-center">
       {[0, 1, 2].map((dot) => (
-        <motion.span
+        <m.span
           key={dot}
           className="mx-0.5 size-1.5 rounded-full bg-primary"
           animate={{ opacity: [0.3, 0.9, 0.3], scale: [0.85, 1.1, 0.85] }}
@@ -96,6 +102,12 @@ export function AssistantCommand() {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [clearingHistory, setClearingHistory] = useState(false)
+  const [insights, setInsights] = useState<AssistantInsight[]>([])
+  const [insightsLoading, setInsightsLoading] = useState(false)
+  const [showQuality, setShowQuality] = useState(false)
+  const [quality, setQuality] = useState<AssistantQualitySummary | null>(null)
+  const [qualityLoading, setQualityLoading] = useState(false)
+  const [qualityLoaded, setQualityLoaded] = useState(false)
   const [showPalette, setShowPalette] = useState(false)
   const [active, setActive] = useState(-1)
   const [workoutForm, setWorkoutForm] = useState<{ focus: string; days: number; location: "casa" | "academia" } | null>(null)
@@ -110,10 +122,44 @@ export function AssistantCommand() {
   const lastResult = useRef<AssistantResponse | null>(null)
   const lastError = useRef<string | null>(null)
   const pendingHistoryKey = useRef<AgentHistoryKey | null>(null)
+  const pendingMessageId = useRef<number | null>(null)
+
+  // Sugestões dos módulos preenchem o campo; nunca são enviadas automaticamente.
+  useEffect(() => {
+    if (!assistant.open || !assistant.suggestion) return
+    setWorkoutForm(null); setDietForm(null)
+    setText(assistant.suggestion.text)
+    requestAnimationFrame(() => { adjust(); input.current?.focus() })
+  }, [assistant.open, assistant.suggestion, adjust, input])
 
   const appendMessage = useCallback((key: AgentHistoryKey, message: ChatMessage) => {
     setMessagesByAgent((current) => appendAgentHistory(current, key, message))
   }, [])
+
+  useEffect(() => {
+    if (!assistant.open || !assistant.paidAccess || !assistant.moduleContext) {
+      setInsights([])
+      return
+    }
+    let cancelled = false
+    setInsightsLoading(true)
+    void getAssistantInsights(assistant.moduleContext)
+      .then((items) => { if (!cancelled) setInsights(items.slice(0, 3)) })
+      .catch(() => { if (!cancelled) setInsights([]) })
+      .finally(() => { if (!cancelled) setInsightsLoading(false) })
+    return () => { cancelled = true }
+  }, [assistant.moduleContext, assistant.open, assistant.paidAccess, assistant.result])
+
+  useEffect(() => {
+    if (!showQuality || qualityLoaded || qualityLoading) return
+    let cancelled = false
+    setQualityLoading(true)
+    void getAssistantQuality(7)
+      .then((summary) => { if (!cancelled) setQuality(summary) })
+      .catch(() => { if (!cancelled) setQuality(null) })
+      .finally(() => { if (!cancelled) { setQualityLoading(false); setQualityLoaded(true) } })
+    return () => { cancelled = true }
+  }, [qualityLoaded, qualityLoading, showQuality])
 
   useEffect(() => {
     if (!assistant.open || !assistant.paidAccess || historyLoaded[activeHistoryKey]) return
@@ -133,7 +179,7 @@ export function AssistantCommand() {
           }
           return [
             { id: nextId(), role: "user", text: item.userText },
-            { id: nextId(), role: "assistant", response },
+            { id: nextId(), role: "assistant", response, animate: false },
           ]
         })
         setMessagesByAgent((current) => current[activeHistoryKey].length > 0 ? current : { ...current, [activeHistoryKey]: restored })
@@ -193,17 +239,19 @@ export function AssistantCommand() {
   useEffect(() => {
     if (assistant.result && assistant.result !== lastResult.current) {
       lastResult.current = assistant.result
-      const key = pendingHistoryKey.current ?? activeHistoryKey
-      appendMessage(key, { id: nextId(), role: "assistant", response: assistant.result as AssistantResponse })
+      const pendingKey = pendingHistoryKey.current ?? activeHistoryKey
+      appendMessage(pendingKey, { id: nextId(), role: "assistant", response: assistant.result as AssistantResponse, animate: !reduce })
       pendingHistoryKey.current = null
+      pendingMessageId.current = null
     }
-  }, [activeHistoryKey, appendMessage, assistant.result])
+  }, [activeHistoryKey, appendMessage, assistant.result, reduce])
   useEffect(() => {
     if (assistant.error && assistant.error !== lastError.current) {
       lastError.current = assistant.error
       const key = pendingHistoryKey.current ?? activeHistoryKey
       appendMessage(key, { id: nextId(), role: "error", text: assistant.error as string })
       pendingHistoryKey.current = null
+      pendingMessageId.current = null
     }
     if (!assistant.error) lastError.current = null
   }, [activeHistoryKey, appendMessage, assistant.error])
@@ -238,7 +286,9 @@ export function AssistantCommand() {
     const value = text.trim()
     if (!value || assistant.loading) return
     pendingHistoryKey.current = activeHistoryKey
-    appendMessage(activeHistoryKey, { id: nextId(), role: "user", text: value })
+    const id = nextId()
+    pendingMessageId.current = id
+    appendMessage(activeHistoryKey, { id, role: "user", text: value })
     setText("")
     adjust(true)
     void assistant.submit(value)
@@ -256,7 +306,9 @@ export function AssistantCommand() {
     const prompt = `Monte um programa de treino como professor de educação física: foco em ${workoutForm.focus.toLowerCase()}, ${workoutForm.days} dia(s) por semana, treinos serão feitos em ${workoutForm.location}.${note}`
     const label = `Programa · ${workoutForm.focus} · ${workoutForm.days}x/semana · ${workoutForm.location === "casa" ? "Em casa" : "Na academia"}`
     pendingHistoryKey.current = activeHistoryKey
-    appendMessage(activeHistoryKey, { id: nextId(), role: "user", text: text.trim() ? `${label}\n${text.trim()}` : label })
+    const id = nextId()
+    pendingMessageId.current = id
+    appendMessage(activeHistoryKey, { id, role: "user", text: text.trim() ? `${label}\n${text.trim()}` : label })
     setWorkoutForm(null)
     setText("")
     adjust(true)
@@ -272,7 +324,9 @@ export function AssistantCommand() {
     const prompt = `Monte um plano alimentar como nutricionista: objetivo ${dietForm.goal}, período de ${dietForm.periodDays} dias, orçamento total de R$ ${budget.toFixed(2)} para o período.${note}`
     const label = `Dieta · ${goalLabel} · ${dietForm.periodDays} dias · até R$ ${budget.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
     pendingHistoryKey.current = activeHistoryKey
-    appendMessage(activeHistoryKey, { id: nextId(), role: "user", text: text.trim() ? `${label}\n${text.trim()}` : label })
+    const id = nextId()
+    pendingMessageId.current = id
+    appendMessage(activeHistoryKey, { id, role: "user", text: text.trim() ? `${label}\n${text.trim()}` : label })
     setDietForm(null)
     setText("")
     adjust(true)
@@ -302,11 +356,11 @@ export function AssistantCommand() {
       <Dialog.Root open={assistant.open} onOpenChange={assistant.setOpen}>
         <Dialog.Portal>
           <Dialog.Overlay asChild>
-            <motion.div className="fixed inset-0 z-[130] bg-black/78 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} />
+            <m.div className="fixed inset-0 z-[130] bg-black/78 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} />
           </Dialog.Overlay>
           <div className="pointer-events-none fixed inset-0 z-[131] flex items-center justify-center p-4 sm:p-6">
             <Dialog.Content asChild aria-describedby="assistant-paid-description">
-              <motion.section
+              <m.section
                 initial={{ opacity: 0, y: reduce ? 0 : 18, scale: reduce ? 1 : 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 className="pointer-events-auto relative w-full max-w-md overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-low p-6 shadow-2xl"
@@ -337,7 +391,7 @@ export function AssistantCommand() {
                     Ver plano Individual
                   </button>
                 ) : null}
-              </motion.section>
+              </m.section>
             </Dialog.Content>
           </div>
         </Dialog.Portal>
@@ -350,11 +404,11 @@ export function AssistantCommand() {
       <Dialog.Root open={assistant.open} onOpenChange={assistant.setOpen}>
         <Dialog.Portal>
           <Dialog.Overlay asChild>
-            <motion.div className="fixed inset-0 z-[130] bg-black/78 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} />
+            <m.div className="fixed inset-0 z-[130] bg-black/78 backdrop-blur-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }} />
           </Dialog.Overlay>
           <div className="pointer-events-none fixed inset-0 z-[131] flex items-center justify-center p-0 sm:p-6">
             <Dialog.Content asChild aria-describedby={undefined}>
-              <motion.section
+              <m.section
                 initial={{ opacity: 0, y: reduce ? 0 : 18, scale: reduce ? 1 : 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
@@ -380,6 +434,16 @@ export function AssistantCommand() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setShowQuality((value) => !value); if (showQuality) { setQuality(null); setQualityLoaded(false) } }}
+                      className={cn("grid size-10 place-items-center rounded-lg text-muted hover:bg-surface-container-high hover:text-on-surface", showQuality && "bg-primary/10 text-primary")}
+                      aria-label="Abrir painel de qualidade dos agentes"
+                      aria-pressed={showQuality}
+                      title="Qualidade dos agentes"
+                    >
+                      <BarChart3 className="size-4" />
+                    </button>
                     {!empty ? (
                       <button
                         type="button"
@@ -402,25 +466,45 @@ export function AssistantCommand() {
                 <div ref={scrollRef} className="relative flex-1 overflow-y-auto px-5 py-6">
                   {historyError ? <p role="alert" className="mb-3 rounded-lg border border-error/20 bg-error/5 px-3 py-2 text-xs text-error">{historyError}</p> : null}
                   {historyLoading ? <p role="status" className="mb-3 flex items-center gap-2 text-xs text-muted"><LoaderCircle className="size-3.5 animate-spin" />Carregando histórico…</p> : null}
+                  {showQuality ? (
+                    <section className="mb-4 rounded-xl border border-outline-variant bg-surface-container p-4" aria-label="Qualidade dos agentes nos últimos 7 dias">
+                      <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-on-surface">Qualidade dos agentes</p><p className="mt-0.5 text-[10px] text-muted">Métricas internas dos últimos 7 dias</p></div>{qualityLoading ? <LoaderCircle className="size-4 animate-spin text-primary" /> : null}</div>
+                      {quality ? <>
+                        <dl className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                          <div><dt className="text-[10px] text-muted">Solicitações</dt><dd className="numeric-value text-lg font-semibold">{quality.totals.requests.toLocaleString("pt-BR")}</dd></div>
+                          <div><dt className="text-[10px] text-muted">Tempo médio</dt><dd className="numeric-value text-lg font-semibold">{quality.totals.averageLatencyMs.toLocaleString("pt-BR")} ms</dd></div>
+                          <div><dt className="text-[10px] text-muted">Esclarecimentos</dt><dd className="numeric-value text-lg font-semibold">{quality.totals.clarifications.toLocaleString("pt-BR")}</dd></div>
+                          <div><dt className="text-[10px] text-muted">Falhas</dt><dd className={cn("numeric-value text-lg font-semibold", quality.totals.failures > 0 && "text-error")}>{quality.totals.failures.toLocaleString("pt-BR")}</dd></div>
+                        </dl>
+                        <p className="mt-3 border-t border-outline-variant pt-2 text-[10px] text-muted">{quality.totals.tokens.toLocaleString("pt-BR")} tokens · custo estimado {quality.totals.estimatedCostUsd.toLocaleString("pt-BR", { style: "currency", currency: "USD", minimumFractionDigits: 4, maximumFractionDigits: 6 })}</p>
+                      </> : !qualityLoading ? <p className="mt-3 text-xs text-muted">Sem métricas registradas neste período.</p> : null}
+                    </section>
+                  ) : null}
+                  {assistant.moduleContext && (insightsLoading || insights.length > 0) ? (
+                    <section className="mb-4" aria-label="Insights locais do módulo">
+                      <div className="mb-2 flex items-center justify-between"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Observado no Level OS</p>{insightsLoading ? <LoaderCircle className="size-3 animate-spin text-primary" /> : <span className="text-[9px] text-muted">sem custo de IA</span>}</div>
+                      <div className="grid gap-2 sm:grid-cols-2">{insights.map((insight) => <button key={insight.id} type="button" onClick={() => viewModule(insight.module)} className={cn("rounded-xl border px-3 py-2.5 text-left transition-colors hover:bg-surface-container-high", insight.severity === "danger" ? "border-error/25" : insight.severity === "warning" ? "border-warning/25" : "border-outline-variant")}><p className="text-xs font-semibold text-on-surface">{insight.title}</p><p className="mt-1 text-[11px] leading-4 text-muted">{insight.message}</p></button>)}</div>
+                    </section>
+                  ) : null}
                   {empty ? (
                     <div className="flex h-full flex-col items-center justify-center gap-8">
-                      <motion.div initial={{ opacity: 0, y: reduce ? 0 : 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.5 }} className="text-center">
+                      <m.div initial={{ opacity: 0, y: reduce ? 0 : 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.5 }} className="text-center">
                         <h2 className="bg-gradient-to-r from-on-surface to-muted bg-clip-text pb-1 text-3xl font-medium tracking-tight text-transparent">
                           {persona.greeting}
                         </h2>
-                        <motion.div
+                        <m.div
                           className="mx-auto h-px bg-gradient-to-r from-transparent via-outline-variant to-transparent"
                           initial={{ width: 0, opacity: 0 }}
                           animate={{ width: "100%", opacity: 1 }}
                           transition={{ delay: 0.5, duration: 0.8 }}
                         />
-                        <motion.p className="mt-3 text-sm text-muted" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
+                        <m.p className="mt-3 text-sm text-muted" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
                           Digite um comando com / ou peça em linguagem natural
-                        </motion.p>
-                      </motion.div>
+                        </m.p>
+                      </m.div>
                       <div className="flex flex-wrap items-center justify-center gap-2">
                         {visibleSuggestions.map((suggestion, index) => (
-                          <motion.button
+                          <m.button
                             key={suggestion.prefix}
                             type="button"
                             onClick={() => pick(index)}
@@ -431,7 +515,7 @@ export function AssistantCommand() {
                           >
                             {suggestion.icon}
                             <span>{suggestion.label}</span>
-                          </motion.button>
+                          </m.button>
                         ))}
                       </div>
                     </div>
@@ -439,7 +523,7 @@ export function AssistantCommand() {
                     <div className="flex flex-col gap-4">
                       <AnimatePresence initial={false}>
                         {messages.map((message) => (
-                          <motion.div
+                          <m.div
                             key={message.id}
                             initial={{ opacity: 0, y: reduce ? 0 : 12 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -461,11 +545,20 @@ export function AssistantCommand() {
                                       : "border-outline-variant bg-surface-container text-on-surface",
                                   )}
                                 >
-                                  <p>{message.role === "error" ? message.text : message.response.status === "undone" ? "Ação desfeita." : message.response.message}</p>
+                                  <p>{message.role === "error"
+                                    ? message.text
+                                    : message.response.status === "undone"
+                                      ? "Ação desfeita."
+                                      : <TypewriterText text={message.response.message} animate={message.animate === true && !reduce} />}</p>
                                   {message.role === "assistant" && message.response.status !== "undone" ? (
                                     <AssistantResultCard
                                       response={message.response}
                                       onView={viewModule}
+                                      onRoute={(module, suggestedPrompt) => {
+                                        assistant.openFor(module)
+                                        if (suggestedPrompt) setText(suggestedPrompt)
+                                        requestAnimationFrame(() => { adjust(); input.current?.focus() })
+                                      }}
                                       approval={message.response.actionToken ? approvalByToken[message.response.actionToken] : undefined}
                                       onApprovalChange={message.response.actionToken ? (approval) => setApprovalByToken((current) => ({ ...current, [message.response.actionToken as string]: approval })) : undefined}
                                     />
@@ -547,12 +640,12 @@ export function AssistantCommand() {
                                 </div>
                               </div>
                             )}
-                          </motion.div>
+                          </m.div>
                         ))}
                       </AnimatePresence>
                       <AnimatePresence>
                         {assistant.loading ? (
-                          <motion.div
+                          <m.div
                             initial={{ opacity: 0, y: reduce ? 0 : 8 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0 }}
@@ -560,9 +653,9 @@ export function AssistantCommand() {
                           >
                             <span className="grid size-7 shrink-0 place-items-center rounded-full bg-primary/10 text-primary"><AssistantAvatar module={assistant.moduleContext} className="size-3.5" /></span>
                             <span className="flex items-center gap-2 rounded-2xl rounded-bl-md border border-outline-variant bg-surface-container px-4 py-2.5 text-sm text-on-surface-variant">
-                              Pensando<TypingDots />
+                              {assistant.phase === "consulting" ? "Consultando seus dados" : "Analisando sua solicitação"}<TypingDots />
                             </span>
-                          </motion.div>
+                          </m.div>
                         ) : null}
                       </AnimatePresence>
                     </div>
@@ -571,7 +664,7 @@ export function AssistantCommand() {
 
                 <div className="relative flex flex-col gap-3 border-t border-outline-variant p-4">
                   {workoutForm ? (
-                    <motion.div
+                    <m.div
                       initial={{ opacity: 0, y: reduce ? 0 : 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="rounded-2xl border border-primary/30 bg-primary/[0.04] p-4"
@@ -583,44 +676,25 @@ export function AssistantCommand() {
                       <div className="grid gap-3 sm:grid-cols-3">
                         <label className="text-xs text-muted">
                           Foco
-                          <select
-                            value={workoutForm.focus}
-                            onChange={(e) => setWorkoutForm({ ...workoutForm, focus: e.target.value })}
-                            className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container px-2.5 py-2 text-sm text-on-surface"
-                          >
-                            {WORKOUT_FOCUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
-                          </select>
+                          <LevelSelect className="mt-1" value={workoutForm.focus} onChange={(focus) => setWorkoutForm({ ...workoutForm, focus })} options={WORKOUT_FOCUS_OPTIONS.map((option) => ({ value: option, label: option }))} />
                         </label>
                         <label className="text-xs text-muted">
                           Dias por semana
-                          <select
-                            value={workoutForm.days}
-                            onChange={(e) => setWorkoutForm({ ...workoutForm, days: Number(e.target.value) })}
-                            className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container px-2.5 py-2 text-sm text-on-surface"
-                          >
-                            {[1, 2, 3, 4, 5, 6, 7].map((day) => <option key={day} value={day}>{day}x</option>)}
-                          </select>
+                          <LevelSelect className="mt-1" value={workoutForm.days} onChange={(days) => setWorkoutForm({ ...workoutForm, days })} options={[1, 2, 3, 4, 5, 6, 7].map((day) => ({ value: day, label: day + "x" }))} />
                         </label>
                         <label className="text-xs text-muted">
                           Local
-                          <select
-                            value={workoutForm.location}
-                            onChange={(e) => setWorkoutForm({ ...workoutForm, location: e.target.value as "casa" | "academia" })}
-                            className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container px-2.5 py-2 text-sm text-on-surface"
-                          >
-                            <option value="academia">Academia</option>
-                            <option value="casa">Em casa</option>
-                          </select>
+                          <LevelSelect className="mt-1" value={workoutForm.location} onChange={(location) => setWorkoutForm({ ...workoutForm, location })} options={[{ value: "academia" as const, label: "Academia" }, { value: "casa" as const, label: "Em casa" }]} />
                         </label>
                       </div>
                       <div className="mt-3 flex items-center justify-between gap-2">
                         <p className="text-[10px] text-muted">Envie para {persona.name} montar. Você pode acrescentar detalhes no campo abaixo.</p>
                         <button type="button" onClick={() => setWorkoutForm(null)} className="shrink-0 rounded-lg px-3 py-1.5 text-xs text-muted hover:bg-surface-container-high">Cancelar</button>
                       </div>
-                    </motion.div>
+                    </m.div>
                   ) : null}
                   {dietForm ? (
-                    <motion.div
+                    <m.div
                       initial={{ opacity: 0, y: reduce ? 0 : 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="rounded-2xl border border-primary/30 bg-primary/[0.04] p-4"
@@ -632,23 +706,11 @@ export function AssistantCommand() {
                       <div className="grid gap-3 sm:grid-cols-3">
                         <label className="text-xs text-muted">
                           Objetivo
-                          <select
-                            value={dietForm.goal}
-                            onChange={(e) => setDietForm({ ...dietForm, goal: e.target.value })}
-                            className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container px-2.5 py-2 text-sm text-on-surface"
-                          >
-                            {DIET_GOAL_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                          </select>
+                          <LevelSelect className="mt-1" value={dietForm.goal} onChange={(goal) => setDietForm({ ...dietForm, goal })} options={DIET_GOAL_OPTIONS.map(([value, label]) => ({ value, label }))} />
                         </label>
                         <label className="text-xs text-muted">
                           Período
-                          <select
-                            value={dietForm.periodDays}
-                            onChange={(e) => setDietForm({ ...dietForm, periodDays: Number(e.target.value) })}
-                            className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container px-2.5 py-2 text-sm text-on-surface"
-                          >
-                            {[7, 14, 30].map((days) => <option key={days} value={days}>{days} dias</option>)}
-                          </select>
+                          <LevelSelect className="mt-1" value={dietForm.periodDays} onChange={(periodDays) => setDietForm({ ...dietForm, periodDays })} options={[7, 14, 30].map((days) => ({ value: days, label: days + " dias" }))} />
                         </label>
                         <label className="text-xs text-muted">
                           Orçamento total (R$)
@@ -666,12 +728,12 @@ export function AssistantCommand() {
                         <p className="text-[10px] text-muted">Orçamento mínimo R$ 20,00. Acrescente restrições no campo abaixo.</p>
                         <button type="button" onClick={() => setDietForm(null)} className="shrink-0 rounded-lg px-3 py-1.5 text-xs text-muted hover:bg-surface-container-high">Cancelar</button>
                       </div>
-                    </motion.div>
+                    </m.div>
                   ) : null}
                   <div className="relative rounded-2xl border border-outline-variant bg-background/45 shadow-inner">
                     <AnimatePresence>
                       {showPalette ? (
-                        <motion.div
+                        <m.div
                           className="absolute inset-x-3 bottom-full z-50 mb-2 overflow-hidden rounded-lg border border-outline-variant bg-surface-container-high/95 shadow-lg backdrop-blur-xl"
                           initial={{ opacity: 0, y: 5 }}
                           animate={{ opacity: 1, y: 0 }}
@@ -696,7 +758,7 @@ export function AssistantCommand() {
                               </button>
                             ))}
                           </div>
-                        </motion.div>
+                        </m.div>
                       ) : null}
                     </AnimatePresence>
 
@@ -724,7 +786,7 @@ export function AssistantCommand() {
                       </button>
                       <div className="flex items-center gap-3">
                         <kbd className="hidden text-[10px] text-muted sm:block">Enter envia · Shift+Enter quebra linha</kbd>
-                        <motion.button
+                        <m.button
                           type="button"
                           onClick={workoutForm ? sendWorkoutProgram : dietForm ? sendDietPlan : send}
                           whileTap={reduce ? undefined : { scale: 0.97 }}
@@ -738,12 +800,12 @@ export function AssistantCommand() {
                         >
                           {assistant.loading ? <LoaderCircle className="size-4 animate-spin" /> : <SendHorizonal className="size-4" />}
                           Enviar
-                        </motion.button>
+                        </m.button>
                       </div>
                     </div>
                   </div>
                 </div>
-              </motion.section>
+              </m.section>
             </Dialog.Content>
           </div>
         </Dialog.Portal>
@@ -751,7 +813,7 @@ export function AssistantCommand() {
 
       <AnimatePresence>
         {!assistant.open && assistant.result && assistant.result.status !== "refused" && assistant.result.status !== "query" ? (
-          <motion.div
+          <m.div
             role="status"
             initial={{ opacity: 0, y: reduce ? 0 : 18 }}
             animate={{ opacity: 1, y: 0 }}
@@ -776,7 +838,7 @@ export function AssistantCommand() {
             <button onClick={assistant.dismiss} className="grid size-10 place-items-center rounded-lg text-muted hover:bg-surface-container" aria-label="Dispensar">
               <X className="size-4" />
             </button>
-          </motion.div>
+          </m.div>
         ) : null}
       </AnimatePresence>
     </>

@@ -2,6 +2,33 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { AssistantResultCard } from "../modules/assistant/AssistantResultCard"
 
+describe("encaminhamento do agente geral", () => {
+  it("preenche o especialista sem executar o pedido", () => {
+    const onRoute = vi.fn()
+    render(<AssistantResultCard
+      response={{
+        ok: true,
+        status: "routed",
+        action: "route_to_agent",
+        message: "O Assessor Fin e o especialista indicado.",
+        module: "financeiro",
+        undoAvailable: false,
+        data: { handoff: {
+          module: "financeiro",
+          agent: "Assessor Fin",
+          scope: "Financas pessoais",
+          suggestedPrompt: "Lancar R$ 42 de mercado",
+        } },
+      }}
+      onView={vi.fn()}
+      onRoute={onRoute}
+    />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Conversar com Assessor Fin" }))
+    expect(onRoute).toHaveBeenCalledWith("financeiro", "Lancar R$ 42 de mercado")
+  })
+})
+
 describe("prévia editável dos planos do agente", () => {
   it("edita uma refeição sem aplicar o plano", () => {
     const onApprovalChange = vi.fn()

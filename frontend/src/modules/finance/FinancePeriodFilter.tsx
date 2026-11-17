@@ -1,4 +1,5 @@
 import { Icon } from "../../design-system"
+import { LevelDateInput } from "../../components/ui/LevelDateInput"
 import { cn } from "../../lib/cn"
 import type { FinanceDateRange, FinancePeriodPreset } from "./period"
 
@@ -47,8 +48,9 @@ export function FinancePeriodFilter({
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="flex max-w-full gap-1 overflow-x-auto rounded-lg border border-outline-variant bg-surface-container p-1" role="group" aria-label="Períodos rápidos">
+        <div className="flex w-full min-w-0 flex-col gap-2 lg:w-[25.5rem] lg:shrink-0">
+          <div className="max-w-full overflow-x-auto rounded-lg border border-outline-variant bg-surface-container p-1" role="group" aria-label="Períodos rápidos">
+            <div className="flex min-w-max gap-1">
             {options.map((option) => (
               <button
                 key={option.value}
@@ -78,31 +80,23 @@ export function FinancePeriodFilter({
             >
               Personalizado
             </button>
+            </div>
           </div>
 
-          {preset === "custom" ? (
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2" aria-label="Intervalo personalizado">
-              <label className="sr-only" htmlFor="finance-period-start">Data inicial</label>
-              <input
-                id="finance-period-start"
-                type="date"
-                value={customStart}
-                max={customEnd}
-                onChange={(event) => onCustomStartChange(event.target.value)}
-                className="min-h-10 min-w-0 rounded-lg border border-outline-variant bg-surface-container px-2.5 text-xs text-on-surface"
-              />
-              <span className="text-xs text-muted" aria-hidden="true">até</span>
-              <label className="sr-only" htmlFor="finance-period-end">Data final</label>
-              <input
-                id="finance-period-end"
-                type="date"
-                value={customEnd}
-                min={customStart}
-                onChange={(event) => onCustomEndChange(event.target.value)}
-                className="min-h-10 min-w-0 rounded-lg border border-outline-variant bg-surface-container px-2.5 text-xs text-on-surface"
-              />
-            </div>
-          ) : null}
+          <div className="grid min-h-11 min-w-0 grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]" aria-label="Intervalo personalizado"
+            aria-hidden={preset !== "custom"}>
+            <label className={cn("min-w-0", preset !== "custom" && "invisible pointer-events-none")} htmlFor="finance-period-start">
+              <span className="sr-only">Data inicial</span>
+              <LevelDateInput id="finance-period-start" aria-label="Data inicial" value={customStart} max={customEnd}
+                disabled={preset !== "custom"} onChange={(event) => onCustomStartChange(event.target.value)} />
+            </label>
+            <span className={cn("hidden text-xs text-muted sm:inline", preset !== "custom" && "invisible")} aria-hidden="true">até</span>
+            <label className={cn("min-w-0", preset !== "custom" && "invisible pointer-events-none")} htmlFor="finance-period-end">
+              <span className="sr-only">Data final</span>
+              <LevelDateInput id="finance-period-end" aria-label="Data final" value={customEnd} min={customStart}
+                disabled={preset !== "custom"} onChange={(event) => onCustomEndChange(event.target.value)} />
+            </label>
+          </div>
         </div>
       </div>
     </section>

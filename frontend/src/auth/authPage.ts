@@ -1,6 +1,15 @@
 import { AuthSessionExchangeError, exchangePhpSession, getSupabaseClient } from "./supabaseClient"
 import { authCallbackIntent } from "./authCallback"
 
+declare global {
+  interface Window {
+    LevelOtp?: {
+      enhance: (input: HTMLInputElement) => { setStatus: (status: "idle" | "error" | "success") => void; focus: () => void } | null
+      setStatus: (input: HTMLInputElement, status: "idle" | "error" | "success") => void
+    }
+  }
+}
+
 function setBusy(form: HTMLFormElement, busy: boolean): void {
   form.setAttribute("aria-busy", String(busy))
   form.querySelectorAll<HTMLButtonElement>("button").forEach((button) => { button.disabled = busy })
@@ -54,7 +63,7 @@ async function promptSupabaseMfa(form: HTMLFormElement): Promise<void> {
     <h1>Verificação em duas etapas</h1>
     <p class="sub">Digite o código atual do seu aplicativo autenticador.</p>
     <label for="supabase-mfa-code">Código de verificação</label>
-    <input id="supabase-mfa-code" name="mfa_code" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" pattern="[0-9]{6}" maxlength="6" required autofocus>
+    <input id="supabase-mfa-code" name="mfa_code" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" pattern="[0-9]{6}" maxlength="6" required autofocus aria-label="Código de verificação" data-otp-input>
     <button type="submit">Confirmar e entrar</button>
     <div class="footer"><a href="/logout.php">Cancelar</a></div>`
   form.addEventListener("submit", async (event) => {
@@ -63,12 +72,19 @@ async function promptSupabaseMfa(form: HTMLFormElement): Promise<void> {
     if (code.length !== 6) { message(form, "Digite o código de seis dígitos."); return }
     setBusy(form, true)
     const verified = await supabase.mfa.challengeAndVerify({ factorId: factor.id, code })
-    if (verified.error) { message(form, "Código inválido ou expirado."); setBusy(form, false); return }
+    const otpInput = form.querySelector<HTMLInputElement>("#supabase-mfa-code")
+    if (verified.error) {
+      if (otpInput) window.LevelOtp?.setStatus(otpInput, "error")
+      message(form, "Código inválido ou expirado."); setBusy(form, false); return
+    }
     const { data: sessionData } = await supabase.getSession()
     if (!sessionData.session) { message(form, "Não foi possível atualizar a sessão."); setBusy(form, false); return }
+    if (otpInput) window.LevelOtp?.setStatus(otpInput, "success")
+    await new Promise((resolve) => window.setTimeout(resolve, 440))
     try { await finishSession(form, sessionData.session) } catch { message(form, "Não foi possível concluir o acesso."); setBusy(form, false) }
   })
-  form.querySelector<HTMLInputElement>("#supabase-mfa-code")?.focus()
+  const otpInput = form.querySelector<HTMLInputElement>("#supabase-mfa-code")
+  if (otpInput) window.LevelOtp?.enhance(otpInput)?.focus()
 }
 
 function bindLogin(): void {

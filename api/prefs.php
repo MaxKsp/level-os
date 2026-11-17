@@ -75,7 +75,7 @@ try {
     echo json_encode([...$stored, 'notify_email' => $notifyEmail]);
 } catch (Throwable $e) {
     if ($db->inTransaction()) $db->rollBack();
-    error_log('prefs.php: ' . $e->getMessage());
+    security_log_exception('preferences.save', $e);
     http_response_code(500);
     echo json_encode(['error' => 'preferences_save_failed']);
 }

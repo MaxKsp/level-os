@@ -28,6 +28,10 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Auditar dependencias de alta severidade
+        working-directory: frontend
+        run: npm audit --audit-level=high
+
       - name: Validar tipos, testes e build
         working-directory: frontend
         run: npm run validate
@@ -44,7 +48,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: pdo, pdo_sqlite, mbstring, json, sodium
+          extensions: pdo, pdo_sqlite, mbstring, json, curl, sodium
           coverage: none
 
       - name: Configurar Node.js
@@ -96,3 +100,44 @@ jobs:
 
       - name: Rodar testes PHP (tests/run.php)
         run: php tests/run.php
+
+      - name: Rodar smoke do fluxo critico
+        run: php scripts/critical-smoke.php
+
+      - name: Verificar prontidão de produção
+        run: php scripts/production-readiness.php
+
+  browser:
+    name: Browser smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout do repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Construir pagina publica
+        working-directory: frontend
+        run: npm ci && npm run build
+
+      - name: Instalar navegador headless do smoke
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Validar landing em desktop e celular
+        working-directory: frontend
+        shell: bash
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/level-os-preview.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/landing.html -o /dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/browser-smoke.mjs
+          node scripts/browser-orbital-scroll.mjs

@@ -16,6 +16,10 @@ define('DB_PASS', 'sua_senha');
 // Ex.: https://app.seudominio.com
 define('APP_URL', 'https://app.seudominio.com');
 
+// Expira a sessão web por inatividade. Padrão: 43200 (12 horas).
+// Faixa aceita: 900 (15 min) a 604800 (7 dias).
+//   LEVELOS_SESSION_IDLE_SECONDS=43200
+
 // Supabase Auth (migracao gradual). A publishable key pode existir no
 // navegador; nunca use SUPABASE_SERVICE_ROLE_KEY no frontend ou neste fluxo.
 // Mantenha SUPABASE_AUTH_ENABLED=false ate aplicar a migration e configurar

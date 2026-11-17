@@ -6,8 +6,7 @@ $_logoutUid = current_user_id();
 if ($_logoutUid !== null) {
     try { audit_record(get_db(), $_logoutUid, 'auth.logout', 'success'); } catch (Throwable) {}
 }
-$_SESSION = [];
-session_destroy();
+destroy_browser_session();
 if (supabase_auth_enabled()) {
     ?>
 <!DOCTYPE html>

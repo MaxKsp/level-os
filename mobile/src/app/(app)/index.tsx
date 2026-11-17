@@ -1,19 +1,22 @@
 import { router } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { AnimatedNumber, Sparkline } from '@/components/native-charts';
 import {
   ActionTile,
   EmptyState,
   ErrorState,
+  LoadingState,
   Metric,
-  NativeButton,
   NativeScreen,
   PageHeader,
   ProgressBar,
   Row,
   Section,
+  SectionLink,
 } from '@/components/native-ui';
+import { ProfileAvatar } from '@/components/profile-avatar';
+import { levelTheme } from '@/constants/level-theme';
 import { useDashboard, useNutrition, useProfile, useProgress, useTraining } from '@/hooks/use-native-data';
 import { money } from '@/lib/format';
 
@@ -47,11 +50,10 @@ export default function OverviewScreen() {
     <NativeScreen onRefresh={refresh} refreshing={dashboard.loading || profile.loading}>
       <PageHeader
         action={(
-          <NativeButton
-            icon="person-outline"
-            label="Perfil"
+          <ProfileAvatar
+            avatar={profile.data?.avatar}
+            name={profile.data?.username}
             onPress={() => router.push('/(app)/profile')}
-            variant="secondary"
           />
         )}
         description="Seu dia, seu dinheiro e seu progresso em um só lugar."
@@ -59,12 +61,33 @@ export default function OverviewScreen() {
         title={`Olá, ${profile.data?.username?.split(' ')[0] ?? 'você'}.`}
       />
 
-      {dashboard.error ? <ErrorState retry={() => void refresh()} /> : (
+      {dashboard.loading && !dashboard.data ? (
+        <LoadingState label="Preparando sua visão do dia…" rows={4} />
+      ) : dashboard.error ? <ErrorState retry={() => void refresh()} /> : (
         <>
+          <Section
+            action={<SectionLink label="Ver finanças" onPress={() => router.push('/(app)/finance')} />}
+            caption={`${accounts.length} ${accounts.length === 1 ? 'conta conectada' : 'contas conectadas'}`}
+            title="Seu dinheiro hoje">
+            <View style={styles.balanceHero}>
+              <Text style={styles.balanceLabel}>Saldo disponível</Text>
+              <AnimatedNumber format={money} value={totalBalance} />
+              <View style={styles.balanceMeta}>
+                <Text style={styles.balanceMetaText}>Faturas {money(totalInvoice)}</Text>
+                <Text style={styles.balanceMetaDot}>•</Text>
+                <Text style={styles.balanceMetaText}>
+                  {expenses.length + incomes.length} movimentações
+                </Text>
+              </View>
+              <Sparkline height={92} values={financeTrend} />
+            </View>
+          </Section>
+
           <Section title="Ações rápidas" caption="O que você quer registrar agora?">
             <View style={styles.quickActions}>
               <ActionTile
                 accent
+                compact
                 description="Registre valor, categoria e conta"
                 icon="add-circle-outline"
                 onPress={() => router.push({
@@ -74,6 +97,7 @@ export default function OverviewScreen() {
                 title="Lançar despesa"
               />
               <ActionTile
+                compact
                 description="Crie um lembrete com horário e repetição"
                 icon="alarm-outline"
                 onPress={() => router.push({
@@ -85,13 +109,7 @@ export default function OverviewScreen() {
             </View>
           </Section>
 
-          <View style={styles.hero}>
-            <AnimatedNumber format={money} value={totalBalance} />
-            <Metric label="Saldo total" value={`${accounts.length} contas conectadas`} />
-            <Sparkline height={94} values={financeTrend} />
-          </View>
           <View style={styles.metrics}>
-            <Metric label="Faturas" tone={totalInvoice > 0 ? 'negative' : 'default'} value={money(totalInvoice)} />
             <Metric label="XP" value={String(progress.data?.xp ?? 0)} />
             <Metric label="Sequência" value={`${progress.data?.streak ?? 0} dias`} />
           </View>
@@ -100,7 +118,10 @@ export default function OverviewScreen() {
             <ProgressBar value={progress.data?.progress_pct ?? 0} />
           </Section>
 
-          <Section title="Próximas ações" caption={`${pendingTasks.length} tarefas pendentes`}>
+          <Section
+            action={<SectionLink label="Abrir rotina" onPress={() => router.push('/(app)/routine')} />}
+            title="Próximas ações"
+            caption={`${pendingTasks.length} tarefas pendentes`}>
             {pendingTasks.length ? pendingTasks.slice(0, 4).map((task) => (
               <Row
                 icon="checkmark-circle-outline"
@@ -156,7 +177,9 @@ export default function OverviewScreen() {
             </Section>
           ) : null}
 
-          <Section title="Movimentações recentes">
+          <Section
+            action={<SectionLink label="Ver extrato" onPress={() => router.push('/(app)/finance')} />}
+            title="Movimentações recentes">
             {expenses.length ? expenses.slice(0, 3).map((expense) => (
               <Row
                 icon="arrow-down-outline"
@@ -174,7 +197,28 @@ export default function OverviewScreen() {
 }
 
 const styles = StyleSheet.create({
-  hero: { gap: 10 },
+  balanceHero: {
+    backgroundColor: levelTheme.colors.surface,
+    borderColor: levelTheme.colors.border,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: 10,
+    overflow: 'hidden',
+    paddingHorizontal: 18,
+    paddingTop: 18,
+  },
+  balanceLabel: {
+    color: levelTheme.colors.muted,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  balanceMeta: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  balanceMetaDot: { color: levelTheme.colors.border, fontSize: 12 },
+  balanceMetaText: {
+    color: levelTheme.colors.muted,
+    fontSize: 12,
+    fontVariant: ['tabular-nums'],
+  },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 18 },
-  quickActions: { gap: 10 },
+  quickActions: { flexDirection: 'row', gap: 10 },
 });

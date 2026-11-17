@@ -30,6 +30,20 @@ return static function (): void {
     test_assert_same('ANY', $request['toolConfig']['functionCallingConfig']['mode'], 'A focused prompt must require its function.');
     test_assert_same(['add_task'], $request['toolConfig']['functionCallingConfig']['allowedFunctionNames'], 'Only the inferred function may be called.');
 
+    $imagePayload = GeminiNativeProvider::buildRequest([
+        'messages'=>[[
+            'role'=>'user',
+            'content'=>[
+                ['type'=>'text','text'=>'Identifique o aparelho.'],
+                ['type'=>'image_url','image_url'=>['url'=>'data:image/jpeg;base64,' . base64_encode(str_repeat('x', 12000))]],
+            ],
+        ]],
+        'max_tokens'=>180,
+    ]);
+    test_assert_same('Identifique o aparelho.', $imagePayload['contents'][0]['parts'][0]['text'], 'Vision prompt text must be preserved.');
+    test_assert_same('image/jpeg', $imagePayload['contents'][0]['parts'][1]['inlineData']['mimeType'], 'Data URL must become Gemini inlineData.');
+    test_assert_same(base64_encode(str_repeat('x', 12000)), $imagePayload['contents'][0]['parts'][1]['inlineData']['data'], 'Vision bytes must not be mutated.');
+
     $response = GeminiNativeProvider::normalizeResponse([
         'candidates' => [[
             'content' => ['parts' => [[

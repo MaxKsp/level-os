@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <xs:simpleType name="moduleId">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="financeiro"/>
+      <xs:enumeration value="agenda"/>
+      <xs:enumeration value="treinos"/>
+      <xs:enumeration value="alimentacao"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="version">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9]+\.[0-9]+\.[0-9]+"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="nonEmptyList">
+    <xs:sequence>
+      <xs:element name="item" type="xs:string" minOccurs="1" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:element name="agent">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="id" type="moduleId"/>
+        <xs:element name="version" type="version"/>
+        <xs:element name="name" type="xs:string"/>
+        <xs:element name="role" type="xs:string"/>
+        <xs:element name="scope" type="xs:string"/>
+        <xs:element name="allowedActions" type="nonEmptyList"/>
+        <xs:element name="signals" type="nonEmptyList"/>
+        <xs:element name="allowedTopics" type="nonEmptyList"/>
+        <xs:element name="dataAccess" type="nonEmptyList"/>
+        <xs:element name="guardrails" type="nonEmptyList"/>
+        <xs:element name="refusal" type="xs:string"/>
+        <xs:element name="responseContract" type="xs:string"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

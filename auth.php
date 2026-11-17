@@ -34,11 +34,54 @@ session_start();
 
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
-const SESSION_IDLE_TIMEOUT_SECONDS = 43200; // 12h sem atividade encerra a sessão
+const SESSION_IDLE_TIMEOUT_SECONDS = 43200; // padrão: 12h sem atividade encerra a sessão
+const PENDING_2FA_TIMEOUT_SECONDS = 600; // 10 min para concluir o segundo fator
 const PASSWORD_RESET_TOKEN_BYTES = 32;
 const PASSWORD_RESET_TTL_MINUTES = 60;
 const RATE_HIT_RETENTION_SECONDS = 172800;
 const RATE_HIT_CLEANUP_ODDS = 100;
+const RETURNING_USER_COOKIE = 'levelos_returning';
+const RETURNING_USER_COOKIE_TTL_SECONDS = 31536000;
+
+/** Marcador opaco: informa apenas que este navegador já concluiu um login. */
+function has_returning_user_marker(): bool {
+    return hash_equals('1', (string)($_COOKIE[RETURNING_USER_COOKIE] ?? ''));
+}
+
+function remember_returning_user(): void {
+    $configuredUrl = defined('APP_URL') && is_string(APP_URL) ? trim(APP_URL) : '';
+    $isSecure = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off')
+        || str_starts_with(strtolower($configuredUrl), 'https://');
+
+    setcookie(RETURNING_USER_COOKIE, '1', [
+        'expires' => time() + RETURNING_USER_COOKIE_TTL_SECONDS,
+        'path' => '/',
+        'secure' => $isSecure,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+    $_COOKIE[RETURNING_USER_COOKIE] = '1';
+}
+
+/** Encerra a sessão e remove o cookie de autenticação do navegador. */
+function destroy_browser_session(): void {
+    $_SESSION = [];
+    if (session_status() !== PHP_SESSION_ACTIVE) return;
+
+    if (ini_get('session.use_cookies')) {
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', [
+            'expires' => time() - 42000,
+            'path' => $params['path'] ?: '/',
+            'domain' => $params['domain'] ?? '',
+            'secure' => (bool)($params['secure'] ?? false),
+            'httponly' => (bool)($params['httponly'] ?? true),
+            'samesite' => $params['samesite'] ?? 'Lax',
+        ]);
+    }
+
+    session_destroy();
+}
 
 function current_user_id(): ?int {
     if (level_os_mobile_session_request_token() !== '') {
@@ -69,7 +112,7 @@ function current_user_id(): ?int {
     // Expiração por inatividade: sem request ha mais de SESSION_IDLE_TIMEOUT_SECONDS,
     // a sessão morre mesmo com o navegador aberto (PWA instalada, aba esquecida).
     $lastActivity = $_SESSION['last_activity'] ?? null;
-    if (is_int($lastActivity) && (time() - $lastActivity) > SESSION_IDLE_TIMEOUT_SECONDS) {
+    if (is_int($lastActivity) && (time() - $lastActivity) > session_idle_timeout_seconds()) {
         unset(
             $_SESSION['user_id'],
             $_SESSION['session_version'],
@@ -95,15 +138,24 @@ function current_user_id(): ?int {
         unset(
             $_SESSION['user_id'],
             $_SESSION['session_version'],
-            $_SESSION['pending_2fa_user_id'],
-            $_SESSION['pending_2fa_session_version'],
             $_SESSION['csrf']
         );
+        discard_pending_auth_challenge();
         return null;
     }
 
     $validatedKey = $key;
     return $userId;
+}
+
+/**
+ * Mantém um padrão seguro, mas permite reduzir a janela em produção sem
+ * alterar código. A faixa evita sessões quase infinitas e expiração acidental.
+ */
+function session_idle_timeout_seconds(): int {
+    $configured = filter_var(getenv('LEVELOS_SESSION_IDLE_SECONDS') ?: null, FILTER_VALIDATE_INT);
+    if (!is_int($configured)) return SESSION_IDLE_TIMEOUT_SECONDS;
+    return max(900, min(604800, $configured));
 }
 
 function require_login(): int {
@@ -115,6 +167,34 @@ function require_login(): int {
         exit;
     }
     return $uid;
+}
+
+function user_email_is_verified(int $uid): bool {
+    static $cache = [];
+    if (array_key_exists($uid, $cache)) return $cache[$uid];
+
+    $stmt = get_db()->prepare('SELECT email, email_verified_at FROM users WHERE id = ? LIMIT 1');
+    $stmt->execute([$uid]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    $cache[$uid] = is_array($user)
+        && is_string($user['email'] ?? null)
+        && trim((string)$user['email']) !== ''
+        && $user['email_verified_at'] !== null;
+    return $cache[$uid];
+}
+
+/** Bloqueia exportação, restauração, pagamentos e credenciais sem e-mail confirmado. */
+function require_verified_email(int $uid): void {
+    if (user_email_is_verified($uid)) return;
+
+    http_response_code(403);
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, private');
+    echo json_encode([
+        'error' => 'email_verification_required',
+        'message' => 'Confirme seu e-mail antes de realizar esta ação.',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 function require_login_page(): int {
@@ -292,6 +372,60 @@ function reset_attempts(): void {
     $stmt->execute([client_ip()]);
 }
 
+/** Remove apenas os dados do desafio; preserva eventual identidade Supabase a vincular. */
+function clear_pending_2fa(): void {
+    unset(
+        $_SESSION['pending_2fa_user_id'],
+        $_SESSION['pending_2fa_session_version'],
+        $_SESSION['pending_2fa_issued_at']
+    );
+}
+
+/** Cancela por completo um desafio pendente, inclusive uma vinculação externa. */
+function discard_pending_auth_challenge(): void {
+    clear_pending_2fa();
+    unset($_SESSION['pending_supabase_identity']);
+}
+
+function stage_pending_2fa(int $userId, int $sessionVersion): void {
+    if ($userId < 1 || $sessionVersion < 1) {
+        throw new InvalidArgumentException('Invalid pending 2FA identity.');
+    }
+
+    session_regenerate_id(true);
+    clear_pending_2fa();
+    $_SESSION['pending_2fa_user_id'] = $userId;
+    $_SESSION['pending_2fa_session_version'] = $sessionVersion;
+    $_SESSION['pending_2fa_issued_at'] = time();
+}
+
+function has_pending_2fa(): bool {
+    $userId = $_SESSION['pending_2fa_user_id'] ?? null;
+    $sessionVersion = $_SESSION['pending_2fa_session_version'] ?? null;
+    $issuedAt = $_SESSION['pending_2fa_issued_at'] ?? null;
+    $now = time();
+    $hasChallengeData = isset($_SESSION['pending_2fa_user_id'])
+        || isset($_SESSION['pending_2fa_session_version'])
+        || isset($_SESSION['pending_2fa_issued_at']);
+
+    // Uma identidade Supabase pode estar aguardando apenas a confirmação da
+    // senha local. Não a descarte enquanto nenhum desafio 2FA foi iniciado.
+    if (!$hasChallengeData) return false;
+
+    if (
+        !is_int($userId) || $userId < 1
+        || !is_int($sessionVersion) || $sessionVersion < 1
+        || !is_int($issuedAt)
+        || $issuedAt > ($now + 30)
+        || ($now - $issuedAt) > PENDING_2FA_TIMEOUT_SECONDS
+    ) {
+        discard_pending_auth_challenge();
+        return false;
+    }
+
+    return true;
+}
+
 /** Retorna 'ok' | '2fa_required' | 'email_unverified' | 'locked' | 'invalid'. */
 function attempt_login(string $username, string $password): string {
     $db = get_db();
@@ -314,9 +448,7 @@ function attempt_login(string $username, string $password): string {
         return 'email_unverified';
     }
     if ((int)$user['totp_enabled'] === 1) {
-        session_regenerate_id(true);
-        $_SESSION['pending_2fa_user_id'] = (int)$user['id'];
-        $_SESSION['pending_2fa_session_version'] = (int)$user['session_version'];
+        stage_pending_2fa((int)$user['id'], (int)$user['session_version']);
         try { audit_record($db, (int)$user['id'], 'auth.login', 'success', ['method' => 'password', '2fa_pending' => true]); } catch (Throwable) {}
         return '2fa_required';
     }
@@ -346,8 +478,9 @@ function complete_login(int $userId, ?int $sessionVersion = null): void {
     $_SESSION['session_version'] = $sessionVersion;
     $_SESSION['last_activity'] = time();
     unset($_SESSION['auth_provider'], $_SESSION['supabase_expires_at']);
-    unset($_SESSION['pending_2fa_user_id'], $_SESSION['pending_2fa_session_version']);
+    clear_pending_2fa();
     complete_pending_supabase_link($userId);
+    remember_returning_user();
 }
 
 function mark_supabase_session(SupabaseIdentity $identity): void {
@@ -399,15 +532,17 @@ function complete_pending_supabase_link(int $userId): bool {
 
 /**
  * Confere o codigo TOTP (ou um codigo de backup) pra concluir um login
- * pendente de 2FA. Retorna 'ok' | 'locked' | 'invalid'. Tentativas erradas
+ * pendente de 2FA. Retorna 'ok' | 'expired' | 'locked' | 'invalid'. Tentativas erradas
  * contam no mesmo lockout por IP do login com senha — sem isso daria pra
  * forçar o codigo de 6 digitos na base da repetição.
  */
 function attempt_2fa(string $code): string {
+    if (!has_pending_2fa()) return 'expired';
+
     $uid = $_SESSION['pending_2fa_user_id'] ?? null;
     $pendingVersion = $_SESSION['pending_2fa_session_version'] ?? null;
     if (!is_int($uid) || !is_int($pendingVersion)) {
-        unset($_SESSION['pending_2fa_user_id'], $_SESSION['pending_2fa_session_version']);
+        discard_pending_auth_challenge();
         return 'invalid';
     }
     if (is_locked_out()) {
@@ -420,7 +555,7 @@ function attempt_2fa(string $code): string {
     $stmt->execute([$uid]);
     $user = $stmt->fetch();
     if (!$user || !$user['totp_secret'] || (int)$user['session_version'] !== $pendingVersion) {
-        unset($_SESSION['pending_2fa_user_id'], $_SESSION['pending_2fa_session_version']);
+        discard_pending_auth_challenge();
         return 'invalid';
     }
 

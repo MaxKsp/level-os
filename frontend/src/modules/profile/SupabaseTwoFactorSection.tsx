@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react"
 import { QRCodeSVG } from "qrcode.react"
 import { exchangePhpSession, getSupabaseClient } from "../../auth/supabaseClient"
-import { Button } from "../../components/ui/Button"
+import { Button } from "../../components/ui/button"
+import { OtpInput, type OtpStatus } from "../../components/ui/OtpInput"
 import { Icon, SectionCard } from "../../design-system"
-
-const inputClass = "w-full rounded-lg border border-outline-variant bg-surface-container px-3 py-2.5 font-mono text-sm tabular-nums text-on-surface outline-none focus:border-primary"
 
 interface Enrollment {
   factorId: string
@@ -24,6 +23,7 @@ export function SupabaseTwoFactorSection({ hasLegacyFactor = false, onManagedFac
   const [code, setCode] = useState("")
   const [busy, setBusy] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [otpStatus, setOtpStatus] = useState<OtpStatus>("idle")
 
   useEffect(() => {
     let active = true
@@ -44,6 +44,7 @@ export function SupabaseTwoFactorSection({ hasLegacyFactor = false, onManagedFac
   const startEnrollment = async () => {
     if (!supabase) return
     setBusy(true); setError(null)
+    setOtpStatus("idle")
     const { data, error: enrollError } = await supabase.mfa.enroll({
       factorType: "totp",
       friendlyName: "Level OS",
@@ -65,10 +66,14 @@ export function SupabaseTwoFactorSection({ hasLegacyFactor = false, onManagedFac
     const { error: verifyError } = await supabase.mfa.challengeAndVerify({ factorId: enrollment.factorId, code })
     if (verifyError) {
       setError("Código inválido ou expirado.")
+      setOtpStatus("error")
     } else {
+      setOtpStatus("success")
+      await new Promise((resolve) => window.setTimeout(resolve, 520))
       setFactorId(enrollment.factorId)
       setEnrollment(null)
       setCode("")
+      setOtpStatus("idle")
       const session = await supabase.getSession()
       if (session.data.session) {
         try {
@@ -84,7 +89,7 @@ export function SupabaseTwoFactorSection({ hasLegacyFactor = false, onManagedFac
 
   const cancelEnrollment = async () => {
     if (supabase && enrollment) await supabase.mfa.unenroll({ factorId: enrollment.factorId })
-    setEnrollment(null); setCode(""); setError(null)
+    setEnrollment(null); setCode(""); setError(null); setOtpStatus("idle")
   }
 
   const disable = async () => {
@@ -96,15 +101,20 @@ export function SupabaseTwoFactorSection({ hasLegacyFactor = false, onManagedFac
     const verified = await supabase.mfa.challengeAndVerify({ factorId, code })
     if (verified.error) {
       setError("Código inválido ou expirado.")
+      setOtpStatus("error")
       setBusy(false)
       return
     }
     const removed = await supabase.mfa.unenroll({ factorId })
     if (removed.error) {
       setError("Não foi possível desativar o 2FA.")
+      setOtpStatus("error")
     } else {
+      setOtpStatus("success")
+      await new Promise((resolve) => window.setTimeout(resolve, 420))
       setFactorId(null)
       setCode("")
+      setOtpStatus("idle")
     }
     setBusy(false)
   }
@@ -135,7 +145,16 @@ export function SupabaseTwoFactorSection({ hasLegacyFactor = false, onManagedFac
         {enrollment ? <div className="space-y-4 border-t border-outline-variant pt-4">
           <div className="mx-auto w-fit rounded-xl bg-white p-3"><QRCodeSVG value={enrollment.uri} size={164} level="M" /></div>
           <p className="text-center text-xs leading-5 text-muted">Leia o QR Code e confirme com o código atual. Se necessário, use a chave <span className="select-all font-mono text-on-surface">{enrollment.secret}</span>.</p>
-          <input className={inputClass} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" aria-label="Código do autenticador" />
+          <OtpInput
+            value={code}
+            onChange={(next) => { setCode(next); setError(null); setOtpStatus("idle") }}
+            status={otpStatus}
+            disabled={busy}
+            autoFocus
+            label="Código do autenticador"
+            hint="Cole o código ou digite os seis números."
+            errorMessage={error ?? "Código inválido ou expirado."}
+          />
           <div className="flex gap-2">
             <Button type="button" variant="ghost" className="flex-1" disabled={busy} onClick={() => void cancelEnrollment()}>Cancelar</Button>
             <Button type="button" className="flex-1" disabled={busy || code.length !== 6} onClick={() => void confirm()}>Confirmar</Button>
@@ -144,10 +163,17 @@ export function SupabaseTwoFactorSection({ hasLegacyFactor = false, onManagedFac
 
         {enabled ? <div className="space-y-3 border-t border-outline-variant pt-4">
           <p className="text-xs leading-5 text-muted">Para desativar, confirme sua identidade com o código atual do autenticador.</p>
-          <input className={inputClass} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="000000" aria-label="Código atual do autenticador" />
+          <OtpInput
+            value={code}
+            onChange={(next) => { setCode(next); setError(null); setOtpStatus("idle") }}
+            status={otpStatus}
+            disabled={busy}
+            label="Código atual do autenticador"
+            errorMessage={error ?? "Código inválido ou expirado."}
+          />
           <Button type="button" variant="danger" className="w-full" disabled={busy || code.length !== 6} onClick={() => void disable()}>Desativar 2FA</Button>
         </div> : null}
-        {error ? <p role="alert" className="text-xs text-error">{error}</p> : null}
+        {error && !enrollment && !enabled ? <p role="alert" className="text-xs text-error">{error}</p> : null}
       </div>
     </SectionCard>
   )

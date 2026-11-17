@@ -80,7 +80,7 @@ if ($old && str_starts_with($old, 'uploads/avatars/')) {
 
 echo json_encode(['ok' => true, 'avatar' => $path]);
 } catch (Throwable $e) {
-    error_log('avatar.php: ' . $e->getMessage());
+    security_log_exception('profile.avatar', $e);
     http_response_code(500);
     echo json_encode(['error' => 'Não foi possível atualizar a foto.']);
 }

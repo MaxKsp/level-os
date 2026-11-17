@@ -18,6 +18,12 @@ export interface DietPlan {
   createdAt?: string
 }
 
+export type ManualDietPayload = Pick<DietPlan, "goal" | "periodDays" | "budgetBRL" | "days" | "shoppingList"> & {
+  manualDraftId: string
+  expectedActivePlanId: string | null
+  replaceConfirmed: boolean
+}
+
 declare global { interface Window { CSRF_TOKEN?: string } }
 const hasBackend = () => typeof window !== "undefined" && Boolean(window.CSRF_TOKEN)
 const shoppingCategories = new Set<ShoppingCategory>(["hortifruti", "proteina", "mercearia", "laticinios", "padaria", "bebidas", "outros"])
@@ -48,6 +54,7 @@ interface Value {
   refresh: () => Promise<void>
   clear: () => Promise<void>
   restore: (id: string) => Promise<void>
+  saveManual: (payload: ManualDietPayload) => Promise<DietPlan>
 }
 const Ctx = createContext<Value | undefined>(undefined)
 
@@ -93,7 +100,24 @@ export function NutritionProvider({ children }: { children: ReactNode }) {
     await refresh()
   }, [refresh])
 
-  const value = useMemo(() => ({ plan, history, status, refresh, clear, restore }), [clear, history, plan, refresh, restore, status])
+  const saveManual = useCallback(async (payload: ManualDietPayload): Promise<DietPlan> => {
+    if (!hasBackend()) throw new Error("É preciso entrar na sua conta para salvar um plano.")
+    const response = await fetch("/api/nutrition.php", {
+      method: "POST", credentials: "same-origin",
+      headers: { Accept: "application/json", "Content-Type": "application/json", "X-CSRF-Token": window.CSRF_TOKEN ?? "" },
+      body: JSON.stringify({ operation: "save_manual_plan", ...payload }),
+    })
+    const body = await response.json().catch(() => null)
+    if (!response.ok) throw new Error(typeof body?.message === "string" ? body.message : "Não foi possível salvar o plano alimentar.")
+    const saved = parseDietPlan(body?.result?.plan)
+    if (!saved) throw new Error("A resposta de salvamento não contém um plano válido.")
+    setPlan(saved)
+    setStatus("ready")
+    await refresh()
+    return saved
+  }, [refresh])
+
+  const value = useMemo(() => ({ plan, history, status, refresh, clear, restore, saveManual }), [clear, history, plan, refresh, restore, saveManual, status])
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 

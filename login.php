@@ -13,7 +13,7 @@ if (current_user_id() !== null) {
 }
 
 if (isset($_GET['cancel'])) {
-    unset($_SESSION['pending_2fa_user_id'], $_SESSION['pending_2fa_session_version']);
+    discard_pending_auth_challenge();
     header('Location: login.php');
     exit;
 }
@@ -34,8 +34,7 @@ $authNotice = match ($authStatus) {
     'invalid csrf token' => 'A sessão local expirou durante o acesso. Atualize esta página e tente novamente.',
     default => '',
 };
-$show2fa = !empty($_SESSION['pending_2fa_user_id'])
-    && !empty($_SESSION['pending_2fa_session_version']);
+$show2fa = has_pending_2fa();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_form_ok()) {
@@ -46,11 +45,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header('Location: index.php');
             exit;
         }
-        $error = $result === 'locked'
-            ? 'Muitas tentativas erradas. Tente novamente em alguns minutos.'
-            : 'Código inválido.';
-        $show2fa = !empty($_SESSION['pending_2fa_user_id'])
-            && !empty($_SESSION['pending_2fa_session_version']);
+        $error = match ($result) {
+            'locked' => 'Muitas tentativas erradas. Tente novamente em alguns minutos.',
+            'expired' => 'A verificação expirou. Entre novamente para gerar um novo código.',
+            default => 'Código inválido.',
+        };
+        $show2fa = has_pending_2fa();
     } else {
         $username = trim((string)($_POST['username'] ?? ''));
         $password = (string)($_POST['password'] ?? '');
@@ -86,13 +86,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   ); ?>
   <section class="auth-form-column" aria-label="Acesso à conta">
 <?php if ($show2fa): ?>
-  <form class="card" method="POST" autocomplete="on" data-supabase-login>
+  <form class="card" method="POST" autocomplete="on">
     <?= csrf_field() ?>
     <h1>Verificação em duas etapas</h1>
     <p class="sub" id="two-factor-help">Sua conta está protegida. Digite o código do app autenticador ou um dos códigos de backup.</p>
     <?php if ($error): ?><div class="error" role="alert"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></div><?php endif; ?>
     <label for="code">Código de verificação</label>
-    <input type="text" id="code" name="code" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" required autofocus aria-describedby="two-factor-help">
+    <input type="text" id="code" name="code" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" required autofocus aria-describedby="two-factor-help" aria-label="Código de verificação" data-otp-input data-otp-backup="true" data-otp-status="<?= $error ? 'error' : 'idle' ?>">
     <button type="submit">Confirmar e entrar</button>
     <div class="footer"><a href="login.php?cancel=1">Voltar</a></div>
   </form>

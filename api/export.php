@@ -6,6 +6,7 @@ require_once __DIR__ . '/../finance.php';
 require_once __DIR__ . '/../app/Core/Clock.php';
 
 $uid = require_login();
+require_verified_email($uid);
 require_rate_limit('export', 10, 60);
 session_write_close();
 $db = get_db();

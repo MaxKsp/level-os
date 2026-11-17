@@ -71,10 +71,13 @@ describe("RoutineScreen — Dia/Semana/Mês/Ano", () => {
     expect(screen.getAllByText("Qua").length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByRole("tab", { name: "Mês" }))
-    expect(screen.getByText("Julho 2026")).toBeInTheDocument()
+    const now = new Date()
+    const monthName = new Intl.DateTimeFormat("pt-BR", { month: "long" }).format(now)
+    const monthLabel = `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)} ${now.getFullYear()}`
+    expect(screen.getByText(monthLabel)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole("tab", { name: "Ano" }))
-    expect(screen.getByText("2026")).toBeInTheDocument()
+    expect(screen.getByText(String(now.getFullYear()))).toBeInTheDocument()
     expect(screen.getByText("Dezembro")).toBeInTheDocument()
   })
 
@@ -118,7 +121,8 @@ describe("RoutineScreen — Dia/Semana/Mês/Ano", () => {
     const googleTitle = await screen.findByText("Reunião Google")
     expect(googleTitle.closest("a")).toHaveAttribute("target", "_blank")
     expect(googleTitle.closest("button")).toBeNull()
-    expect(screen.getByText("Reunião de alinhamento").className).not.toContain("line-through")
+    const taskList = screen.getByText("Tarefas do dia").closest("section")!
+    expect(within(taskList).getByText("Reunião de alinhamento").className).not.toContain("line-through")
   })
 
   it("mostra erro do calendário sem repetir a requisição em loop", async () => {

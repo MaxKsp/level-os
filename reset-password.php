@@ -41,10 +41,9 @@ if (!$supabaseReset && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     unset(
                         $_SESSION['user_id'],
                         $_SESSION['session_version'],
-                        $_SESSION['pending_2fa_user_id'],
-                        $_SESSION['pending_2fa_session_version'],
                         $_SESSION['csrf']
                     );
+                    discard_pending_auth_challenge();
                     session_regenerate_id(true);
                     $token = '';
                 } else {

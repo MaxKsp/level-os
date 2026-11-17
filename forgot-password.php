@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } catch (Throwable $e) {
             // A resposta continua generica para nao revelar conta nem estado interno.
-            error_log('Password reset request failed: ' . $e->getMessage());
+            security_log_exception('auth.password_reset.request', $e);
         }
 
         // Reduz diferencas de tempo entre contas existentes e inexistentes.

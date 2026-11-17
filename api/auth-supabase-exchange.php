@@ -38,10 +38,8 @@ try {
         $resolved['totp_enabled'] = false;
     }
     if ($resolved['totp_enabled'] && $identity->assuranceLevel !== 'aal2') {
-        session_regenerate_id(true);
+        stage_pending_2fa($resolved['user_id'], $resolved['session_version']);
         stage_pending_supabase_link($identity);
-        $_SESSION['pending_2fa_user_id'] = $resolved['user_id'];
-        $_SESSION['pending_2fa_session_version'] = $resolved['session_version'];
         echo json_encode(['status' => 'mfa_required']);
         exit;
     }
@@ -64,7 +62,7 @@ try {
     http_response_code(409);
     echo json_encode(['error' => 'link_required']);
 } catch (SupabaseAuthException $e) {
-    error_log('Supabase session validation failed: ' . $e->getMessage());
+    security_log_exception('auth.supabase_exchange', $e);
     http_response_code(401);
     echo json_encode(['error' => 'invalid_authentication']);
 } catch (Throwable $e) {

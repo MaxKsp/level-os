@@ -186,12 +186,7 @@ final class MercadoPagoClient {
             } catch (JsonException) {
                 // Provider outages may return a non-JSON error document.
             }
-            error_log(sprintf(
-                'Mercado Pago API failed: HTTP %d code=%s message=%s',
-                $status,
-                $providerCode !== '' ? $providerCode : 'unknown',
-                $providerMessage !== '' ? $providerMessage : 'unavailable'
-            ));
+            error_log(sprintf('Mercado Pago API failed: HTTP %d.', $status));
             throw new MercadoPagoApiException($status, $providerCode);
         }
 

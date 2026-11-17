@@ -431,6 +431,8 @@ CREATE TABLE IF NOT EXISTS training_session_entries (
   progression_level VARCHAR(64) NULL,
   assisted_kg DECIMAL(8,3) NULL,
   weighted_kg DECIMAL(8,3) NULL,
+  rpe DECIMAL(3,1) NULL,
+  rir SMALLINT UNSIGNED NULL,
   UNIQUE INDEX uq_training_session_entries_client (session_id, client_id),
   INDEX idx_training_entries_user_modality (user_id, modality),
   FOREIGN KEY (session_id) REFERENCES training_sessions(id) ON DELETE CASCADE,
@@ -495,6 +497,51 @@ CREATE TABLE IF NOT EXISTS assistant_usage_daily (
   request_count INT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (user_id, usage_date),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS assistant_quality_daily (
+  user_id INT UNSIGNED NOT NULL,
+  metric_date DATE NOT NULL,
+  agent_key VARCHAR(16) NOT NULL,
+  provider_key VARCHAR(64) NOT NULL DEFAULT 'local',
+  request_count INT UNSIGNED NOT NULL DEFAULT 0,
+  clarification_count INT UNSIGNED NOT NULL DEFAULT 0,
+  refusal_count INT UNSIGNED NOT NULL DEFAULT 0,
+  confirmation_count INT UNSIGNED NOT NULL DEFAULT 0,
+  confirmed_count INT UNSIGNED NOT NULL DEFAULT 0,
+  cancelled_count INT UNSIGNED NOT NULL DEFAULT 0,
+  undone_count INT UNSIGNED NOT NULL DEFAULT 0,
+  failure_count INT UNSIGNED NOT NULL DEFAULT 0,
+  latency_total_ms BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  token_count BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  estimated_cost_microusd BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, metric_date, agent_key, provider_key),
+  INDEX idx_assistant_quality_user_date (user_id, metric_date),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS web_vitals_daily (
+  user_id INT UNSIGNED NOT NULL,
+  metric_date DATE NOT NULL,
+  metric_name VARCHAR(8) NOT NULL,
+  route_path VARCHAR(191) NOT NULL,
+  sample_count INT UNSIGNED NOT NULL DEFAULT 0,
+  value_total DOUBLE UNSIGNED NOT NULL DEFAULT 0,
+  value_max DOUBLE UNSIGNED NOT NULL DEFAULT 0,
+  last_rating VARCHAR(16) NOT NULL DEFAULT 'unknown',
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, metric_date, metric_name, route_path),
+  INDEX idx_web_vitals_date_metric (metric_date, metric_name),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS marketing_events_daily (
+  event_date DATE NOT NULL,
+  event_name VARCHAR(32) NOT NULL,
+  source_path VARCHAR(160) NOT NULL,
+  event_count INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (event_date, event_name, source_path),
+  INDEX idx_marketing_events_name_date (event_name, event_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS xp_events (

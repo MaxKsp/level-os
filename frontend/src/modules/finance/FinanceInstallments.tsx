@@ -33,9 +33,9 @@ export function FinanceInstallments({ data, syncStatus, syncError }: { data: Fin
       <section className="lg:col-span-5" aria-labelledby="installments-summary-title">
         <div className="grid gap-5 border-y border-outline-variant py-5 sm:grid-cols-[minmax(0,1.4fr)_repeat(2,minmax(0,.6fr))]">
           <div>
-            <p id="installments-summary-title" className="text-sm text-muted">Total ainda a quitar</p>
+            <p id="installments-summary-title" className="text-sm text-muted">Parcelas futuras estimadas</p>
             <AnimatedNumber value={summary.totalRemaining} animationKey="finance-installments-total-remaining" formatValue={formatCurrency} className="mt-2 block text-right text-[clamp(2rem,5vw,3.5rem)] font-semibold leading-none text-on-surface sm:text-left" />
-            <p className="mt-2 text-xs text-muted">Estimativa baseada no vencimento mensal de cada parcela.</p>
+            <p className="mt-2 text-xs text-muted">Soma das ocorrências futuras derivadas das datas e quantidades cadastradas.</p>
           </div>
           <Metric label="Compras ativas" value={summary.activePurchases} animationKey="finance-installments-active" />
           <Metric label="Meses projetados" value={summary.schedule.length} animationKey="finance-installments-months" />
@@ -44,7 +44,7 @@ export function FinanceInstallments({ data, syncStatus, syncError }: { data: Fin
 
       <div className="lg:col-span-2">
         <SectionCard title="Cronograma mensal" description="Impacto das parcelas futuras" icon={<CalendarClock className="size-5 text-primary" aria-hidden="true" />}>
-          {summary.schedule.length === 0 ? <p className="py-8 text-center text-sm text-muted">Todas as compras parceladas estão quitadas.</p> : (
+          {summary.schedule.length === 0 ? <p className="py-8 text-center text-sm text-muted">Não há parcelas futuras pelas datas cadastradas.</p> : (
             <ul className="divide-y divide-outline-variant">
               {summary.schedule.map((month) => (
                 <li key={month.key} className="py-3.5">
@@ -70,16 +70,16 @@ export function FinanceInstallments({ data, syncStatus, syncError }: { data: Fin
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="truncate text-sm font-medium text-on-surface">{purchase.label}</p>
-                    {purchase.completed ? <span className="inline-flex items-center gap-1 rounded bg-tertiary/10 px-1.5 py-0.5 text-[10px] text-tertiary"><CircleCheck className="size-3" aria-hidden="true" /> Quitado</span> : null}
+                    {purchase.completed ? <span className="inline-flex items-center gap-1 rounded bg-tertiary/10 px-1.5 py-0.5 text-[10px] text-tertiary"><CircleCheck className="size-3" aria-hidden="true" /> Sem futuras</span> : null}
                   </div>
                   <p className="mt-0.5 truncate text-xs text-muted">{purchase.accountLabel}</p>
-                  <p className="mt-2 text-xs text-muted"><span className="numeric-value text-on-surface-variant">{purchase.paidInstallments}/{purchase.totalInstallments}</span> parcelas estimadas como pagas{purchase.nextDate ? <> · próxima em <time dateTime={purchase.nextDate}>{formatDate(purchase.nextDate)}</time></> : ""}</p>
+                  <p className="mt-2 text-xs text-muted"><span className="numeric-value text-on-surface-variant">{purchase.paidInstallments}/{purchase.totalInstallments}</span> ocorrências até hoje{purchase.nextDate ? <> · próxima parcela em <time dateTime={purchase.nextDate}>{formatDate(purchase.nextDate)}</time></> : " · nenhuma parcela futura"}</p>
                   <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-container-highest"><div className="h-full rounded-full bg-primary" style={{ width: `${(purchase.paidInstallments / purchase.totalInstallments) * 100}%` }} /></div>
                 </div>
                 <dl className="col-start-2 grid grid-cols-3 gap-3 text-right sm:col-start-auto sm:block">
                   <Value label="Total" value={purchase.totalAmount} />
                   <Value label="Parcela" value={purchase.installmentAmount} className="sm:mt-2" />
-                  <Value label="Restante" value={purchase.remainingAmount} className="sm:mt-2" />
+                  <Value label="Futuro estimado" value={purchase.remainingAmount} className="sm:mt-2" />
                 </dl>
               </li>
             ))}

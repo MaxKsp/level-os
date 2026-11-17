@@ -1,6 +1,10 @@
-import { useEffect, useMemo, useState } from "react"
-import { Button } from "../../components/ui/Button"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Button } from "../../components/ui/button"
+import { CurrencyInput } from "../../components/ui/CurrencyInput"
+import { LevelSelect } from "../../components/ui/LevelSelect"
+import { LevelDateInput } from "../../components/ui/LevelDateInput"
 import { Icon } from "../../design-system"
+import { describeApiError } from "../../lib/apiErrors"
 import { formatCurrency } from "../../lib/format"
 import type { AccountV2, IfoodEntry, IncomeLine } from "./contracts"
 import { calculateSalary, EMPTY_SALARY_INPUT, type SalaryInput } from "./salary"
@@ -24,8 +28,8 @@ interface IncomeFormProps {
   initial?: IncomeLine | null
   resetKey?: string | number | boolean
   onCancel: () => void
-  onSaveIncome: (income: IncomeLine) => void
-  onSaveVariable?: (entry: IfoodEntry) => void
+  onSaveIncome: (income: IncomeLine) => Promise<void>
+  onSaveVariable?: (entry: IfoodEntry) => Promise<void>
 }
 
 function modeFromIncome(initial?: IncomeLine | null): IncomeMode {
@@ -46,6 +50,8 @@ export function IncomeForm({ accounts, initial, resetKey, onCancel, onSaveIncome
   const [km, setKm] = useState("")
   const [salary, setSalary] = useState<SalaryInput>(EMPTY_SALARY_INPUT)
   const [error, setError] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const submitting = useRef(false)
 
   useEffect(() => {
     const defaultAccount = accounts.find((account) => account.principal && account.tipo !== "cartao")
@@ -61,6 +67,7 @@ export function IncomeForm({ accounts, initial, resetKey, onCancel, onSaveIncome
     setKm("")
     setSalary(initial?.salaryDetails ?? { ...EMPTY_SALARY_INPUT, grossSalary: initial?.value ?? 0 })
     setError("")
+    submitting.current = false
   }, [accounts, initial, resetKey])
 
   const estimate = useMemo(() => calculateSalary(salary), [salary])
@@ -73,41 +80,56 @@ export function IncomeForm({ accounts, initial, resetKey, onCancel, onSaveIncome
     if (next === "clt" && !labelValue.trim()) setLabelValue("Salário CLT")
   }
 
-  const submit = () => {
-    const cleanLabel = labelValue.trim()
-    if (!cleanLabel) return setError("Descreva a renda.")
-    if (!accountId && accounts.some((account) => account.tipo !== "cartao")) return setError("Selecione a conta de recebimento.")
-
-    if (mode === "avulsa") {
-      const value = Number(amount)
-      if (!date || !Number.isFinite(value) || value <= 0) return setError("Informe data e valor maior que zero.")
-      onSaveVariable?.({
-        id: genId("var"), label: cleanLabel, valor: value, date, km: km ? Number(km) : null,
-        accountId: accountId || null, source: "manual",
-      })
-      onCancel()
-      return
+  const submit = async () => {
+    if (submitting.current) return
+    submitting.current = true
+    setIsSubmitting(true)
+    const release = () => { submitting.current = false; setIsSubmitting(false) }
+    const fail = (message: string) => {
+      release()
+      setError(message)
     }
 
-    const value = mode === "clt" ? estimate.netSalary : Number(amount)
-    if (!Number.isFinite(value) || value <= 0) return setError(mode === "clt" ? "Informe um salário bruto válido." : "Informe um valor maior que zero.")
-    if (mode === "temporaria" && !endDate) return setError("Informe o último recebimento.")
-    const paydayValue = Number(payday)
-    if (!Number.isInteger(paydayValue) || paydayValue < 1 || paydayValue > 31) return setError("O dia de pagamento deve ficar entre 1 e 31.")
+    const cleanLabel = labelValue.trim()
+    if (!cleanLabel) return fail("Descreva a renda.")
+    if (!accountId && accounts.some((account) => account.tipo !== "cartao")) return fail("Selecione a conta de recebimento.")
 
-    onSaveIncome({
-      id: initial?.id || genId("inc"),
-      label: cleanLabel,
-      value,
-      type: mode === "clt" ? "fixa" : mode,
-      date: initial ? (initial.date ?? null) : date,
-      endDate: mode === "temporaria" ? endDate : null,
-      payday: paydayValue,
-      accountId: accountId || null,
-      createdAt: initial?.createdAt ?? Math.floor(Date.now() / 1000),
-      salaryDetails: mode === "clt" ? salary : null,
-    })
-    onCancel()
+    try {
+      if (mode === "avulsa") {
+        const value = Number(amount)
+        if (!date || !Number.isFinite(value) || value <= 0) return fail("Informe data e valor maior que zero.")
+        await onSaveVariable?.({
+          id: genId("var"), label: cleanLabel, valor: value, date, km: km ? Number(km) : null,
+          accountId: accountId || null, source: "manual",
+        })
+        onCancel()
+        return
+      }
+
+      const value = mode === "clt" ? estimate.netSalary : Number(amount)
+      if (!Number.isFinite(value) || value <= 0) return fail(mode === "clt" ? "Informe um salário bruto válido." : "Informe um valor maior que zero.")
+      if (mode === "temporaria" && !endDate) return fail("Informe o último recebimento.")
+      const paydayValue = Number(payday)
+      if (!Number.isInteger(paydayValue) || paydayValue < 1 || paydayValue > 31) return fail("O dia de pagamento deve ficar entre 1 e 31.")
+
+      await onSaveIncome({
+        id: initial?.id || genId("inc"),
+        label: cleanLabel,
+        value,
+        type: mode === "clt" ? "fixa" : mode,
+        date: initial ? (initial.date ?? null) : date,
+        endDate: mode === "temporaria" ? endDate : null,
+        payday: paydayValue,
+        accountId: accountId || null,
+        createdAt: initial?.createdAt ?? Math.floor(Date.now() / 1000),
+        salaryDetails: mode === "clt" ? salary : null,
+      })
+      onCancel()
+    } catch (cause) {
+      setError(describeApiError(cause).message)
+    } finally {
+      release()
+    }
   }
 
   return (
@@ -142,28 +164,25 @@ export function IncomeForm({ accounts, initial, resetKey, onCancel, onSaveIncome
         ) : (
           <div>
             <label className={label} htmlFor="income-value">{mode === "avulsa" ? "Valor recebido" : "Valor por recebimento"}</label>
-            <input id="income-value" className={field} type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} inputMode="decimal" />
+            <CurrencyInput id="income-value" className={field} value={amount} onValueChange={setAmount} placeholder="R$ 0,00" />
           </div>
         )}
 
         {mode === "avulsa" ? (
           <>
-            <div><label className={label} htmlFor="income-date">Data</label><input id="income-date" className={field} type="date" value={date} onChange={(event) => setDate(event.target.value)} /></div>
+            <div><label className={label} htmlFor="income-date">Data</label><LevelDateInput id="income-date" value={date} onChange={(event) => setDate(event.target.value)} /></div>
             <div><label className={label} htmlFor="income-km">Quilômetros (opcional)</label><input id="income-km" className={field} type="number" min="0" value={km} onChange={(event) => setKm(event.target.value)} /></div>
           </>
         ) : (
           <>
             <div><label className={label} htmlFor="income-payday">Dia de pagamento</label><input id="income-payday" className={field} type="number" min="1" max="31" value={payday} onChange={(event) => setPayday(event.target.value)} /></div>
-            {mode === "temporaria" ? <div><label className={label} htmlFor="income-end">Último recebimento</label><input id="income-end" className={field} type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></div> : null}
+            {mode === "temporaria" ? <div><label className={label} htmlFor="income-end">Último recebimento</label><LevelDateInput id="income-end" value={endDate} onChange={(event) => setEndDate(event.target.value)} /></div> : null}
           </>
         )}
 
         <div className={mode === "clt" ? "sm:col-span-2" : ""}>
           <label className={label} htmlFor="income-account">Conta de recebimento</label>
-          <select id="income-account" className={field} value={accountId} onChange={(event) => setAccountId(event.target.value)}>
-            <option value="">Sem conta vinculada</option>
-            {accounts.filter((account) => account.tipo !== "cartao").map((account) => <option key={account.id} value={account.id}>{account.label}</option>)}
-          </select>
+          <LevelSelect id="income-account" value={accountId} onChange={setAccountId} options={[{ value: "", label: "Sem conta vinculada" }, ...accounts.filter((account) => account.tipo !== "cartao").map((account) => ({ value: account.id, label: account.label }))]} />
         </div>
       </div>
 
@@ -173,8 +192,8 @@ export function IncomeForm({ accounts, initial, resetKey, onCancel, onSaveIncome
       {error ? <p role="alert" className="text-sm text-error">{error}</p> : null}
 
       <div className="flex justify-end gap-2 border-t border-outline-variant pt-4">
-        <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
-        <Button type="button" onClick={submit}>{initial ? "Salvar renda" : "Adicionar renda"}</Button>
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={isSubmitting}>Cancelar</Button>
+        <Button type="button" onClick={submit} disabled={isSubmitting}>{isSubmitting ? "Salvando…" : initial ? "Salvar renda" : "Adicionar renda"}</Button>
       </div>
     </div>
   )
@@ -184,19 +203,19 @@ function SalaryFields({ salary, onChange }: { salary: SalaryInput; onChange: (sa
   const setNumber = (key: keyof SalaryInput, value: string) => onChange({ ...salary, [key]: Math.max(0, Number(value) || 0) })
   return (
     <div className="contents">
-      <div><label className={label} htmlFor="salary-gross">Salário bruto</label><input id="salary-gross" className={field} type="number" min="0" step="0.01" value={salary.grossSalary || ""} onChange={(event) => setNumber("grossSalary", event.target.value)} /></div>
+      <div><label className={label} htmlFor="salary-gross">Salário bruto</label><CurrencyInput id="salary-gross" className={field} value={salary.grossSalary ? String(salary.grossSalary) : ""} onValueChange={(value) => setNumber("grossSalary", value)} placeholder="R$ 0,00" /></div>
       <div><label className={label} htmlFor="salary-dependents">Dependentes</label><input id="salary-dependents" className={field} type="number" min="0" step="1" value={salary.dependents || ""} onChange={(event) => setNumber("dependents", event.target.value)} /></div>
-      <div><label className={label} htmlFor="salary-health">Plano de saúde (desconto)</label><input id="salary-health" className={field} type="number" min="0" step="0.01" value={salary.healthPlan || ""} onChange={(event) => setNumber("healthPlan", event.target.value)} /></div>
-      <div><label className={label} htmlFor="salary-dental">Plano odontológico (desconto)</label><input id="salary-dental" className={field} type="number" min="0" step="0.01" value={salary.dentalPlan || ""} onChange={(event) => setNumber("dentalPlan", event.target.value)} /></div>
-      <div><label className={label} htmlFor="salary-pension">Pensão alimentícia</label><input id="salary-pension" className={field} type="number" min="0" step="0.01" value={salary.pension || ""} onChange={(event) => setNumber("pension", event.target.value)} /></div>
-      <div><label className={label} htmlFor="salary-other">Outros descontos</label><input id="salary-other" className={field} type="number" min="0" step="0.01" value={salary.otherDiscounts || ""} onChange={(event) => setNumber("otherDiscounts", event.target.value)} /></div>
+      <div><label className={label} htmlFor="salary-health">Plano de saúde (desconto)</label><CurrencyInput id="salary-health" className={field} value={salary.healthPlan ? String(salary.healthPlan) : ""} onValueChange={(value) => setNumber("healthPlan", value)} placeholder="R$ 0,00" /></div>
+      <div><label className={label} htmlFor="salary-dental">Plano odontológico (desconto)</label><CurrencyInput id="salary-dental" className={field} value={salary.dentalPlan ? String(salary.dentalPlan) : ""} onValueChange={(value) => setNumber("dentalPlan", value)} placeholder="R$ 0,00" /></div>
+      <div><label className={label} htmlFor="salary-pension">Pensão alimentícia</label><CurrencyInput id="salary-pension" className={field} value={salary.pension ? String(salary.pension) : ""} onValueChange={(value) => setNumber("pension", value)} placeholder="R$ 0,00" /></div>
+      <div><label className={label} htmlFor="salary-other">Outros descontos</label><CurrencyInput id="salary-other" className={field} value={salary.otherDiscounts ? String(salary.otherDiscounts) : ""} onValueChange={(value) => setNumber("otherDiscounts", value)} placeholder="R$ 0,00" /></div>
       <label className="flex items-center gap-2 rounded-lg border border-outline-variant px-3 py-2.5 text-sm text-on-surface sm:col-span-2">
         <input type="checkbox" checked={salary.hasTransportVoucher} onChange={(event) => onChange({ ...salary, hasTransportVoucher: event.target.checked })} className="size-4 accent-primary" />
         Aplicar desconto de vale-transporte (limitado a 6% do bruto)
       </label>
-      <div><label className={label} htmlFor="salary-vt">Benefício VT (informativo)</label><input id="salary-vt" className={field} type="number" min="0" step="0.01" value={salary.transportVoucherBenefit || ""} onChange={(event) => setNumber("transportVoucherBenefit", event.target.value)} /></div>
-      <div><label className={label} htmlFor="salary-vr">Vale-refeição (informativo)</label><input id="salary-vr" className={field} type="number" min="0" step="0.01" value={salary.mealVoucher || ""} onChange={(event) => setNumber("mealVoucher", event.target.value)} /></div>
-      <div><label className={label} htmlFor="salary-va">Vale-alimentação (informativo)</label><input id="salary-va" className={field} type="number" min="0" step="0.01" value={salary.foodAllowance || ""} onChange={(event) => setNumber("foodAllowance", event.target.value)} /></div>
+      <div><label className={label} htmlFor="salary-vt">Benefício VT (informativo)</label><CurrencyInput id="salary-vt" className={field} value={salary.transportVoucherBenefit ? String(salary.transportVoucherBenefit) : ""} onValueChange={(value) => setNumber("transportVoucherBenefit", value)} placeholder="R$ 0,00" /></div>
+      <div><label className={label} htmlFor="salary-vr">Vale-refeição (informativo)</label><CurrencyInput id="salary-vr" className={field} value={salary.mealVoucher ? String(salary.mealVoucher) : ""} onValueChange={(value) => setNumber("mealVoucher", value)} placeholder="R$ 0,00" /></div>
+      <div><label className={label} htmlFor="salary-va">Vale-alimentação (informativo)</label><CurrencyInput id="salary-va" className={field} value={salary.foodAllowance ? String(salary.foodAllowance) : ""} onValueChange={(value) => setNumber("foodAllowance", value)} placeholder="R$ 0,00" /></div>
     </div>
   )
 }

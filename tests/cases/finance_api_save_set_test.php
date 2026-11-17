@@ -64,4 +64,25 @@ return function (): void {
         finance_load_set($dbFail, $uid, 'accounts'),
         'A save failure must not leave the set partially replaced.'
     );
+
+    // O contrato em lote grava todos os sets na mesma transacao. Se o segundo
+    // falhar, o primeiro tambem volta ao snapshot anterior.
+    $dbBatch = make_sqlite_finance_db();
+    $oldExpense = [$fixture['expense_lines_v4'][0]];
+    finance_api_save_set($dbBatch, $uid, json_encode(['key' => 'expense_lines_v4', 'value' => $oldExpense]));
+    finance_api_save_set($dbBatch, $uid, json_encode(['key' => 'accounts_v2', 'value' => [$fixture['accounts_v2'][0]]]));
+    $dbBatch->exec(
+        "CREATE TRIGGER fasst_batch_block BEFORE INSERT ON accounts
+         WHEN NEW.limite > 999999 BEGIN SELECT RAISE(ABORT, 'boom'); END"
+    );
+    $batchFailure = finance_api_save_set($dbBatch, $uid, json_encode(['sets' => [
+        'expense_lines_v4' => [$fixture['expense_lines_v4'][1]],
+        'accounts_v2' => [['id' => 'acc_bad', 'label' => 'Estoura', 'limite' => 9999999]],
+    ]]));
+    test_assert_same(500, $batchFailure['status'], 'A batch failure must return 500.');
+    test_assert_equals($oldExpense, finance_load_set($dbBatch, $uid, 'expense'), 'A failed batch must roll back its first set.');
+    test_assert_equals([$fixture['accounts_v2'][0]], finance_load_set($dbBatch, $uid, 'accounts'), 'A failed batch must preserve its second set.');
+
+    $emptyBatch = finance_api_save_set($dbBatch, $uid, json_encode(['sets' => []]));
+    test_assert_same(400, $emptyBatch['status'], 'An empty batch must be rejected.');
 };

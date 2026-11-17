@@ -1,11 +1,22 @@
 {
+  "id": "/app.php",
   "name": "Level OS",
   "short_name": "Level OS",
-  "description": "Finanças, rotina e treino em evolução contínua.",
-  "start_url": "index.php",
+  "description": "Seu sistema pessoal para rotina, finanças, treinos, alimentação e progresso.",
+  "start_url": "/app.php",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
   "background_color": "#08090C",
   "theme_color": "#08090C",
+  "categories": ["productivity", "health", "finance", "lifestyle"],
+  "shortcuts": [
+    { "name": "Finanças", "short_name": "Finanças", "url": "/financeiro", "icons": [{ "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Rotina", "short_name": "Rotina", "url": "/agenda", "icons": [{ "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Treinos", "short_name": "Treinos", "url": "/treinos", "icons": [{ "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+    { "name": "Alimentação", "short_name": "Alimentação", "url": "/alimentacao", "icons": [{ "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" }] }
+  ],
   "icons": [
     { "src": "assets/level-os-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" },
     { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

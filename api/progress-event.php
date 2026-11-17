@@ -40,7 +40,7 @@ try {
     http_response_code(400);
     echo json_encode(['error' => $e->getMessage()]);
 } catch (Throwable $e) {
-    error_log('progress-event.php: ' . $e->getMessage());
+    security_log_exception('progress.write', $e);
     http_response_code(500);
     echo json_encode(['error' => 'Não foi possível registrar o progresso.']);
 }

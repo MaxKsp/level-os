@@ -2,6 +2,8 @@ import type { ExpenseLineV4, FinanceBootstrap } from "./contracts"
 import { CATEGORY_LABEL } from "./categories"
 import { formatCurrency } from "../../lib/format"
 import { fromMoneyCents, toMoneyCents } from "../../lib/money"
+import { resolveFinancePeriod } from "./period"
+import { buildPeriodComparison, formatDeltaPercentage } from "./periodComparison"
 
 export interface FinanceInsight {
   id: string
@@ -92,5 +94,35 @@ export function financeInsights(data: FinanceBootstrap, now: Date = new Date()):
     })
   }
 
-  return insights.slice(0, 3)
+  // 4. Uso do limite do cartão: alerta local, sem enviar dados financeiros à IA.
+  const mostUsedCard = data.accounts_v2
+    .filter((account) => account.tipo === "cartao" && account.limite > 0 && account.fatura > 0)
+    .map((account) => ({ account, pct: (account.fatura / account.limite) * 100 }))
+    .sort((a, b) => b.pct - a.pct)[0]
+  if (mostUsedCard && mostUsedCard.pct >= 50) {
+    insights.push({
+      id: "credit-utilization",
+      tone: mostUsedCard.pct >= 80 ? "warning" : "info",
+      icon: "credit_card",
+      title: `Fatura consumiu ${Math.round(mostUsedCard.pct)}% do limite`,
+      detail: `${mostUsedCard.account.label}: ${formatCurrency(mostUsedCard.account.fatura)} de ${formatCurrency(mostUsedCard.account.limite)}.`,
+    })
+  }
+
+  // 5. Comparação com o intervalo anterior equivalente — cálculo local, sem IA.
+  const monthRange = resolveFinancePeriod("month", "", "", now)
+  const comparison = buildPeriodComparison(data, monthRange)
+  if (comparison.expenses.direction === "increased" || comparison.expenses.direction === "decreased") {
+    const increased = comparison.expenses.direction === "increased"
+    insights.push({
+      id: "period-comparison",
+      tone: increased ? "warning" : "positive",
+      icon: increased ? "trending_up" : "trending_down",
+      title: `Despesas ${increased ? "acima" : "abaixo"} do período anterior equivalente`,
+      detail: `${formatCurrency(comparison.expenses.current)} em ${comparison.current.label} contra ${formatCurrency(comparison.expenses.previous)} em ${comparison.previous.label} (${formatDeltaPercentage(comparison.expenses)}).`,
+    })
+  }
+
+  const priority = { warning: 0, info: 1, positive: 2 } as const
+  return insights.sort((a, b) => priority[a.tone] - priority[b.tone]).slice(0, 3)
 }

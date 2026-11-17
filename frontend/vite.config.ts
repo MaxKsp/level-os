@@ -10,10 +10,15 @@ export default defineConfig(() => {
     build: {
       assetsDir: 'frontend-assets',
       rollupOptions: {
+        input: {
+          app: path.resolve(__dirname, 'index.html'),
+          landing: path.resolve(__dirname, 'landing.html'),
+        },
         output: {
           manualChunks(id) {
             if (!id.includes('node_modules')) return undefined;
-            if (/node_modules[\\/]react(?:-dom|-router|-router-dom)?[\\/]/.test(id)) return 'vendor-react';
+            if (/node_modules[\\/]react-router(?:-dom)?[\\/]/.test(id)) return 'vendor-router';
+            if (/node_modules[\\/]react(?:-dom)?[\\/]/.test(id)) return 'vendor-react';
             if (/node_modules[\\/](?:motion|framer-motion)[\\/]/.test(id)) return 'vendor-motion';
             if (id.includes('node_modules/@radix-ui/')) return 'vendor-radix';
             if (id.includes('node_modules/lucide-react/')) return 'vendor-icons';
@@ -24,12 +29,12 @@ export default defineConfig(() => {
     },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(__dirname, 'src'),
       },
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
+      // Do not modify — file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},

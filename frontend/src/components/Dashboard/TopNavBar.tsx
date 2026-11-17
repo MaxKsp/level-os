@@ -1,5 +1,6 @@
-import { Bell, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react"
-import { useLayoutEffect, useState } from "react"
+import { Bell, PanelLeftClose, PanelLeftOpen, Plus, Search } from "lucide-react"
+import * as m from "motion/react-m"
+import { lazy, Suspense, useLayoutEffect, useState } from "react"
 import { NavLink, useLocation, useNavigate } from "react-router-dom"
 import { NAV_ITEMS } from "../../app/nav"
 import { Icon } from "../../design-system/Icon"
@@ -11,7 +12,10 @@ import { TrialChip } from "../../modules/subscription/TrialChip"
 import { LevelMark } from "../ui/LevelMark"
 import { AssistantAvatar } from "../../modules/assistant/AssistantAvatar"
 import { useSearch } from "../../modules/search/store"
-import { TaskNotificationCenter } from "../../modules/routine/TaskNotificationCenter"
+import { prefetchRoute } from "../../app/routeLoaders"
+import { useApp } from "../../context/AppContext"
+
+const TaskNotificationCenter = lazy(() => import("../../modules/routine/TaskNotificationCenter").then((module) => ({ default: module.TaskNotificationCenter })))
 
 const SIDEBAR_KEY = "level-os:sidebar-collapsed"
 
@@ -24,6 +28,7 @@ export const TopNavBar = () => {
   const { setIsOpen: setIsSearchOpen } = useSearch()
   const { identity } = useIdentity()
   const assistant = useAssistant()
+  const app = useApp()
   const navigate = useNavigate()
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(storedSidebarState)
@@ -40,6 +45,15 @@ export const TopNavBar = () => {
 
   const toggleSidebar = () => setCollapsed((current) => !current)
   const avatar = (size: string) => <span className={cn("grid shrink-0 place-items-center overflow-hidden rounded-full bg-surface-container-high text-sm font-semibold text-primary", size)}>{avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : initials}</span>
+  const contextualAction = location.pathname === "/financeiro"
+    ? { label: "Nova movimentação", run: () => app.setIsExpenseModalOpen(true) }
+    : location.pathname === "/agenda"
+      ? { label: "Nova tarefa", run: () => app.setIsTaskModalOpen(true) }
+      : location.pathname === "/treinos"
+        ? { label: "Registrar treino", run: () => app.setIsWorkoutModalOpen(true) }
+        : location.pathname === "/alimentacao"
+          ? { label: "Criar cardápio", run: () => assistant.openFor("alimentacao" as const) }
+          : { label: "Adicionar", run: () => setIsSearchOpen(true) }
 
   return (
     <>
@@ -49,10 +63,10 @@ export const TopNavBar = () => {
           <span className="text-xs font-semibold tracking-[0.16em]">LEVEL OS</span>
         </button>
         <div className="flex items-center gap-1">
-          <button type="button" aria-label="Abrir notificações" onClick={() => setNotificationsOpen(true)} className="grid size-11 place-items-center rounded-md text-muted hover:bg-surface-container-high hover:text-on-surface"><Bell className="size-4" aria-hidden="true" /></button>
+          <button type="button" aria-label="Abrir notificações" onClick={() => setNotificationsOpen(true)} className="level-icon-button grid size-11 place-items-center rounded-md text-muted hover:bg-surface-container-high hover:text-on-surface"><Bell className="size-4" aria-hidden="true" /></button>
           <button type="button" aria-label="Abrir perfil" onClick={() => navigate("/perfil")} className={cn("level-avatar-button grid size-11 place-items-center rounded-md", profileActive && "bg-primary/10 ring-1 ring-primary/35")}>{avatar("size-8")}</button>
-          <button type="button" aria-label="Abrir busca global" onClick={() => setIsSearchOpen(true)} className="grid size-11 place-items-center rounded-md text-muted hover:bg-surface-container-high hover:text-on-surface"><Search className="size-4" aria-hidden="true" /></button>
-          <button type="button" aria-label="Agente de IA" onClick={() => assistant.setOpen(true)} className="grid size-11 place-items-center rounded-md border border-primary/25 bg-primary/[0.07] text-primary"><AssistantAvatar className="size-4" /></button>
+          <button type="button" aria-label="Abrir busca global" onClick={() => setIsSearchOpen(true)} className="level-icon-button grid size-11 place-items-center rounded-md text-muted hover:bg-surface-container-high hover:text-on-surface"><Search className="size-4" aria-hidden="true" /></button>
+          <button type="button" aria-label="Agente de IA" onClick={() => assistant.setOpen(true)} className="level-icon-button grid size-11 place-items-center rounded-md border border-primary/25 bg-primary/[0.07] text-primary"><AssistantAvatar className="size-4" /></button>
         </div>
       </header>
 
@@ -71,12 +85,18 @@ export const TopNavBar = () => {
               <li key={item.to}>
                 <NavLink
                   to={item.to}
+                  onMouseEnter={() => prefetchRoute(item.to)}
+                  onFocus={() => prefetchRoute(item.to)}
                   end={item.to === "/"}
                   title={collapsed ? item.label : undefined}
                   aria-label={collapsed ? item.label : undefined}
-                  className={({ isActive }) => cn("flex min-h-11 items-center rounded-md border-l-2 text-sm transition-colors", collapsed ? "justify-center px-0" : "gap-3 px-3", isActive ? "border-primary bg-primary/[0.09] font-semibold text-on-surface" : "border-transparent font-medium text-muted hover:bg-surface-container-high hover:text-on-surface")}
+                  className={({ isActive }) => cn("relative flex min-h-11 items-center overflow-hidden rounded-md text-sm transition-colors", collapsed ? "justify-center px-0" : "gap-3 px-3", isActive ? "font-semibold text-on-surface" : "font-medium text-muted hover:bg-surface-container-high hover:text-on-surface")}
                 >
-                  {({ isActive }) => <><Icon name={item.icon} filled={isActive} className={cn("shrink-0 text-[20px]", isActive && "text-primary")} />{!collapsed ? <span>{item.label}</span> : null}</>}
+                  {({ isActive }) => <>
+                    {isActive ? <m.span layoutId="level-sidebar-active" className="absolute inset-0 border-l-2 border-primary bg-primary/[0.09]" transition={{ type: "spring", stiffness: 440, damping: 36, mass: 0.75 }} aria-hidden="true" /> : null}
+                    <Icon name={item.icon} filled={isActive} className={cn("relative z-[1] shrink-0 text-[20px]", isActive && "text-primary")} />
+                    {!collapsed ? <span className="relative z-[1]">{item.label}</span> : null}
+                  </>}
                 </NavLink>
               </li>
             ))}
@@ -85,6 +105,10 @@ export const TopNavBar = () => {
 
         <div className="mt-auto space-y-2 border-t border-outline-variant pt-4">
           {!collapsed ? <><TrialChip /><LevelChip /></> : null}
+          <button type="button" aria-label={contextualAction.label} title={collapsed ? contextualAction.label : undefined} onClick={contextualAction.run} className={cn("flex min-h-11 w-full items-center rounded-md bg-primary text-left text-sm font-semibold text-on-primary transition-[background-color,transform] hover:bg-primary/90 active:scale-[.985] motion-reduce:transform-none", collapsed ? "justify-center px-0" : "gap-3 px-3")}>
+            <Plus className="size-5 shrink-0" aria-hidden="true" />
+            {!collapsed ? <span>{contextualAction.label}</span> : null}
+          </button>
           <button type="button" aria-label="Agente de IA" title={collapsed ? "Agente de IA" : undefined} onClick={() => assistant.setOpen(true)} className={cn("flex min-h-11 w-full items-center rounded-md border-l-2 border-transparent text-left text-sm font-medium text-muted transition-colors hover:bg-primary/[0.07] hover:text-on-surface", collapsed ? "justify-center px-0" : "gap-3 px-3")}>
             <AssistantAvatar className="size-5 shrink-0 text-primary" />
             {!collapsed ? <><span>Agente de IA</span><kbd className="ml-auto text-[10px] text-muted">Ctrl K</kbd></> : null}
@@ -103,7 +127,7 @@ export const TopNavBar = () => {
           </button>
         </div>
       </aside>
-      <TaskNotificationCenter isOpen={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
+      {notificationsOpen ? <Suspense fallback={null}><TaskNotificationCenter isOpen={notificationsOpen} onClose={() => setNotificationsOpen(false)} /></Suspense> : null}
     </>
   )
 }

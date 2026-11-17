@@ -139,8 +139,8 @@ return static function (): void {
     );
     test_assert_true(!str_contains($endpoint, 'SERVICE_ROLE'), 'The service-role key must never enter the browser session flow.');
     test_assert_true(
-        substr_count($loginPage, 'data-supabase-login') >= 2,
-        'Both the regular login and MFA forms must initialize the Supabase login controller.',
+        substr_count($loginPage, 'data-supabase-login') === 1,
+        'Only the credential form may initialize the Supabase login controller; the server-side MFA form must submit its OTP to PHP.',
     );
     test_assert_true(str_contains($loginPage, 'data-supabase-google'), 'The Google button must be intercepted by Supabase OAuth.');
 };

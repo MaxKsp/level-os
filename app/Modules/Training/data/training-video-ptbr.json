@@ -1,0 +1,44 @@
+{
+  "barbell_stiff_legged_barbell_deadlift": {
+    "name": "Stiff com barra",
+    "youtubeId": "NP548KPEpMw",
+    "channel": "Smart Fit",
+    "steps": ["Fique em pé com os pés na largura do quadril e segure a barra à frente do corpo.", "Mantenha a coluna neutra e faça o movimento levando o quadril para trás.", "Desça a barra próxima às pernas até sentir alongamento dos posteriores.", "Retorne estendendo o quadril sem jogar a lombar para trás."]
+  },
+  "barbell_back_squat": {
+    "name": "Agachamento com barra",
+    "youtubeId": "iD2M2PPTzto",
+    "channel": "Smart Fit",
+    "steps": ["Apoie a barra de forma estável e mantenha os pés firmes no chão.", "Contraia o abdômen e desça flexionando quadris e joelhos.", "Mantenha os joelhos acompanhando a direção dos pés.", "Suba empurrando o chão e mantenha o tronco controlado."]
+  },
+  "barbell_bench_press": {
+    "name": "Supino reto com barra",
+    "youtubeId": "wjZNFn4zlUw",
+    "channel": "Smart Fit",
+    "steps": ["Deite no banco com os pés apoiados e as escápulas firmes.", "Segure a barra com os punhos alinhados e retire-a do suporte com controle.", "Desça a barra em direção ao peito sem perder a estabilidade dos ombros.", "Empurre a barra para cima mantendo o movimento controlado."]
+  },
+  "cable_wide_grip_lat_pulldown": {
+    "name": "Puxada na frente",
+    "youtubeId": "lt-JRUL0vqo",
+    "channel": "Smart Fit",
+    "steps": ["Ajuste o apoio das pernas e segure a barra com firmeza.", "Mantenha o peito aberto e a coluna neutra.", "Puxe a barra em direção à parte superior do peito aproximando as escápulas.", "Retorne devagar até estender os braços sem perder o controle."]
+  },
+  "machine_leg_press": {
+    "name": "Leg press",
+    "youtubeId": "A5vCAMQgSI0",
+    "channel": "Smart Fit",
+    "steps": ["Apoie totalmente as costas e posicione os pés de forma estável na plataforma.", "Libere a trava e flexione os joelhos com controle.", "Desça somente até manter quadril e lombar apoiados.", "Empurre a plataforma sem travar os joelhos no final."]
+  },
+  "machine_leg_extensions": {
+    "name": "Cadeira extensora",
+    "youtubeId": "MHuyh7LGNdY",
+    "channel": "Smart Fit",
+    "steps": ["Ajuste o encosto e o rolo para que a máquina fique alinhada ao seu corpo.", "Mantenha quadril e costas apoiados.", "Estenda os joelhos de forma controlada sem impulsionar o tronco.", "Retorne lentamente até a posição inicial."]
+  },
+  "cable_standing_biceps_cable_curl": {
+    "name": "Rosca direta no cross",
+    "youtubeId": "jmFo0OKG-Hk",
+    "channel": "Smart Fit",
+    "steps": ["Fique em pé diante do cross e segure a barra com as palmas voltadas para cima.", "Mantenha os cotovelos próximos ao corpo e o tronco estável.", "Flexione os cotovelos levando a barra para cima sem balançar o corpo.", "Desça devagar até quase estender os braços."]
+  }
+}

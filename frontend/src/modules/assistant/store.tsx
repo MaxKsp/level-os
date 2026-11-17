@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react"
 import { useNavigate } from "react-router-dom"
 import { resolveAssistantConfirmation, sendAssistantCommand, undoAssistantAction, type AssistantApproval } from "./api"
 import type { AssistantResponse } from "./contracts"
@@ -14,9 +14,11 @@ export type AssistantModule = "financeiro" | "agenda" | "treinos" | "alimentacao
 interface Value {
   open: boolean
   setOpen: (open: boolean) => void
-  openFor: (module: AssistantModule) => void
+  openFor: (module: AssistantModule, suggestedPrompt?: string) => void
+  suggestion: { id: number; text: string } | null
   moduleContext: AssistantModule | null
   loading: boolean
+  phase: "analyzing" | "consulting" | null
   error: string | null
   result: AssistantResponse | null
   paidAccess: boolean
@@ -31,10 +33,17 @@ const Ctx = createContext<Value | undefined>(undefined)
 export function AssistantProvider({ children }: { children: ReactNode }) {
   const [open, setOpenState] = useState(false)
   const [moduleContext, setModuleContext] = useState<AssistantModule | null>(null)
+  const [suggestion, setSuggestion] = useState<{ id: number; text: string } | null>(null)
   const [loading, setLoading] = useState(false)
+  const [phase, setPhase] = useState<Value["phase"]>(null)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<AssistantResponse | null>(null)
-  const finance = useFinance(), training = useTraining(), nutrition = useNutrition(), app = useApp(), progress = useProgress(), navigate = useNavigate()
+  const { refresh: refreshFinance } = useFinance()
+  const { refresh: refreshTraining } = useTraining()
+  const { refresh: refreshNutrition } = useNutrition()
+  const { refreshTasks } = useApp()
+  const { refresh: refreshProgress } = useProgress()
+  const navigate = useNavigate()
   const subscriptionContext = useOptionalSubscription()
   const paidAccess = subscriptionContext === null
     ? true
@@ -43,44 +52,49 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
 
   const setOpen = useCallback((value: boolean) => {
     setOpenState(value)
-    if (!value) setModuleContext(null)
+    if (!value) { setModuleContext(null); setSuggestion(null) }
   }, [])
-  const openFor = useCallback((module: AssistantModule) => {
+  const openFor = useCallback((module: AssistantModule, suggestedPrompt?: string) => {
     setModuleContext(module)
+    setSuggestion((previous) => suggestedPrompt?.trim()
+      ? { id: (previous?.id ?? 0) + 1, text: suggestedPrompt.trim().slice(0, 1000) } : null)
     setOpenState(true)
   }, [])
 
   const refresh = useCallback(async (module?: AssistantResponse["module"]) => {
-    const requests: Promise<void>[] = [progress.refresh()]
-    if (module === "financeiro") requests.push(finance.refresh())
-    if (module === "agenda") requests.push(app.refreshTasks())
-    if (module === "treinos") requests.push(training.refresh())
-    if (module === "alimentacao") requests.push(nutrition.refresh())
+    const requests: Promise<void>[] = [refreshProgress()]
+    if (module === "financeiro") requests.push(refreshFinance())
+    if (module === "agenda") requests.push(refreshTasks())
+    if (module === "treinos") requests.push(refreshTraining())
+    if (module === "alimentacao") requests.push(refreshNutrition())
     await Promise.allSettled(requests)
     if (module === "financeiro") navigate("/financeiro")
     if (module === "agenda") navigate("/agenda")
     if (module === "treinos") navigate("/treinos")
     if (module === "alimentacao") navigate("/alimentacao")
-  }, [app, finance, navigate, nutrition, progress, training])
+  }, [navigate, refreshFinance, refreshNutrition, refreshProgress, refreshTasks, refreshTraining])
 
-  const submit = async (text: string) => {
+  const submit = useCallback(async (text: string) => {
     if (!paidAccess) {
       setError("O Agente de IA é uma funcionalidade exclusiva do plano pago.")
       return
     }
-    setLoading(true); setError(null)
+    setLoading(true); setPhase("analyzing"); setError(null)
+    const phaseTimer = window.setTimeout(() => setPhase("consulting"), 550)
     try {
       const response = await sendAssistantCommand(text, moduleContext)
       setResult(response)
-      await refresh(response.module)
+      if (response.status === "applied") await refresh(response.module)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Agente de IA indisponível.")
     } finally {
+      window.clearTimeout(phaseTimer)
+      setPhase(null)
       setLoading(false)
     }
-  }
+  }, [moduleContext, paidAccess, refresh])
 
-  const undo = async (actionToken?: string | null, module?: AssistantResponse["module"]) => {
+  const undo = useCallback(async (actionToken?: string | null, module?: AssistantResponse["module"]) => {
     if (!paidAccess) {
       setError("O Agente de IA é uma funcionalidade exclusiva do plano pago.")
       return
@@ -98,9 +112,9 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [paidAccess, refresh, result?.actionToken, result?.module])
 
-  const resolveConfirmation = async (actionToken: string, decision: "confirm" | "cancel", module?: AssistantResponse["module"], approval?: AssistantApproval) => {
+  const resolveConfirmation = useCallback(async (actionToken: string, decision: "confirm" | "cancel", module?: AssistantResponse["module"], approval?: AssistantApproval) => {
     if (!paidAccess) {
       setError("O Agente de IA é uma funcionalidade exclusiva do plano pago.")
       return
@@ -115,10 +129,16 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [paidAccess, refresh])
+
+  const dismiss = useCallback(() => { setResult(null); setError(null) }, [])
+  const value = useMemo<Value>(() => ({
+    open, setOpen, openFor, suggestion, moduleContext, loading, phase, error, result, paidAccess,
+    planReady, submit, undo, resolveConfirmation, dismiss,
+  }), [dismiss, error, loading, moduleContext, open, openFor, paidAccess, phase, planReady, resolveConfirmation, result, setOpen, submit, suggestion, undo])
 
   return (
-    <Ctx.Provider value={{ open, setOpen, openFor, moduleContext, loading, error, result, paidAccess, planReady, submit, undo, resolveConfirmation, dismiss: () => { setResult(null); setError(null) } }}>
+    <Ctx.Provider value={value}>
       {children}
     </Ctx.Provider>
   )

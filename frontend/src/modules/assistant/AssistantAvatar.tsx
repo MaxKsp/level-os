@@ -3,11 +3,11 @@ import type { AssistantModule } from "./store"
 
 /**
  * Robô do agente com um acessório por persona: terno (Fin), headset (Nina),
- * faixa de treino (Léo) e chapéu de cozinheiro (Rita). Traço em currentColor
+ * faixa de treino (Léo) e folha de alimentação (Rita). Traço em currentColor
  * para herdar a cor de quem usa, igual aos ícones do lucide.
  */
 export function AssistantAvatar({ module, className }: { module?: AssistantModule | null; className?: string }) {
-  const chef = module === "alimentacao"
+  const nutrition = module === "alimentacao"
   return (
     <svg
       viewBox="0 0 24 24"
@@ -19,8 +19,8 @@ export function AssistantAvatar({ module, className }: { module?: AssistantModul
       className={cn("size-4", className)}
       aria-hidden="true"
     >
-      {/* Antena: some quando há chapéu ou headset por cima. */}
-      {!chef && module !== "agenda" ? (
+      {/* Antena: some quando há folha ou headset por cima. */}
+      {!nutrition && module !== "agenda" ? (
         <>
           <path d="M12 6.5V4" />
           <circle cx="12" cy="2.9" r="1.1" />
@@ -59,13 +59,12 @@ export function AssistantAvatar({ module, className }: { module?: AssistantModul
         <path d="M4.3 9.4h15.4" strokeWidth={2.2} />
       ) : null}
 
-      {chef ? (
+      {nutrition ? (
         <>
-          {/* Chapéu de cozinheiro: três bolhas e a aba */}
-          <path d="M8.4 4.6a2.1 2.1 0 1 1 1.6-3.1 2.4 2.4 0 0 1 4 0 2.1 2.1 0 1 1 1.6 3.1" />
-          <path d="M8.2 4.4h7.6v2.1H8.2z" />
-          {/* Lenço de chef no pescoço */}
-          <path d="M10.4 17.2 12 19l1.6-1.8" />
+          {/* Folha: identidade de alimentação e bem-estar, sem jaleco clínico. */}
+          <path d="M11 6C9 4 10 1.6 15.6 1.5c1 3.1-.7 5.2-4.6 4.5Z" />
+          <path d="M11 6 14.5 3.1M12 6.5v-1" />
+          <path d="M10 17.2 12 19l2-1.8" />
         </>
       ) : null}
     </svg>

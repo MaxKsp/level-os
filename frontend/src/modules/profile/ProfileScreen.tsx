@@ -12,7 +12,10 @@ type ActivityEvent = {
   ip_address: string | null;
   created_at: string;
 };
-import { Button } from "../../components/ui/Button";
+import { Button } from "../../components/ui/button";
+import { ConfirmAction } from "../../components/ui/ConfirmAction";
+import { LevelSelect } from "../../components/ui/LevelSelect";
+import { LevelDateInput } from "../../components/ui/LevelDateInput";
 import { AnimatedNumber } from "../../components/ui/AnimatedNumber";
 import { ThemeToggle } from "../../components/ui/ThemeToggle";
 import { Switch } from "@/components/ui/switch";
@@ -128,8 +131,7 @@ export function ProfileScreen() {
   const restoreBackup = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { setDataStatus("O backup excede o limite de 10 MB."); return; }
-    if (!window.confirm("A restauração substituirá os dados atuais. Deseja continuar?")) { event.target.value = ""; return; }
+    if (file.size > 10 * 1024 * 1024) { setDataStatus("O backup excede o limite de 10 MB."); event.target.value = ""; return; }
     setDataStatus("Restaurando backup…");
     try {
       const buffer = await file.arrayBuffer();
@@ -288,24 +290,10 @@ export function ProfileScreen() {
                 />
               </Field>
               <Field title="Sexo biológico (somente para estimativas)">
-                <select
-                  className={field}
-                  value={profile.sex}
-                  onChange={(event) => setProfile({ ...profile, sex: event.target.value })}
-                >
-                  <option value="">Prefiro não informar</option>
-                  <option value="m">Masculino</option>
-                  <option value="f">Feminino</option>
-                </select>
+                <LevelSelect aria-label="Sexo biológico" value={profile.sex} onChange={(sex) => setProfile({ ...profile, sex })} options={[{ value: "", label: "Prefiro não informar" }, { value: "m", label: "Masculino" }, { value: "f", label: "Feminino" }]} />
               </Field>
               <Field title="Data de nascimento">
-                <input
-                  className={field}
-                  type="date"
-                  max={localTodayInputValue()}
-                  value={profile.birthDate}
-                  onChange={(event) => setProfile({ ...profile, birthDate: event.target.value })}
-                />
+                <LevelDateInput aria-label="Data de nascimento" max={localTodayInputValue()} value={profile.birthDate} onChange={(event) => setProfile({ ...profile, birthDate: event.target.value })} />
               </Field>
               <div className="sm:col-span-2">
                 <Field title="Sobre você">
@@ -433,16 +421,25 @@ export function ProfileScreen() {
                   className="text-[16px] text-muted"
                 />
               </button>
-              <button
-                onClick={() => restoreRef.current?.click()}
-                className="flex items-center justify-between rounded-xl border border-outline-variant bg-surface-container px-3 py-3 text-left text-sm text-on-surface hover:border-primary/45"
-              >
-                <span className="flex items-center gap-2">
-                  <Icon name="upload" className="text-[18px] text-primary" />
-                  Restaurar backup
-                </span>
-                <Icon name="arrow_upward" className="text-[16px] text-muted" />
-              </button>
+              <ConfirmAction
+                title="Restaurar um backup?"
+                description="A restauração substituirá os dados atuais deste perfil. Escolha o arquivo somente se quiser continuar."
+                confirmLabel="Escolher backup"
+                destructive
+                onConfirm={() => restoreRef.current?.click()}
+                trigger={
+                  <button
+                    type="button"
+                    className="flex items-center justify-between rounded-xl border border-outline-variant bg-surface-container px-3 py-3 text-left text-sm text-on-surface transition-colors hover:border-primary/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Icon name="upload" className="text-[18px] text-primary" />
+                      Restaurar backup
+                    </span>
+                    <Icon name="arrow_upward" className="text-[16px] text-muted" />
+                  </button>
+                }
+              />
               <input
                 ref={restoreRef}
                 type="file"

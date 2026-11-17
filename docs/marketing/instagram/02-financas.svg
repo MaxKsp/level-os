@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350">
+  <rect width="1080" height="1350" fill="#050706"/>
+  <g stroke="#17201E" opacity=".9"><path d="M0 180h1080M0 360h1080M0 540h1080M0 720h1080M0 900h1080M0 1080h1080"/><path d="M180 0v1350M360 0v1350M540 0v1350M720 0v1350M900 0v1350"/></g>
+  <g transform="translate(72 66) scale(1.2)" fill="#31E6D4"><path d="M7 33.5 24 8l17 25.5h-8.4L24 20.6l-8.6 12.9H7Z"/><path d="m15 41 9-13.5L33 41h-7l-2-3-2 3h-7Z" opacity=".55"/></g>
+  <text x="145" y="112" fill="#F1F7F5" font-family="Arial, sans-serif" font-size="25" font-weight="700" letter-spacing="6">LEVEL OS</text>
+  <text x="72" y="285" fill="#31E6D4" font-family="Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="5">FINANÇAS EM CONTEXTO</text>
+  <text x="72" y="400" fill="#F1F7F5" font-family="Arial, sans-serif" font-size="76" font-weight="700" letter-spacing="-3">Seu dinheiro</text>
+  <text x="72" y="486" fill="#F1F7F5" font-family="Arial, sans-serif" font-size="76" font-weight="700" letter-spacing="-3">precisa de clareza.</text>
+  <text x="72" y="572" fill="#879591" font-family="Arial, sans-serif" font-size="76" font-weight="700" letter-spacing="-3">Não de outra planilha.</text>
+  <rect x="72" y="690" width="936" height="440" rx="18" fill="#090D0C" stroke="#25312E"/>
+  <text x="122" y="765" fill="#85928E" font-family="Arial, sans-serif" font-size="20">PATRIMÔNIO LÍQUIDO</text>
+  <text x="122" y="860" fill="#F1F7F5" font-family="Arial, sans-serif" font-size="70" font-weight="700">R$ 28.460</text>
+  <text x="122" y="910" fill="#31E6D4" font-family="Arial, sans-serif" font-size="23">↗ 8,4% neste trimestre</text>
+  <path d="M122 1055C210 1008 267 1064 359 988s144-30 226-103 148 11 337-82" fill="none" stroke="#31E6D4" stroke-width="5"/>
+  <path d="M122 1065h800" stroke="#28322F"/>
+  <text x="72" y="1258" fill="#C3CDCA" font-family="Arial, sans-serif" font-size="26">Contas, cartões, gastos e patrimônio na mesma visão.</text>
+  <text x="72" y="1305" fill="#31E6D4" font-family="Arial, sans-serif" font-size="20" font-weight="700" letter-spacing="4">CONHEÇA · LVLOS.COM</text>
+</svg>

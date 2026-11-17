@@ -55,8 +55,12 @@ function require_plan(int $uid, string $minPlan): void {
 
     if (!$policy->allowsPlan($currentPlan, $minPlan)) {
         http_response_code(402);
-        header('Content-Type: application/json');
+        header('Content-Type: application/json; charset=utf-8');
+        // `error` permanece por compatibilidade; `ok`/`code` sao o contrato estavel
+        // que o cliente traduz para linguagem humana, sem exibir o codigo interno.
         echo json_encode([
+            'ok' => false,
+            'code' => 'plan_required',
             'error' => 'plan_required',
             'required_plan' => $minPlan,
             'current_plan' => $currentPlan,
@@ -80,6 +84,8 @@ function require_paid_plan(int $uid, string $minPlan): void {
         http_response_code(402);
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode([
+            'ok' => false,
+            'code' => 'paid_plan_required',
             'error' => 'paid_plan_required',
             'message' => 'O Agente de IA é uma funcionalidade exclusiva do plano pago.',
             'required_plan' => $minPlan,

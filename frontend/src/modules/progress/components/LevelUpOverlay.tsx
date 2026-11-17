@@ -1,4 +1,4 @@
-import { Button } from "../../../components/ui/Button"
+import { Button } from "../../../components/ui/button"
 import { Modal } from "../../../components/ui/Modal"
 import { LevelMark } from "../../../components/ui/LevelMark"
 import { useProgress } from "../store"

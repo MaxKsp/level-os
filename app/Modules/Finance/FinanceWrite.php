@@ -90,7 +90,7 @@ function finance_save_set(PDO $db, int $uid, string $set, array $rows, bool $awa
                     } catch (Throwable $progressError) {
                         // A migration de progressão pode ser aplicada imediatamente antes do deploy.
                         // Uma indisponibilidade dela nunca deve impedir o lançamento financeiro.
-                        error_log('progress finance hook: ' . $progressError->getMessage());
+                        security_log_exception('finance.progress_hook', $progressError);
                     }
                 }
             }

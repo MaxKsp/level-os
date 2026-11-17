@@ -8,6 +8,7 @@ require_once __DIR__ . '/../app/Modules/Calendar/GoogleOAuthFlow.php';
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: private, no-store');
 $uid = require_login();
+require_verified_email($uid);
 level_os_require_sodium_endpoint('calendar-connect');
 require_rate_limit('calendar-connect', 6, 600);
 if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {

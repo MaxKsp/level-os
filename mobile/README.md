@@ -18,10 +18,17 @@ frontend web: cada tela é renderizada por componentes nativos.
 
 1. Copie `.env.example` para `.env.local`.
 2. Informe a URL pública do backend e as chaves públicas do Supabase.
-3. No Supabase, autorize o redirect `levelos://auth/callback`.
-4. Coloque o `google-services.json` do app `com.lvlos.app` no caminho indicado
+3. No Supabase, autorize os redirects:
+   - `https://lvlos.com/auth-supabase-callback.php?mobile=1`;
+   - `https://lvlos.com/auth-supabase-callback.php?mobile=1&mode=recovery`;
+   - `levelos://auth/callback`.
+4. No Google Cloud, crie um cliente OAuth Android para `com.lvlos.app` com o
+   SHA-1 da chave que assina o APK. No Supabase, mantenha o Client ID Web do
+   mesmo projeto em **Authorized Client IDs**. O login nativo troca o ID token
+   diretamente com o Supabase e não abre o navegador.
+5. Coloque o `google-services.json` do app `com.lvlos.app` no caminho indicado
    em `app.json` ou ajuste `android.googleServicesFile`.
-5. Aplique no MySQL a migration `migrations/2026-07-25-native-push.sql`.
+6. Aplique no MySQL a migration `migrations/2026-07-25-native-push.sql`.
 
 ## Executar no Android
 

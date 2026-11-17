@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/app/Core/ConfigLoader.php';
+require_once __DIR__ . '/app/Core/SecurityLog.php';
 level_os_load_config(__DIR__);
 
 function get_db(): PDO {

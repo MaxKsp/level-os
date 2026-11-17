@@ -64,7 +64,8 @@ export function resolveFinancePeriod(
 
   if (preset === "month") {
     start = new Date(now.getFullYear(), now.getMonth(), 1)
-    end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    // “Mês atual” é realizado até hoje; não contabiliza ocorrências futuras.
+    end = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   } else if (preset === "previous-month") {
     start = new Date(now.getFullYear(), now.getMonth() - 1, 1)
     end = new Date(now.getFullYear(), now.getMonth(), 0)

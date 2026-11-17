@@ -47,6 +47,7 @@ const numberValue = (value: string) =>
   Number(value.replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '')) || 0;
 const today = () => new Date().toISOString().slice(0, 10);
 const uid = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+const monthKey = (value: string | null | undefined) => String(value || '').slice(0, 7);
 
 export default function FinanceScreen() {
   const params = useLocalSearchParams<{ action?: string; nonce?: string }>();
@@ -63,6 +64,7 @@ export default function FinanceScreen() {
   const [bank, setBank] = useState('');
   const [accountType, setAccountType] = useState<string>('conta');
   const [installments, setInstallments] = useState('1');
+  const [dashboardMonth, setDashboardMonth] = useState(() => new Date());
   const handledAction = useRef('');
 
   const accounts = useMemo(
@@ -81,13 +83,26 @@ export default function FinanceScreen() {
     () => (state.data?.transfers ?? []) as Transfer[],
     [state.data?.transfers],
   );
+  const selectedMonthKey = `${dashboardMonth.getFullYear()}-${String(dashboardMonth.getMonth() + 1).padStart(2, '0')}`;
+  const monthExpenses = useMemo(
+    () => expenses.filter((item) => monthKey(item.date) === selectedMonthKey),
+    [expenses, selectedMonthKey],
+  );
+  const monthIncome = useMemo(
+    () => income.filter((item) => monthKey(item.date) === selectedMonthKey),
+    [income, selectedMonthKey],
+  );
   const totalBalance = accounts.reduce((sum, item) => sum + (Number(item.saldo) || 0), 0);
-  const totalExpenses = expenses.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
-  const totalIncome = income.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
+  const totalExpenses = monthExpenses.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
+  const totalIncome = monthIncome.reduce((sum, item) => sum + (Number(item.value) || 0), 0);
+  const dashboardMonthLabel = dashboardMonth.toLocaleDateString('pt-BR', {
+    month: 'long',
+    year: 'numeric',
+  });
 
   const expenseByCategory = useMemo(() => {
     const totals = new Map<string, number>();
-    expenses.forEach((item) => {
+    monthExpenses.forEach((item) => {
       const key = item.categoria || 'Outros';
       totals.set(key, (totals.get(key) ?? 0) + Number(item.value || 0));
     });
@@ -95,11 +110,11 @@ export default function FinanceScreen() {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 6)
       .map(([name, value], index) => ({
-        label: `${name} · ${money(value)}`,
+        label: name,
         value,
-        color: [levelTheme.colors.primary, '#6EA8FE', '#F7B267', '#E76F51', '#8E7DBE', '#72B01D'][index],
+        color: levelTheme.colors.chart[index % levelTheme.colors.chart.length],
       }));
-  }, [expenses]);
+  }, [monthExpenses]);
 
   const monthlyTrend = useMemo(() => {
     const now = new Date();
@@ -304,11 +319,36 @@ export default function FinanceScreen() {
                 <Sparkline values={monthlyTrend} />
               </View>
               <View style={styles.metrics}>
-                <Metric label="Rendas" tone="positive" value={money(totalIncome)} />
-                <Metric label="Despesas" tone="negative" value={money(totalExpenses)} />
+                <Metric label="Rendas no mês" tone="positive" value={money(totalIncome)} />
+                <Metric label="Despesas no mês" tone="negative" value={money(totalExpenses)} />
               </View>
-              <Section title="Composição dos gastos" caption="Participação por categoria">
-                {expenseByCategory.length ? <Donut segments={expenseByCategory} /> : (
+              <Section title="Categorias do mês" caption="Toque em um segmento para explorar">
+                <View style={styles.periodNavigator}>
+                  <Pressable
+                    accessibilityLabel="Mês anterior"
+                    accessibilityRole="button"
+                    onPress={() => setDashboardMonth((current) => new Date(
+                      current.getFullYear(),
+                      current.getMonth() - 1,
+                      1,
+                    ))}
+                    style={styles.periodButton}>
+                    <Ionicons color={levelTheme.colors.text} name="chevron-back" size={20} />
+                  </Pressable>
+                  <Text style={styles.periodLabel}>{dashboardMonthLabel}</Text>
+                  <Pressable
+                    accessibilityLabel="Próximo mês"
+                    accessibilityRole="button"
+                    onPress={() => setDashboardMonth((current) => new Date(
+                      current.getFullYear(),
+                      current.getMonth() + 1,
+                      1,
+                    ))}
+                    style={styles.periodButton}>
+                    <Ionicons color={levelTheme.colors.text} name="chevron-forward" size={20} />
+                  </Pressable>
+                </View>
+                {expenseByCategory.length ? <Donut format={money} segments={expenseByCategory} /> : (
                   <EmptyState description="Registre despesas para ver a composição." icon="pie-chart-outline" title="Sem dados" />
                 )}
               </Section>
@@ -488,4 +528,27 @@ const styles = StyleSheet.create({
   },
   heroLabel: { color: levelTheme.colors.muted, fontSize: 13 },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 22 },
+  periodButton: {
+    alignItems: 'center',
+    borderColor: levelTheme.colors.border,
+    borderRadius: 14,
+    borderWidth: 1,
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+  },
+  periodLabel: {
+    color: levelTheme.colors.text,
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
+    textTransform: 'capitalize',
+  },
+  periodNavigator: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 4,
+  },
 });

@@ -140,9 +140,7 @@ if (!$user) {
 }
 
 if ($totpEnabled) {
-    session_regenerate_id(true);
-    $_SESSION['pending_2fa_user_id'] = $userId;
-    $_SESSION['pending_2fa_session_version'] = $sessionVersion;
+    stage_pending_2fa($userId, $sessionVersion);
     header('Location: login.php');
 } else {
     complete_login($userId, $sessionVersion);

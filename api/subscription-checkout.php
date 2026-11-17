@@ -9,6 +9,7 @@ require_once __DIR__ . '/../app/Core/Clock.php';
 
 header('Content-Type: application/json; charset=utf-8');
 $uid = require_login();
+require_verified_email($uid);
 $db = get_db();
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 

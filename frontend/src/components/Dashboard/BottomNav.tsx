@@ -1,4 +1,5 @@
 import { NavLink } from "react-router-dom"
+import * as m from "motion/react-m"
 import { Icon } from "../../design-system"
 import { cn } from "../../lib/cn"
 import { NAV_ITEMS } from "../../app/nav"
@@ -18,7 +19,7 @@ export const BottomNav = () => (
             end={item.to === "/"}
             className={({ isActive }) =>
               cn(
-                "group flex min-w-0 flex-col items-center gap-0.5 px-0.5 py-1.5 text-[10px] font-medium transition-colors",
+                "group relative flex min-w-0 flex-col items-center gap-0.5 overflow-hidden px-0.5 py-1.5 text-[10px] font-medium transition-colors",
                 isActive ? "text-primary" : "text-muted",
               )
             }
@@ -27,13 +28,21 @@ export const BottomNav = () => (
               <>
                 <span
                   className={cn(
-                    "grid h-8 min-w-11 place-items-center rounded-xl transition-[color,background-color,transform] duration-200",
+                    "relative grid h-8 min-w-11 place-items-center rounded-xl transition-[color,transform] duration-200 active:scale-95 motion-reduce:transform-none",
                     isActive
-                      ? "bg-primary/13"
+                      ? "text-primary"
                       : "group-hover:bg-surface-container-high group-hover:text-on-surface",
                   )}
                 >
-                  <Icon name={item.icon} filled={isActive} className="text-[22px]" />
+                  {isActive ? (
+                    <m.span
+                      layoutId="level-mobile-nav-active"
+                      className="absolute inset-0 rounded-xl border border-primary/15 bg-primary/13"
+                      transition={{ type: "spring", stiffness: 440, damping: 34, mass: 0.7 }}
+                      aria-hidden="true"
+                    />
+                  ) : null}
+                  <Icon name={item.icon} filled={isActive} className="relative z-[1] text-[22px]" />
                 </span>
                 <span className="max-w-full truncate">{item.label}</span>
               </>

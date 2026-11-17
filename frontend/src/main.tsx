@@ -8,12 +8,20 @@ import './index.css';
 import { applyTheme, getStoredTheme } from './lib/theme';
 import { clearSensitiveBrowserCaches, clearUnscopedUserStorage } from './lib/userStorage';
 import { loadRuntimeConfigFromMeta } from './lib/runtimeConfig';
+import { startWebVitalsMonitoring } from './lib/webVitals';
+import { registerServiceWorker } from './lib/pwa';
 
 // Aplica o tema antes do render para não piscar (FOUC de tema).
 loadRuntimeConfigFromMeta();
 clearUnscopedUserStorage();
 clearSensitiveBrowserCaches();
 applyTheme(getStoredTheme());
+startWebVitalsMonitoring();
+
+// Instalabilidade e tolerância a rede instável para assets públicos versionados.
+// O registro espera o load para não competir com a primeira pintura.
+if (document.readyState === 'complete') void registerServiceWorker();
+else window.addEventListener('load', () => { void registerServiceWorker(); }, { once: true });
 
 if (window.LEVEL_OS_SENTRY_DSN) {
   // Erros muito iniciais ficam em uma fila pequena enquanto o SDK carrega
@@ -26,18 +34,14 @@ if (window.LEVEL_OS_SENTRY_DSN) {
   window.addEventListener('unhandledrejection', rememberRejection);
 
   const initializeMonitoring = () => {
-    void import('@sentry/react').then((Sentry) => {
-      Sentry.init({
+    void import('@sentry/react').then(({ init, captureException }) => {
+      init({
         dsn: window.LEVEL_OS_SENTRY_DSN,
-        integrations: [
-          Sentry.browserTracingIntegration(),
-          Sentry.replayIntegration({ maskAllText: true, blockAllMedia: true }),
-        ],
-        tracesSampleRate: 0.1,
-        replaysOnErrorSampleRate: 1.0,
-        replaysSessionSampleRate: 0,
+        // O PWA usa o Sentry apenas para erros. Replay e tracing adicionavam
+        // centenas de kB a um chunk assíncrono sem benefício proporcional.
+        enableLogs: false,
       });
-      earlyErrors.splice(0, 10).forEach((error) => Sentry.captureException(error));
+      earlyErrors.splice(0, 10).forEach((error) => captureException(error));
       window.removeEventListener('error', rememberError);
       window.removeEventListener('unhandledrejection', rememberRejection);
     });

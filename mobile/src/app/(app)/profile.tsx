@@ -4,12 +4,15 @@ import { File, Paths } from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Linking from 'expo-linking';
+import { Image } from 'expo-image';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { LevelMark } from '@/components/level-logo';
+import { NativeOtpInput, type NativeOtpStatus } from '@/components/otp-input';
 import {
   ChoiceChips,
   EmptyState,
@@ -54,6 +57,7 @@ import {
 import { secureStorage } from '@/lib/secure-storage';
 import { registerNativePush } from '@/lib/native-push';
 import { shortDate } from '@/lib/format';
+import { appConfig } from '@/lib/config';
 import { useAuth } from '@/providers/auth-provider';
 
 type Tab = 'account' | 'progress' | 'preferences' | 'activity' | 'plan';
@@ -84,6 +88,7 @@ export default function ProfileScreen() {
   const [totpEnrollment, setTotpEnrollment] = useState<TotpEnrollment | null>(null);
   const [totpCode, setTotpCode] = useState('');
   const [totpPassword, setTotpPassword] = useState('');
+  const [totpStatus, setTotpStatus] = useState<NativeOtpStatus>('idle');
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [securityOpen, setSecurityOpen] = useState(false);
   const handledSection = useRef('');
@@ -193,6 +198,7 @@ export default function ProfileScreen() {
       const enrollment = await enrollTotp();
       setTotpEnrollment(enrollment);
       setTotpCode('');
+      setTotpStatus('idle');
       setSecurityOpen(true);
     } catch {
       Alert.alert('Não foi possível iniciar o 2FA', 'Tente novamente em alguns instantes.');
@@ -203,18 +209,23 @@ export default function ProfileScreen() {
 
   const verifyTotp = async () => {
     if (!/^\d{6}$/.test(totpCode.trim())) {
+      setTotpStatus('error');
       Alert.alert('Código inválido', 'Digite os 6 números exibidos no seu autenticador.');
       return;
     }
     setSaving(true);
     try {
       const codes = await confirmTotp(totpCode.trim());
+      setTotpStatus('success');
+      await new Promise((resolve) => setTimeout(resolve, 520));
       setBackupCodes(codes);
       setTotpEnrollment(null);
       setTotpCode('');
+      setTotpStatus('idle');
       await profile.refresh();
       Alert.alert('2FA ativado', 'Guarde os códigos de recuperação exibidos nesta tela.');
     } catch {
+      setTotpStatus('error');
       Alert.alert('Código inválido', 'Confira o código no aplicativo autenticador e tente novamente.');
     } finally {
       setSaving(false);
@@ -322,6 +333,13 @@ export default function ProfileScreen() {
       activity.refresh(), subscription.refresh(),
     ]);
   };
+  const avatarSource = profile.data?.avatar
+    ? {
+        uri: profile.data.avatar.startsWith('http')
+          ? profile.data.avatar
+          : `${appConfig.apiUrl}/${profile.data.avatar.replace(/^\/+/, '')}`,
+      }
+    : null;
 
   return (
     <NativeScreen onRefresh={refreshAll} refreshing={profile.loading || subscription.loading}>
@@ -330,6 +348,40 @@ export default function ProfileScreen() {
         eyebrow="PERFIL"
         title={profile.data?.username ?? 'Sua conta'}
       />
+      <View style={styles.identity}>
+        <Pressable
+          accessibilityHint="Abre a galeria para trocar a foto"
+          accessibilityLabel="Foto do perfil"
+          accessibilityRole="button"
+          disabled={saving}
+          onPress={() => void changeAvatar()}
+          style={({ pressed }) => [styles.avatarButton, pressed && styles.avatarPressed]}>
+          {avatarSource ? (
+            <Image
+              contentFit="cover"
+              source={avatarSource}
+              style={{ borderRadius: 34, height: 68, width: 68 }}
+              transition={180}
+            />
+          ) : (
+            <View style={styles.avatarFallback}>
+              <LevelMark size={68} />
+            </View>
+          )}
+          <View style={styles.avatarBadge}>
+            <Text style={styles.avatarBadgeText}>+</Text>
+          </View>
+        </Pressable>
+        <View style={styles.identityCopy}>
+          <Text numberOfLines={1} style={styles.identityName}>
+            {profile.data?.username ?? 'Sua conta'}
+          </Text>
+          <Text numberOfLines={1} style={styles.identityEmail}>
+            {profile.data?.email ?? 'Conta Level OS'}
+          </Text>
+          <Text style={styles.identityHint}>Toque na foto para atualizar</Text>
+        </View>
+      </View>
       <SegmentedTabs
         items={[
           { id: 'account', label: 'Conta', icon: 'person-outline' },
@@ -486,6 +538,7 @@ export default function ProfileScreen() {
           setSecurityOpen(false);
           setTotpEnrollment(null);
           setTotpCode('');
+          setTotpStatus('idle');
           setTotpPassword('');
           setBackupCodes([]);
         }}
@@ -528,11 +581,10 @@ export default function ProfileScreen() {
               onPress={() => void Clipboard.setStringAsync(totpEnrollment.secret)}
               variant="secondary"
             />
-            <NativeField
-              keyboardType="number-pad"
-              label="Código de 6 dígitos"
-              maxLength={6}
-              onChangeText={setTotpCode}
+            <NativeOtpInput
+              disabled={saving}
+              onChange={(next) => { setTotpCode(next); setTotpStatus('idle'); }}
+              status={totpStatus}
               value={totpCode}
             />
             <NativeButton disabled={saving} icon="checkmark" label="Confirmar 2FA" onPress={() => void verifyTotp()} />
@@ -556,6 +608,68 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
+  avatarFallback: {
+    borderRadius: 34,
+    height: 68,
+    overflow: 'hidden',
+    width: 68,
+  },
+  avatarBadge: {
+    alignItems: 'center',
+    backgroundColor: levelTheme.colors.primary,
+    borderColor: levelTheme.colors.background,
+    borderRadius: 12,
+    borderWidth: 3,
+    bottom: -2,
+    height: 24,
+    justifyContent: 'center',
+    position: 'absolute',
+    right: -2,
+    width: 24,
+  },
+  avatarBadgeText: {
+    color: '#001512',
+    fontSize: 17,
+    fontWeight: '800',
+    lineHeight: 18,
+  },
+  avatarButton: {
+    borderColor: levelTheme.colors.border,
+    borderRadius: 37,
+    borderWidth: 1,
+    padding: 3,
+  },
+  avatarPressed: {
+    opacity: 0.72,
+    transform: [{ scale: 0.97 }],
+  },
+  identity: {
+    alignItems: 'center',
+    borderBottomColor: levelTheme.colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    gap: 16,
+    paddingBottom: 20,
+  },
+  identityCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  identityEmail: {
+    color: levelTheme.colors.muted,
+    fontSize: 13,
+  },
+  identityHint: {
+    color: levelTheme.colors.primary,
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  identityName: {
+    color: levelTheme.colors.text,
+    fontSize: 19,
+    fontWeight: '700',
+  },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 18 },
   paymentCode: {
     backgroundColor: levelTheme.colors.surface,

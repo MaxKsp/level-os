@@ -56,6 +56,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $subscription = $db->prepare("INSERT INTO subscriptions (user_id, plan, status, current_period_end, trial_ends_at) VALUES (?, 'free', 'active', NULL, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 30 DAY))");
                     $subscription->execute([$userId]);
                     $db->commit();
+                    try {
+                        $db->exec("INSERT INTO marketing_events_daily (event_date, event_name, source_path, event_count)
+                            VALUES (UTC_DATE(), 'signup_completed', '/register.php', 1)
+                            ON DUPLICATE KEY UPDATE event_count = event_count + 1");
+                    } catch (PDOException $telemetryError) {
+                        error_log('signup telemetry unavailable (' . $telemetryError->getCode() . ')');
+                    }
                 } catch (Throwable $e) {
                     if ($db->inTransaction()) $db->rollBack();
                     error_log('register: ' . $e->getMessage());

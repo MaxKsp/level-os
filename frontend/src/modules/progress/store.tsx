@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { hasProgressBackend, loadProgress, postProgressEvent } from "./api"
 import type { Achievement, ProgressEventResult, ProgressEventType, ProgressFeedback, ProgressState } from "./contracts"
 
@@ -157,20 +157,21 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
 
   const dismissCelebration = useCallback(() => setCelebration(null), [])
   const dismissFeedback = useCallback(() => setFeedback(null), [])
+  const value = useMemo<ProgressContextValue>(() => ({
+    progress,
+    status,
+    error,
+    lastDelta,
+    feedback,
+    celebration,
+    refresh,
+    awardEvent,
+    dismissCelebration,
+    dismissFeedback,
+  }), [awardEvent, celebration, dismissCelebration, dismissFeedback, error, feedback, lastDelta, progress, refresh, status])
 
   return (
-    <ProgressContext.Provider value={{
-      progress,
-      status,
-      error,
-      lastDelta,
-      feedback,
-      celebration,
-      refresh,
-      awardEvent,
-      dismissCelebration,
-      dismissFeedback,
-    }}>
+    <ProgressContext.Provider value={value}>
       {children}
     </ProgressContext.Provider>
   )
