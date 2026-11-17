@@ -63,4 +63,32 @@ return function (): void {
     test_assert_same(0, count(finance_load_set($db, $uid, 'income')), 'Preview must never write to the income set.');
     test_assert_same(0, count(finance_load_set($db, $uid, 'income_var')), 'Preview must never write to any relational set.');
     test_assert_same(0, count(finance_load_set($db, $uid, 'accounts')), 'Preview must never write to any relational set.');
+
+    // Isolamento por conta: despesa igual em outra conta nao desmarca o lancamento desta.
+    $accountDb = make_sqlite_finance_db();
+    finance_save_set($accountDb, $uid, 'accounts', [
+        ['id' => 'conta-a', 'label' => 'Conta A', 'tipo' => 'corrente', 'saldo' => 0, 'principal' => true],
+        ['id' => 'conta-b', 'label' => 'Conta B', 'tipo' => 'corrente', 'saldo' => 0, 'principal' => false],
+    ], false);
+    finance_save_set($accountDb, $uid, 'expense', [
+        ['id' => 'exp_a', 'label' => 'Mercado na A', 'value' => 54.90, 'date' => '2026-07-10', 'accountId' => 'conta-a'],
+    ]);
+    $toB = finance_ofx_preview($accountDb, $uid, $ofx, 'conta-b');
+    test_assert_same(200, $toB['status'], 'An owned destination account must be accepted.');
+    test_assert_same(false, $toB['body']['rows'][0]['dup'], 'A matching expense in another account must not be a duplicate.');
+    $toA = finance_ofx_preview($accountDb, $uid, $ofx, 'conta-a');
+    test_assert_same(true, $toA['body']['rows'][0]['dup'], 'A matching expense in the same account must be a duplicate.');
+
+    // Conta inexistente ou de outro usuario: 404 sem revelar dados.
+    $foreign = finance_ofx_preview($accountDb, $uid + 1, $ofx, 'conta-a');
+    test_assert_same(404, $foreign['status'], 'An account of another user must be rejected.');
+    test_assert_equals(['error' => 'account_not_found'], $foreign['body'], 'Rejection must not leak data.');
+
+    // Linhas sem data valida ou com valor zero sao ignoradas e contadas para o aviso da interface.
+    $partial = finance_ofx_preview($db, $uid, '<OFX><STMTTRN><DTPOSTED>20260231<TRNAMT>-10<FITID>D1</STMTTRN>'
+        . '<STMTTRN><DTPOSTED>20260720<TRNAMT>0.00<FITID>Z1</STMTTRN>'
+        . '<STMTTRN><DTPOSTED>20260721<TRNAMT>-7,5<FITID>OK1</STMTTRN></OFX>');
+    test_assert_same(200, $partial['status'], 'A file with some valid rows must still preview.');
+    test_assert_same(['OK1'], array_column($partial['body']['rows'], 'fitid'), 'Only the valid row must be returned.');
+    test_assert_same(2, $partial['body']['skipped'], 'Invalid date and zero amount must be counted as skipped.');
 };

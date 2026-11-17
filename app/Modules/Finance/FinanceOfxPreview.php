@@ -2,7 +2,11 @@
 declare(strict_types=1);
 
 /** OFX preview is read-only and scoped to the authenticated user. */
-function finance_ofx_preview(PDO $db, int $uid, string $content): array {
+function finance_ofx_preview(PDO $db, int $uid, string $content, ?string $accountId = null): array {
+    $accountId = $accountId === '' ? null : $accountId;
+    if ($accountId !== null && !in_array($accountId, array_column(finance_load_set($db, $uid, 'accounts'), 'id'), true)) {
+        return ['status' => 404, 'body' => ['error' => 'account_not_found']];
+    }
     $parsed = parse_ofx($content);
     if (!$parsed['ok']) {
         return ['status' => 400, 'body' => ['error' => $parsed['error']]];
@@ -16,6 +20,9 @@ function finance_ofx_preview(PDO $db, int $uid, string $content): array {
             $date = $record['date'] ?? null;
             $value = $record['valor'] ?? $record['value'] ?? null;
             if (!is_string($date) || $date === '' || !is_numeric($value)) continue;
+            // Lancamento de outra conta nao e duplicata desta; sem conta (legado) continua contando.
+            $recordAccount = $record['accountId'] ?? null;
+            if ($accountId !== null && $recordAccount !== null && $recordAccount !== '' && $recordAccount !== $accountId) continue;
             $key = $kind . '|' . $date . '|' . number_format(abs((float)$value), 2, '.', '');
             $existing[$key] = true;
         }
@@ -31,5 +38,5 @@ function finance_ofx_preview(PDO $db, int $uid, string $content): array {
         $row['dup'] = isset($existing[$key]) || $repeatedFitid;
         $rows[] = $row;
     }
-    return ['status' => 200, 'body' => ['ok' => true, 'rows' => $rows]];
+    return ['status' => 200, 'body' => ['ok' => true, 'rows' => $rows, 'skipped' => $parsed['skipped']]];
 }
