@@ -23,6 +23,7 @@ function LegacyTwoFactorSection() {
   const [enrollment, setEnrollment] = useState<{ secret: string; uri: string } | null>(null)
   const [code, setCode] = useState("")
   const [password, setPassword] = useState("")
+  const [disableCode, setDisableCode] = useState("")
   const [backupCodes, setBackupCodes] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -59,8 +60,8 @@ function LegacyTwoFactorSection() {
   const disable = async () => {
     setBusy(true); setError(null)
     try {
-      await disableTotp(password)
-      setPassword("")
+      await disableTotp(password, disableCode)
+      setPassword(""); setDisableCode("")
       await refresh()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Não foi possível desativar o 2FA.")
@@ -104,8 +105,11 @@ function LegacyTwoFactorSection() {
         </div> : null}
 
         {identity.totp_enabled ? <div className="space-y-3 border-t border-outline-variant pt-4">
-          {identity.has_password ? <input className={inputClass} type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" placeholder="Confirme sua senha" aria-label="Senha atual" /> : null}
-          <Button type="button" variant="danger" className="w-full" disabled={busy || (identity.has_password && !password)} onClick={() => void disable()}>Desativar 2FA</Button>
+          {identity.has_password
+            ? <input className={inputClass} type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" placeholder="Confirme sua senha" aria-label="Senha atual" />
+            : <input className={inputClass} type="text" value={disableCode} onChange={(event) => setDisableCode(event.target.value.trim())} autoComplete="one-time-code" maxLength={128} placeholder="Código atual ou de recuperação" aria-label="Código atual ou de recuperação" />}
+          <p className="text-xs leading-5 text-muted">A desativação revoga outras sessões e exige autenticação novamente nos outros dispositivos.</p>
+          <Button type="button" variant="danger" className="w-full" disabled={busy || (identity.has_password ? !password : !disableCode)} onClick={() => void disable()}>Desativar 2FA</Button>
         </div> : null}
         {error && !enrollment ? <p role="alert" className="text-xs text-error">{error}</p> : null}
       </div>

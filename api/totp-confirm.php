@@ -25,9 +25,14 @@ $body = json_decode($raw, true);
 $code = is_array($body) ? (string)($body['code'] ?? '') : '';
 
 $db = get_db();
-$stmt = $db->prepare('SELECT totp_secret FROM users WHERE id = ?');
+$stmt = $db->prepare('SELECT totp_secret, totp_enabled FROM users WHERE id = ?');
 $stmt->execute([$uid]);
 $user = $stmt->fetch();
+if ($user && (int)$user['totp_enabled'] === 1) {
+    http_response_code(409);
+    echo json_encode(['error' => 'O 2FA já está ativo.']);
+    exit;
+}
 
 try {
     $secret = $user && $user['totp_secret']
@@ -44,12 +49,20 @@ if ($secret === '' || !totp_verify_code($secret, $code)) {
 }
 
 $storedSecret = (string)$user['totp_secret'];
-if (!str_starts_with($storedSecret, 'v1:')) {
-    totp_secret_migrate_after_verification($db, $uid, $storedSecret, $secret);
-}
 $db->beginTransaction();
-$stmt = $db->prepare('UPDATE users SET totp_enabled = 1 WHERE id = ?');
-$stmt->execute([$uid]);
+// Confirma exatamente o segredo validado. Um QR substituído concorrentemente não pode ser ativado.
+$stmt = $db->prepare('UPDATE users SET totp_enabled = 1, session_version = session_version + 1
+    WHERE id = ? AND totp_enabled = 0 AND totp_secret = ?');
+$stmt->execute([$uid, $storedSecret]);
+if ($stmt->rowCount() !== 1) {
+    $db->rollBack();
+    http_response_code(409);
+    echo json_encode(['error' => 'O 2FA foi alterado durante a confirmação. Reinicie a configuração.']);
+    exit;
+}
+$versionStmt = $db->prepare('SELECT session_version FROM users WHERE id = ?');
+$versionStmt->execute([$uid]);
+$newSessionVersion = (int)$versionStmt->fetchColumn();
 $db->prepare('DELETE FROM totp_backup_codes WHERE user_id = ?')->execute([$uid]);
 
 $codes = totp_generate_backup_codes();
@@ -58,5 +71,15 @@ foreach ($codes as $backupCode) {
     $insert->execute([$uid, password_hash($backupCode, PASSWORD_DEFAULT)]);
 }
 $db->commit();
+if (!str_starts_with($storedSecret, 'v1:')) {
+    try { totp_secret_migrate_after_verification($db, $uid, $storedSecret, $secret); }
+    catch (Throwable) { error_log('Legacy TOTP migration failed after confirmation.'); }
+}
+// Preserva só esta sessão autenticada; dispositivos e sessões anteriores são revogados.
+if (session_status() === PHP_SESSION_ACTIVE && ($_SESSION['user_id'] ?? null) === $uid) {
+    session_regenerate_id(true);
+    $_SESSION['session_version'] = $newSessionVersion;
+    $_SESSION['last_activity'] = time();
+}
 
 echo json_encode(['ok' => true, 'backup_codes' => $codes]);

@@ -581,7 +581,11 @@ function attempt_2fa(string $code): string {
     $stmt->execute([$uid]);
     foreach ($stmt->fetchAll() as $row) {
         if (password_verify(trim($code), $row['code_hash'])) {
-            $db->prepare('UPDATE totp_backup_codes SET used_at = NOW() WHERE id = ?')->execute([$row['id']]);
+            // Claim atomico: duas sessoes concorrentes nao consomem o mesmo codigo.
+            $claim = $db->prepare('UPDATE totp_backup_codes SET used_at = UTC_TIMESTAMP()
+                WHERE id = ? AND user_id = ? AND used_at IS NULL');
+            $claim->execute([$row['id'], $uid]);
+            if ($claim->rowCount() !== 1) break;
             reset_attempts();
             try { audit_record($db, $uid, 'auth.2fa', 'success', ['method' => 'backup_code']); } catch (Throwable) {}
             complete_login((int)$uid, $pendingVersion);

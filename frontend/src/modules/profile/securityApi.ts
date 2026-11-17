@@ -30,6 +30,6 @@ export async function confirmTotp(code: string): Promise<string[]> {
   return Array.isArray(data.backup_codes) ? data.backup_codes.filter((item): item is string => typeof item === "string") : []
 }
 
-export async function disableTotp(password: string): Promise<void> {
-  await request("/api/totp-disable.php", { password })
+export async function disableTotp(password: string, code: string): Promise<void> {
+  await request("/api/totp-disable.php", { password, code })
 }

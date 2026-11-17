@@ -93,7 +93,11 @@ final class SubscriptionPolicy {
     }
 
     private function isInTrialAt(?SubscriptionSnapshot $snapshot, int $now): bool {
+        // Trial só existe para assinatura gratuita ativa. Uma assinatura
+        // cancelada, inadimplente ou paga expirada não ressuscita pelo prazo antigo.
         return $snapshot !== null
+            && $snapshot->status === 'active'
+            && $snapshot->plan === 'free'
             && !$snapshot->trialEndsAtInvalid
             && $snapshot->trialEndsAtEpoch !== null
             && $now < $snapshot->trialEndsAtEpoch;

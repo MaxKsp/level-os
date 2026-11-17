@@ -23,6 +23,14 @@ return static function (): void {
         str_contains($service, 'u.session_version = ms.session_version'),
         'Password/session-version changes must invalidate native sessions.'
     );
+    test_assert_same(604800, LEVEL_OS_MOBILE_SESSION_IDLE_SECONDS, 'Sessao mobile expira apos 7 dias sem atividade.');
+    test_assert_true(
+        str_contains($service, 'ms.last_used_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)')
+        && str_contains($service, 'last_used_at > DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)')
+        && str_contains($service, 'last_used_at <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? SECOND)')
+        && substr_count($service, 'LEVEL_OS_MOBILE_SESSION_IDLE_SECONDS') >= 4,
+        'Resolucao, renovacao e limpeza devem aplicar limite de inatividade no servidor.'
+    );
     test_assert_true(
         substr_count($service, '$db->prepare(') >= 4,
         'Native-session persistence must use prepared statements.'

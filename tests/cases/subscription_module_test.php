@@ -144,6 +144,16 @@ return function (): void {
     $expiredTrial = SubscriptionRepository::buildSnapshot('free', 'active', null, gmdate('Y-m-d H:i:s', $fixedNow));
     test_assert_same('free', $policy->effectivePlan($expiredTrial), 'Trial expira exatamente no instante trial_ends_at.');
 
+    // Regressao: um trial antigo nao pode restaurar acesso de uma assinatura
+    // cancelada, inadimplente ou de um plano pago com prazo vencido.
+    foreach (['canceled', 'past_due', 'unknown_status'] as $revokedStatus) {
+        $revokedTrial = SubscriptionRepository::buildSnapshot('free', $revokedStatus, null, $trialEnd);
+        test_assert_same('free', $policy->effectivePlan($revokedTrial), "Trial com status $revokedStatus nao deve liberar acesso.");
+        test_assert_true(!$policy->describeForApi($revokedTrial)['in_trial'], 'A API nao deve anunciar trial revogado.');
+    }
+    $oldPaidTrial = SubscriptionRepository::buildSnapshot('individual', 'active', gmdate('Y-m-d H:i:s', $fixedNow - 1), $trialEnd);
+    test_assert_same('free', $policy->effectivePlan($oldPaidTrial), 'Trial antigo nao reativa assinatura paga vencida.');
+
     // clock injetavel: o MESMO snapshot expirado sob o clock fixo vira valido sob um clock "mais cedo" — prova que a decisao usa o clock injetado, nao o relogio real.
     $earlierPolicy = new SubscriptionPolicy(static fn(): int => $fixedNow - 10);
     test_assert_same('individual', $earlierPolicy->effectivePlan($expiredSnapshot), 'O mesmo snapshot deve ser valido sob um clock injetado ANTES da expiracao.');
