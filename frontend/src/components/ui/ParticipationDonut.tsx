@@ -84,7 +84,7 @@ export function ParticipationDonut({ items, formatValue, ariaLabel, className }:
         <div className="pointer-events-none absolute inset-7 grid place-content-center text-center">
           <span className="truncate text-xs text-muted">{active?.label ?? "Total"}</span>
           <span className="mt-1 font-mono text-sm font-semibold text-on-surface">
-            {active ? formatValue(active.value) : `Total ${formatValue(total)}`}
+            {formatValue(active ? active.value : total)}
           </span>
           <span className="mt-0.5 font-mono text-[10px] text-muted">{activePercent.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%</span>
         </div>
@@ -94,7 +94,7 @@ export function ParticipationDonut({ items, formatValue, ariaLabel, className }:
           const percentage = (item.value / total) * 100
           return (
             <li key={item.label}>
-              <button type="button" onClick={() => setSelectedIndex((current) => current === index ? null : index)} onMouseEnter={() => setPreviewIndex(index)} onMouseLeave={() => setPreviewIndex(null)} onFocus={() => setPreviewIndex(index)} onBlur={() => setPreviewIndex(null)} className="flex min-h-11 w-full items-center gap-3 py-2 text-left">
+              <button type="button" aria-pressed={selectedIndex === index} onClick={() => setSelectedIndex((current) => current === index ? null : index)} onMouseEnter={() => setPreviewIndex(index)} onMouseLeave={() => setPreviewIndex(null)} onFocus={() => setPreviewIndex(index)} onBlur={() => setPreviewIndex(null)} className="flex min-h-11 w-full items-center gap-3 py-2 text-left">
                 <span className="size-2.5 shrink-0 rounded-[3px]" style={{ background: item.color ?? DEFAULT_COLORS[index % DEFAULT_COLORS.length] }} />
                 <span className="min-w-0 flex-1 truncate text-sm text-on-surface-variant">{item.label}</span>
                 <span className="shrink-0 text-right font-mono text-xs font-medium text-on-surface">

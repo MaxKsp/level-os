@@ -3,10 +3,11 @@
  * do contrato público. Não introduzem novas chaves de backend; apenas
  * agregam os dados que o bootstrap já expõe.
  */
-import type { AccountV2, FinanceBootstrap, IncomeLine } from "./contracts"
+import type { AccountV2, FinanceBootstrap, IncomeLine, Vault } from "./contracts"
 import { fromMoneyCents, sumMoney, toMoneyCents } from "../../lib/money"
 import { isDateInRange, resolveFinancePeriod } from "./period"
 import { incomeIsActiveOn } from "./incomeValidity"
+import { CATEGORY_LABEL } from "./categories"
 
 export function isCard(account: AccountV2): boolean {
   return account.tipo === "cartao"
@@ -34,6 +35,13 @@ export function availableCredit(accounts: AccountV2[]): number {
 /** Total guardado em cofrinhos. */
 export function totalVaults(data: Pick<FinanceBootstrap, "vaults">): number {
   return sumMoney(data.vaults.map((vault) => vault.saldo ?? 0))
+}
+
+/** Progresso de um cofrinho; `percent` é null quando não há meta positiva. */
+export function vaultProgress(vault: Pick<Vault, "saldo" | "meta">): { target: number; percent: number | null } {
+  const target = typeof vault.meta === "number" && Number.isFinite(vault.meta) && vault.meta > 0 ? vault.meta : 0
+  if (target === 0) return { target, percent: null }
+  return { target, percent: Math.min(100, Math.max(0, Math.round((toMoneyCents(vault.saldo) / toMoneyCents(target)) * 100))) }
 }
 
 /**
@@ -91,6 +99,16 @@ export function expensesByCategory(data: FinanceBootstrap): { category: string; 
     m.set(c, (m.get(c) ?? 0) + toMoneyCents(e.value))
   }
   return [...m.entries()].map(([category, total]) => ({ category, total: fromMoneyCents(total) })).sort((a, b) => b.total - a.total)
+}
+
+/** Quatro maiores categorias nomeadas + uma única fatia "Outros" (inclui a categoria `outros`). */
+export function categoryChartItems(categories: { category: string; total: number }[]): { label: string; value: number }[] {
+  const named = categories.filter((item) => item.category !== "outros")
+  const others = sumMoney([...named.slice(4), ...categories.filter((item) => item.category === "outros")].map((item) => item.total))
+  return [
+    ...named.slice(0, 4).map((item) => ({ label: CATEGORY_LABEL[item.category] ?? item.category, value: item.total })),
+    ...(others > 0 ? [{ label: CATEGORY_LABEL.outros, value: others }] : []),
+  ]
 }
 
 export function financeSummary(data: FinanceBootstrap, referenceDate = new Date()): FinanceSummary {

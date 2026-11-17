@@ -1,10 +1,10 @@
 import { lazy, Suspense, useMemo, useState } from "react"
 import { AnimatedNumber } from "../../components/ui/AnimatedNumber"
 import { ParticipationDonut } from "../../components/ui/ParticipationDonut"
-import { Icon, SectionCard, Sparkline } from "../../design-system"
+import { EmptyState, Icon, SectionCard, Sparkline } from "../../design-system"
 import { cn } from "../../lib/cn"
-import { formatCurrency, formatSignedCurrency } from "../../lib/format"
-import { CATEGORY_LABEL } from "./categories"
+import { formatCount, formatCurrency, formatSignedCurrency } from "../../lib/format"
+import { subtractMoney, toMoneyCents } from "../../lib/money"
 import type { FinanceBootstrap } from "./contracts"
 import { FinancePeriodFilter } from "./FinancePeriodFilter"
 import { FinancePeriodComparison } from "./FinancePeriodComparison"
@@ -12,7 +12,7 @@ import { FinanceFlowChart } from "./FinanceFlowChart"
 import { expenseTimeline } from "./expenseAnalytics"
 const FinanceControlCenter = lazy(() => import("./FinanceControlCenter").then((module) => ({ default: module.FinanceControlCenter })))
 import { financeTotalsForPeriod, financeTrendForPeriod, incomeTimeline, resolveFinancePeriod, toLocalIso, type FinancePeriodPreset } from "./period"
-import { expensesByCategory, financeSummary, isCard } from "./selectors"
+import { categoryChartItems, expensesByCategory, financeSummary, isCard, vaultProgress } from "./selectors"
 import { buildInstallmentSummary } from "./installments"
 import { financeInsights } from "./financeInsights"
 import { AssistantAvatar } from "../assistant/AssistantAvatar"
@@ -38,12 +38,9 @@ export function FinanceDashboard({ data }: { data: FinanceBootstrap }) {
   )
   const trend = trendPoints.map((point) => point.value)
   const labels = trendPoints.map((point) => point.label)
-  const delta = trend.length > 1 ? trend.at(-1)! - trend[0] : 0
+  const delta = trend.length > 1 ? subtractMoney(trend.at(-1)!, trend[0]) : 0
   const categories = expensesByCategory({ ...data, expense_lines_v4: periodTotals.filteredExpenses })
-  const categoryChartItems = [
-    ...categories.slice(0, 4).map((category) => ({ label: CATEGORY_LABEL[category.category] ?? category.category, value: category.total })),
-    ...(categories.length > 4 ? [{ label: "Outros", value: categories.slice(4).reduce((sum, category) => sum + category.total, 0) }] : []),
-  ]
+  const categoryItems = categoryChartItems(categories)
   const cards = data.accounts_v2.filter(isCard)
   const savingsRate = periodTotals.income > 0 ? (periodTotals.balance / periodTotals.income) * 100 : 0
   const expenseRatio = periodTotals.income > 0
@@ -72,7 +69,7 @@ export function FinanceDashboard({ data }: { data: FinanceBootstrap }) {
   }, [expensePoints, incomePoints])
 
   return (
-    <div className="grid gap-x-8 gap-y-6 lg:grid-cols-6">
+    <div className="grid grid-cols-1 gap-x-8 gap-y-6 lg:grid-cols-6">
       <div className="lg:col-span-6">
         <FinancePeriodFilter
           preset={periodPreset}
@@ -213,8 +210,8 @@ export function FinanceDashboard({ data }: { data: FinanceBootstrap }) {
       </div> : null}
 
       {view === "focus" ? <div className="lg:col-span-2">
-        <SectionCard className="h-full" title="Categorias do período" description={<><span className="numeric-value">{categories.length}</span> categorias · toque para explorar</>}>
-          <ParticipationDonut items={categoryChartItems} formatValue={formatCurrency} ariaLabel={`Participação das despesas por categoria em ${period.label}`} />
+        <SectionCard className="h-full" title="Categorias do período" description={categories.length > 0 ? <><span className="numeric-value">{formatCount(categories.length, "categoria", "categorias")}</span> · toque para explorar</> : "Nenhuma despesa no período"}>
+          <ParticipationDonut className="lg:grid-cols-1" items={categoryItems} formatValue={formatCurrency} ariaLabel={`Participação das despesas por categoria em ${period.label}`} />
         </SectionCard>
       </div> : null}
 
@@ -232,21 +229,23 @@ export function FinanceDashboard({ data }: { data: FinanceBootstrap }) {
       </div> : null}
 
       {view === "details" ? <div className="lg:col-span-3">
-        <SectionCard className="h-full" title="Utilização de crédito" description={<><span className="numeric-value">{cards.length}</span> cartões · <span className="numeric-value">{formatCurrency(summary.availableCredit)}</span> livres</>}>
-          {cards.length === 0 ? <EmptyState label="Nenhum cartão cadastrado." /> : (
+        <SectionCard className="h-full" title="Utilização de crédito" description={<><span className="numeric-value">{formatCount(cards.length, "cartão", "cartões")}</span> · <span className="numeric-value">{formatCurrency(summary.availableCredit)}</span> livres</>}>
+          {cards.length === 0 ? <EmptyState icon="credit_card" title="Nenhum cartão cadastrado" description="Cadastre um cartão em Contas para acompanhar limite e fatura." /> : (
             <ul className="flex flex-col gap-4">
               {cards.map((card) => {
-                const percentage = card.limite > 0 ? Math.min(100, Math.round((card.fatura / card.limite) * 100)) : 0
+                const percentage = card.limite > 0 ? Math.min(100, Math.round((toMoneyCents(card.fatura) / toMoneyCents(card.limite)) * 100)) : null
                 return (
                   <li key={card.id}>
                     <div className="mb-1 flex items-center justify-between gap-3 text-sm">
                       <span className="truncate text-on-surface">{card.label}</span>
-                      <span className="shrink-0 font-mono text-on-surface-variant">{formatCurrency(card.fatura)} / {formatCurrency(card.limite)}</span>
+                      <span className="shrink-0 font-mono text-on-surface-variant">{percentage === null ? formatCurrency(card.fatura) : `${formatCurrency(card.fatura)} / ${formatCurrency(card.limite)}`}</span>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-surface-container-highest">
-                      <div className={cn("level-progress-fill h-full rounded-full", percentage >= 80 ? "bg-error" : percentage >= 50 ? "bg-warning" : "bg-tertiary")} style={{ width: `${percentage}%` }} />
-                    </div>
-                    <p className="mt-1 text-xs text-muted"><span className="numeric-value">{percentage}%</span> usado · livre <span className="numeric-value">{formatCurrency(Math.max(0, card.limite - card.fatura))}</span></p>
+                    {percentage === null ? <p className="text-xs text-muted">Limite não informado</p> : <>
+                      <div className="h-2 overflow-hidden rounded-full bg-surface-container-highest">
+                        <div className={cn("level-progress-fill h-full rounded-full", percentage >= 80 ? "bg-error" : percentage >= 50 ? "bg-warning" : "bg-tertiary")} style={{ width: `${percentage}%` }} />
+                      </div>
+                      <p className="mt-1 text-xs text-muted"><span className="numeric-value">{percentage}%</span> usado · livre <span className="numeric-value">{formatCurrency(Math.max(0, subtractMoney(card.limite, card.fatura)))}</span></p>
+                    </>}
                   </li>
                 )
               })}
@@ -260,16 +259,17 @@ export function FinanceDashboard({ data }: { data: FinanceBootstrap }) {
           <SectionCard title="Cofrinhos" description={<>Guardado <span className="numeric-value">{formatCurrency(summary.totalVaults)}</span></>}>
             <ul className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
               {data.vaults.map((vault) => {
-                const target = vault.meta ?? 0
-                const percentage = target > 0 ? Math.min(100, Math.round((vault.saldo / target) * 100)) : 0
+                const { target, percent } = vaultProgress(vault)
                 return (
                   <li key={vault.id}>
                     <div className="mb-1 flex items-center justify-between gap-3 text-sm">
                       <span className="flex min-w-0 items-center gap-1.5 truncate text-on-surface"><Icon name="savings" className="text-[16px] text-tertiary" />{vault.label}</span>
                       <span className="shrink-0 font-mono text-on-surface-variant">{formatCurrency(vault.saldo)}</span>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-surface-container-highest"><div className="level-progress-fill h-full rounded-full bg-tertiary" style={{ width: `${percentage}%` }} /></div>
-                    <p className="mt-1 text-xs text-muted"><span className="numeric-value">{percentage}%</span> de <span className="numeric-value">{formatCurrency(target)}</span></p>
+                    {percent === null ? <p className="text-xs text-muted">Sem meta definida</p> : <>
+                      <div className="h-2 overflow-hidden rounded-full bg-surface-container-highest"><div className="level-progress-fill h-full rounded-full bg-tertiary" style={{ width: `${percent}%` }} /></div>
+                      <p className="mt-1 text-xs text-muted"><span className="numeric-value">{percent}%</span> de <span className="numeric-value">{formatCurrency(target)}</span></p>
+                    </>}
                   </li>
                 )
               })}
@@ -287,8 +287,4 @@ function CompactMetric({ label, value, animationKey, tone = "text-on-surface" }:
 
 function HealthMetric({ icon, label, value, animationKey }: { icon: string; label: string; value: number; animationKey: string }) {
   return <div className="border-l border-outline-variant px-3 py-2.5 first:border-l-0"><span className="flex items-center gap-1.5 text-xs text-muted"><Icon name={icon} className="text-[14px] text-primary" />{label}</span><AnimatedNumber value={value} animationKey={animationKey} formatValue={(current) => `${Math.round(current)}%`} className="mt-1.5 block text-sm font-semibold text-on-surface" /></div>
-}
-
-function EmptyState({ label }: { label: string }) {
-  return <p className="grid min-h-28 place-items-center text-sm text-muted">{label}</p>
 }
