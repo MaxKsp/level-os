@@ -37,7 +37,7 @@ function ofx_date(?string $raw): ?string {
     return sprintf('%04d-%02d-%02d', $y, $mo, $d);
 }
 
-/** @return array{ok:bool, rows?:array, error?:string} */
+/** @return array{ok:bool, rows?:array, skipped?:int, error?:string} */
 function parse_ofx(string $content): array {
     if (stripos($content, '<OFX') === false && stripos($content, '<STMTTRN') === false) {
         return ['ok' => false, 'error' => 'arquivo não parece ser OFX'];
@@ -49,10 +49,12 @@ function parse_ofx(string $content): array {
     if (!$chunks) return ['ok' => false, 'error' => 'nenhum lançamento encontrado no arquivo'];
 
     $rows = [];
+    $skipped = 0;
     foreach ($chunks as $blk) {
         $value = ofx_amount(ofx_tag($blk, 'TRNAMT') ?? '');
-        if ($value === null) continue;
         $date = ofx_date(ofx_tag($blk, 'DTPOSTED'));
+        // Sem data valida ou com valor zero o lancamento nao pode ser gravado; conta para avisar o usuario.
+        if ($value === null || $date === null || round($value, 2) === 0.0) { $skipped++; continue; }
         $desc = ofx_tag($blk, 'NAME') ?? ofx_tag($blk, 'MEMO') ?? '';
         $desc = trim(preg_replace('#\s+#', ' ', $desc));
         $fitid = ofx_tag($blk, 'FITID');
@@ -65,5 +67,5 @@ function parse_ofx(string $content): array {
         ];
     }
     if (!$rows) return ['ok' => false, 'error' => 'nenhum lançamento válido no arquivo'];
-    return ['ok' => true, 'rows' => $rows];
+    return ['ok' => true, 'rows' => $rows, 'skipped' => $skipped];
 }

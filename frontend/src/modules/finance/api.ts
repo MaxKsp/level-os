@@ -84,9 +84,10 @@ interface ServerOfxRow {
   dup?: unknown
 }
 
-export async function previewOfxServer(file: File): Promise<OfxPreviewRow[]> {
+export async function previewOfxServer(file: File, accountId: string): Promise<{ rows: OfxPreviewRow[]; skipped: number }> {
   const form = new FormData()
   form.append("ofx", file)
+  form.append("account_id", accountId)
   const response = await fetch("/api/import-ofx.php", {
     method: "POST",
     credentials: "same-origin",
@@ -95,8 +96,9 @@ export async function previewOfxServer(file: File): Promise<OfxPreviewRow[]> {
   })
   const body = await readJson(response)
   const rows = body && typeof body === "object" && "rows" in body && Array.isArray(body.rows) ? body.rows as ServerOfxRow[] : []
+  const skipped = body && typeof body === "object" && "skipped" in body ? Number(body.skipped) || 0 : 0
 
-  return rows.flatMap((row, index) => {
+  return { skipped, rows: rows.flatMap((row, index) => {
     const value = Number(row.value)
     if (!Number.isFinite(value) || value <= 0 || typeof row.date !== "string") return []
     const fitid = typeof row.fitid === "string" && row.fitid ? row.fitid : null
@@ -109,5 +111,5 @@ export async function previewOfxServer(file: File): Promise<OfxPreviewRow[]> {
       fitid,
       duplicate: Boolean(row.dup),
     }]
-  })
+  }) }
 }

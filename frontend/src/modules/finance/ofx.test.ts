@@ -54,6 +54,11 @@ describe("parseOfxClient", () => {
     }
   })
 
+  it("arredonda para centavos como o servidor e descarta valores que viram zero", () => {
+    const rows = parseOfxClient(`<OFX><STMTTRN><DTPOSTED>20260710<TRNAMT>-10.999<FITID>R1</STMTTRN><STMTTRN><DTPOSTED>20260710<TRNAMT>0.004<FITID>R2</STMTTRN></OFX>`)
+    expect(rows.map((row) => [row.fitid, row.value])).toEqual([["R1", 11]])
+  })
+
   it("mantém centavos e sinal da fixture compartilhada com o servidor e descarta sinal no fim", () => {
     const fixture = readFileSync(resolve(__dirname, "../../../../tests/fixtures/milhar.ofx"), "utf8")
     expect(parseOfxClient(fixture).map((row) => [row.fitid, row.value, row.kind])).toEqual([

@@ -61,6 +61,13 @@ if (strlen($content) > $maxUploadBytes) {
     exit;
 }
 
-$result = finance_ofx_preview(get_db(), $uid, $content);
+$accountId = $_POST['account_id'] ?? null;
+if ($accountId !== null && (!is_string($accountId) || strlen($accountId) > 100)) {
+    http_response_code(400);
+    echo json_encode(['error' => 'conta de destino inválida']);
+    exit;
+}
+
+$result = finance_ofx_preview(get_db(), $uid, $content, $accountId);
 http_response_code($result['status']);
 echo json_encode($result['body']);
