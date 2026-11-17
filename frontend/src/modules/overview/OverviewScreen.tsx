@@ -2,6 +2,7 @@ import { useMemo } from "react"
 import { Link } from "react-router-dom"
 import { Icon } from "../../design-system"
 import { useApp } from "../../context/AppContext"
+import { formatCount } from "../../lib/format"
 import { useFinance } from "../finance/store"
 import { financeInsights } from "../finance/financeInsights"
 import { financeTrendForPeriod, resolveFinancePeriod, toLocalIso } from "../finance/period"
@@ -21,8 +22,12 @@ import { VaultsOverview } from "./components/VaultsOverview"
 
 export function OverviewScreen() {
   const { bootstrap, syncStatus } = useFinance()
-  const { tasks, exercises, loggedWeights } = useApp()
-  const { workouts } = useTraining()
+  const { tasks, exercises } = useApp()
+  const { workouts, measurements } = useTraining()
+  const weights = useMemo(() => measurements
+    .filter((item) => item.type === "peso")
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((item) => ({ date: item.date, weight: item.value })), [measurements])
   const { identity } = useIdentity()
   const now = useMemo(() => new Date(), [])
   const todayIso = toLocalIso(now)
@@ -55,7 +60,7 @@ export function OverviewScreen() {
             <span className="block h-full rounded-full bg-primary transition-[width] duration-500 motion-reduce:transition-none" style={{ width: `${weekly.percent}%` }} />
           </div>
           <div className="grid divide-y divide-outline-variant md:grid-cols-3 md:divide-x md:divide-y-0">
-            <TodayItem to="/agenda" icon="schedule" label="Próxima tarefa" value={routine.nextTask ? `${routine.nextTask.time} · ${routine.nextTask.title}` : "Rotina concluída"} detail={`${routine.pending} pendente(s) hoje`} />
+            <TodayItem to="/agenda" icon="schedule" label="Próxima tarefa" value={routine.nextTask ? `${routine.nextTask.time} · ${routine.nextTask.title}` : "Rotina concluída"} detail={`${formatCount(routine.pending, "pendente", "pendentes")} hoje`} />
             <TodayItem to="/treinos" icon="fitness_center" label="Próximo treino" value={hasWorkout ? workout.title : "Treino concluído"} detail={workout.focus} />
             <TodayItem to="/financeiro?tab=dash" icon={insight?.icon ?? "monitoring"} label="Alerta financeiro" value={insight?.title ?? "Sem alertas importantes"} detail={insight?.detail ?? "Seus indicadores estão dentro do esperado."} />
           </div>
@@ -63,7 +68,7 @@ export function OverviewScreen() {
         <section id="finance" className="scroll-mt-24">{syncStatus === "loading" ? <FinancePanelSkeleton overview /> : <FinanceOverview data={bootstrap} trend={financeTrend} detailsHref="/financeiro" />}</section>
         <section id="routine" aria-labelledby="modules-title" className="scroll-mt-24">
           <div className="mb-4 flex items-center justify-between"><h2 id="modules-title" className="text-lg font-semibold text-on-surface">Rotina e treino</h2></div>
-          <div className="grid items-start gap-x-8 gap-y-6 lg:grid-cols-2"><RoutineOverview tasks={todayTasks} /><span id="training" className="sr-only scroll-mt-24" /><TrainingOverview workout={workout} weights={loggedWeights} /><VaultsOverview vaults={bootstrap.vaults} className="lg:col-span-2" /></div>
+          <div className="grid items-start gap-x-8 gap-y-6 lg:grid-cols-2"><RoutineOverview tasks={todayTasks} /><span id="training" className="sr-only scroll-mt-24" /><TrainingOverview workout={workout} weights={weights} /><VaultsOverview vaults={bootstrap.vaults} className="lg:col-span-2" /></div>
         </section>
         <section aria-label="Progresso e conquistas" className="border-t border-outline-variant pt-6">
           <ProgressOverview pendingTasks={routine.pending} workoutReady={hasWorkout} />

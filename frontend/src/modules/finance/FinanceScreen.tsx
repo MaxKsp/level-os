@@ -155,7 +155,7 @@ export function FinanceScreen() {
 
       {fin.syncStatus === "loading" ? <FinanceSummarySkeleton /> : <FinanceSummaryRow summary={summary} accountCount={accounts.length} cardCount={summary.cardsCount} />}
 
-      <div className="-mx-4 min-w-0 overflow-x-auto px-4 pb-1 sm:mx-0 sm:overflow-visible sm:px-0">
+      <div className="-mx-4 min-w-0 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0">
         <Tabs
           value={tab}
           onValueChange={(value) => changeTab(value as Tab)}

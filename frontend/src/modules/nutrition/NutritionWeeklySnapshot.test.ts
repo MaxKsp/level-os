@@ -47,4 +47,9 @@ describe("nutritionWeeklySummary", () => {
     expect(month.daily).toHaveLength(30)
     expect(nutritionWeeklySummary(workspace, null, new Date(2026, 8, 29, 12)).checks).toBeNull()
   })
+
+  it("soma compras em centavos, sem resíduo de ponto flutuante", () => {
+    const purchases = [0.1, 0.2].map((amountBRL, index) => ({ id: `p${index}`, date: "2026-09-29", description: "Feira", amountBRL, category: "mercado" as const }))
+    expect(nutritionWeeklySummary({ ...workspace, purchases }, null, new Date(2026, 8, 29, 12)).spent).toBe(0.3)
+  })
 })

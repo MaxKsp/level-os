@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import type { FinanceBootstrap, IncomeLine } from "./contracts"
 import {
   availableCredit,
+  categoryChartItems,
   financeSummary,
   isIncomeActive,
   monthlyExpenses,
@@ -10,7 +11,43 @@ import {
   totalBalance,
   totalInvoice,
   totalVaults,
+  vaultProgress,
 } from "./selectors"
+
+describe("vaultProgress", () => {
+  it("não inventa percentual quando o cofrinho não tem meta", () => {
+    expect(vaultProgress({ saldo: 300, meta: null })).toEqual({ target: 0, percent: null })
+    expect(vaultProgress({ saldo: 300 })).toEqual({ target: 0, percent: null })
+    expect(vaultProgress({ saldo: 300, meta: 0 })).toEqual({ target: 0, percent: null })
+    expect(vaultProgress({ saldo: 300, meta: Number.NaN })).toEqual({ target: 0, percent: null })
+  })
+
+  it("calcula em centavos e limita entre 0% e 100%", () => {
+    expect(vaultProgress({ saldo: 0.1 + 0.2, meta: 0.6 })).toEqual({ target: 0.6, percent: 50 })
+    expect(vaultProgress({ saldo: 1500, meta: 1000 }).percent).toBe(100)
+    expect(vaultProgress({ saldo: -50, meta: 1000 }).percent).toBe(0)
+  })
+})
+
+describe("categoryChartItems", () => {
+  it("mantém uma única fatia Outros somando a categoria outros e o excedente", () => {
+    const items = categoryChartItems([
+      { category: "outros", total: 900 },
+      { category: "moradia", total: 800 },
+      { category: "mercado", total: 400.1 },
+      { category: "saude", total: 300 },
+      { category: "lazer", total: 200 },
+      { category: "transporte", total: 0.2 },
+    ])
+    expect(items.map((item) => item.label)).toEqual(["Moradia", "Mercado", "Saúde", "Lazer", "Outros"])
+    expect(items.at(-1)?.value).toBe(900.2)
+  })
+
+  it("omite Outros quando não há excedente", () => {
+    expect(categoryChartItems([{ category: "moradia", total: 10 }])).toEqual([{ label: "Moradia", value: 10 }])
+    expect(categoryChartItems([])).toEqual([])
+  })
+})
 
 const temporary = (endDate: string): IncomeLine => ({
   id: "temporary",
