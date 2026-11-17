@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs"
+import { resolve } from "node:path"
 import { describe, expect, it } from "vitest"
 import { parseOfxClient } from "./ofx"
 
@@ -33,5 +35,32 @@ describe("parseOfxClient", () => {
   it("descarta datas impossíveis, evitando lançamentos em dias inexistentes", () => {
     const invalid = `<OFX><STMTTRN><DTPOSTED>20260231<TRNAMT>-10<FITID>bad</STMTTRN></OFX>`
     expect(parseOfxClient(invalid)).toEqual([])
+  })
+
+  it("lê TRNAMT com separador de milhar como o parser do servidor", () => {
+    const cases: [string, number, "entrada" | "saida"][] = [
+      ["-1234.56", 1234.56, "saida"],
+      ["-1234,56", 1234.56, "saida"],
+      ["-1.234,56", 1234.56, "saida"],
+      ["-1,234.56", 1234.56, "saida"],
+      ["1.234.567,89", 1234567.89, "entrada"],
+      ["2.500", 2.5, "entrada"],
+      ["1.234.567", 1234567, "entrada"],
+      ["1200", 1200, "entrada"],
+    ]
+    for (const [raw, value, kind] of cases) {
+      const [row] = parseOfxClient(`<OFX><STMTTRN><DTPOSTED>20260710<TRNAMT>${raw}<FITID>A1</STMTTRN></OFX>`)
+      expect(row, raw).toMatchObject({ value, kind })
+    }
+  })
+
+  it("mantém centavos e sinal da fixture compartilhada com o servidor e descarta sinal no fim", () => {
+    const fixture = readFileSync(resolve(__dirname, "../../../../tests/fixtures/milhar.ofx"), "utf8")
+    expect(parseOfxClient(fixture).map((row) => [row.fitid, row.value, row.kind])).toEqual([
+      ["MIL001", 1234.56, "saida"],
+      ["MIL002", 1234567.89, "entrada"],
+      ["MIL003", 1234.56, "saida"],
+      ["MIL005", 0.05, "saida"],
+    ])
   })
 })
