@@ -144,9 +144,10 @@ jobs:
           protocol: ftps
           local-dir: frontend/dist/
           server-dir: ${{ secrets.FTP_SERVER_DIR }}
-          # Cada release recalcula o inventario remoto. Isso impede que um
-          # estado incremental obsoleto marque chunks ausentes como enviados.
-          state-name: .ftp-deploy-sync-state-frontend-${{ github.run_id }}.json
+          # Reutiliza inventario de release concluida e verificada (run 44082636696).
+          # Reduz transferencias FTPS; o passo de verificacao testa cada chunk novo.
+          # Se algum chunk faltar, o workflow falha e impede falso sucesso.
+          state-name: .ftp-deploy-sync-state-frontend-44082636696.json
 
       - name: Repetir deploy do frontend após falha transitória
         id: frontend_retry
@@ -159,7 +160,7 @@ jobs:
           protocol: ftps
           local-dir: frontend/dist/
           server-dir: ${{ secrets.FTP_SERVER_DIR }}
-          state-name: .ftp-deploy-sync-state-frontend-${{ github.run_id }}.json
+          state-name: .ftp-deploy-sync-state-frontend-44082636696.json
 
       - name: Confirmar resultado dos uploads
         if: always()
