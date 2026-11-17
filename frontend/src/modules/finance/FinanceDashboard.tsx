@@ -288,4 +288,3 @@ function CompactMetric({ label, value, animationKey, tone = "text-on-surface" }:
 function HealthMetric({ icon, label, value, animationKey }: { icon: string; label: string; value: number; animationKey: string }) {
   return <div className="border-l border-outline-variant px-3 py-2.5 first:border-l-0"><span className="flex items-center gap-1.5 text-xs text-muted"><Icon name={icon} className="text-[14px] text-primary" />{label}</span><AnimatedNumber value={value} animationKey={animationKey} formatValue={(current) => `${Math.round(current)}%`} className="mt-1.5 block text-sm font-semibold text-on-surface" /></div>
 }
-
