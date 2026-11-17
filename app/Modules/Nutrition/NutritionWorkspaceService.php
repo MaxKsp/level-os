@@ -138,6 +138,7 @@ final class NutritionWorkspaceService {
                     break;
                 case 'mark_meal':
                 case 'mark_cart':
+                case 'reset_cart':
                 case 'import_legacy':
                     $plan = $this->activePlan($uid, $body['planId'] ?? null);
                     $planId = (string)($plan['id'] ?? 'legacy');
@@ -145,7 +146,9 @@ final class NutritionWorkspaceService {
                     foreach ($plan['days'] as $day) foreach ($day['meals'] as $index=>$meal) {
                         $allowedMeals[(int)$day['day'] . ':' . $index] = true;
                     }
-                    if ($op === 'mark_meal') {
+                    if ($op === 'reset_cart') {
+                        unset($next['cartChecks'][$planId]);
+                    } elseif ($op === 'mark_meal') {
                         $slot = self::str($body['slot'] ?? null, 10, true);
                         if (!isset($allowedMeals[$slot])) throw new InvalidArgumentException('Refeição não consta do plano.');
                         $value = $body['status'] ?? null;

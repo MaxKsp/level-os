@@ -1,8 +1,41 @@
 import type { TrainingModality } from "./contracts"
 
 export type MuscleGroup = "Peito" | "Costas" | "Pernas" | "Ombros" | "Braços" | "Core" | "Cardio" | "Mobilidade"
+export interface ExerciseVideoReference {
+  url: string
+  provider?: "direct" | "youtube"
+  youtubeId?: string
+  startSeconds?: number
+  durationSec?: number
+  type?: string
+  language?: string
+  author?: string
+  license?: string
+  licenseUrl?: string
+}
 export interface LibraryExercise {
-  name: string; group: MuscleGroup; modality: TrainingModality; equipment: string; cue: string
+  id?: string
+  name: string
+  group: MuscleGroup
+  modality: TrainingModality
+  equipment: string
+  equipmentList?: string[]
+  cue: string
+  instructions?: string
+  imageUrl?: string | null
+  imageLicense?: string
+  imageLicenseUrl?: string
+  imageAuthor?: string
+  video?: ExerciseVideoReference | null
+  steps?: string[]
+  formCues?: string[]
+  motionFrames?: string[]
+  source?: "local" | "wger" | "free-exercise-db" | "repdb" | "workout-db"
+  sourceUrl?: string
+  license?: string
+  licenseUrl?: string
+  author?: string
+  language?: "pt-BR" | "pt" | "fallback"
 }
 export const EXERCISE_CATALOG: LibraryExercise[] = [
   { name: "Supino reto", group: "Peito", modality: "forca", equipment: "Barra / banco", cue: "Pés apoiados; controle a descida." },

@@ -30,5 +30,8 @@ try {
 } catch (NutritionWorkspaceConflict $e) {
     http_response_code(409); echo json_encode(['error'=>'workspace_conflict','message'=>$e->getMessage()], JSON_UNESCAPED_UNICODE);
 }
-catch (InvalidArgumentException $exception) { http_response_code(422); echo json_encode(['error'=>'invalid_data']); }
+catch (InvalidArgumentException $exception) {
+    http_response_code(422);
+    echo json_encode(['error'=>'invalid_data','message'=>$exception->getMessage()], JSON_UNESCAPED_UNICODE);
+}
 catch (Throwable $exception) { error_log('workspace write failed: ' . get_class($exception)); http_response_code(500); echo json_encode(['error'=>'workspace_save_failed']); }

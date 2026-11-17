@@ -8,8 +8,10 @@ import { CATEGORY_LABEL } from "./categories"
 import type { FinanceBootstrap } from "./contracts"
 import { FinancePeriodFilter } from "./FinancePeriodFilter"
 import { FinancePeriodComparison } from "./FinancePeriodComparison"
+import { FinanceFlowChart } from "./FinanceFlowChart"
+import { expenseTimeline } from "./expenseAnalytics"
 const FinanceControlCenter = lazy(() => import("./FinanceControlCenter").then((module) => ({ default: module.FinanceControlCenter })))
-import { financeTotalsForPeriod, financeTrendForPeriod, resolveFinancePeriod, toLocalIso, type FinancePeriodPreset } from "./period"
+import { financeTotalsForPeriod, financeTrendForPeriod, incomeTimeline, resolveFinancePeriod, toLocalIso, type FinancePeriodPreset } from "./period"
 import { expensesByCategory, financeSummary, isCard } from "./selectors"
 import { buildInstallmentSummary } from "./installments"
 import { financeInsights } from "./financeInsights"
@@ -43,7 +45,6 @@ export function FinanceDashboard({ data }: { data: FinanceBootstrap }) {
     ...(categories.length > 4 ? [{ label: "Outros", value: categories.slice(4).reduce((sum, category) => sum + category.total, 0) }] : []),
   ]
   const cards = data.accounts_v2.filter(isCard)
-  const flowMax = Math.max(periodTotals.income, periodTotals.expenses, 1)
   const savingsRate = periodTotals.income > 0 ? (periodTotals.balance / periodTotals.income) * 100 : 0
   const expenseRatio = periodTotals.income > 0
     ? (periodTotals.expenses / periodTotals.income) * 100
@@ -53,6 +54,22 @@ export function FinanceDashboard({ data }: { data: FinanceBootstrap }) {
     + periodTotals.variableIncomeOccurrences
   const installmentProjection = useMemo(() => buildInstallmentSummary(data, now), [data, now])
   const insights = useMemo(() => financeInsights(data, now), [data, now])
+  const incomePoints = useMemo(() => incomeTimeline(data, period), [data, period])
+  const expensePoints = useMemo(() => expenseTimeline(data.expense_lines_v4, period), [data.expense_lines_v4, period])
+  const flowPoints = useMemo(() => {
+    const incomeByKey = new Map<string, { key: string; label: string; total: number }>(
+      incomePoints.map((point) => [point.key, point]),
+    )
+    const expenseByKey = new Map<string, { key: string; label: string; total: number }>(
+      expensePoints.map((point) => [point.key, point]),
+    )
+    return [...new Set([...incomeByKey.keys(), ...expenseByKey.keys()])].sort().map((key) => ({
+      key,
+      label: incomeByKey.get(key)?.label ?? expenseByKey.get(key)?.label ?? key,
+      income: incomeByKey.get(key)?.total ?? 0,
+      expenses: expenseByKey.get(key)?.total ?? 0,
+    }))
+  }, [expensePoints, incomePoints])
 
   return (
     <div className="grid gap-x-8 gap-y-6 lg:grid-cols-6">
@@ -184,22 +201,18 @@ export function FinanceDashboard({ data }: { data: FinanceBootstrap }) {
         </div>
       </div>
 
-      {view === "focus" ? <div className="lg:col-span-3">
-        <SectionCard className="h-full" title="Fluxo no período" description={<span className="numeric-value">{period.label}</span>}>
-          <div className="grid gap-6">
-            <div className="space-y-4">
-              <FlowBar label="Receitas" value={periodTotals.income} max={flowMax} tone="bg-tertiary" text="text-tertiary" />
-              <FlowBar label="Despesas" value={periodTotals.expenses} max={flowMax} tone="bg-error" text="text-error" />
-            </div>
-            <div className="flex items-center justify-between border-y border-outline-variant px-1 py-4">
-              <span className="text-sm font-medium text-on-surface">Saldo do período</span>
-              <span className={cn("font-mono text-right text-lg font-semibold", periodTotals.balance >= 0 ? "text-tertiary" : "text-error")}><AnimatedNumber value={periodTotals.balance} animationKey="finance-dashboard-flow-balance" formatValue={formatSignedCurrency} /></span>
-            </div>
-          </div>
+      {view === "focus" ? <div className="lg:col-span-4">
+        <SectionCard
+          className="h-full"
+          title="Receitas × despesas"
+          description={<span className="numeric-value">{period.label}</span>}
+          action={<span className={cn("rounded-full px-2.5 py-1 text-[11px] font-medium", periodTotals.balance >= 0 ? "bg-tertiary/12 text-tertiary" : "bg-error/12 text-error")}>{formatSignedCurrency(periodTotals.balance)}</span>}
+        >
+          <FinanceFlowChart points={flowPoints} ariaLabel={`Receitas e despesas por mês em ${period.label}`} />
         </SectionCard>
       </div> : null}
 
-      {view === "focus" ? <div className="lg:col-span-3">
+      {view === "focus" ? <div className="lg:col-span-2">
         <SectionCard className="h-full" title="Categorias do período" description={<><span className="numeric-value">{categories.length}</span> categorias · toque para explorar</>}>
           <ParticipationDonut items={categoryChartItems} formatValue={formatCurrency} ariaLabel={`Participação das despesas por categoria em ${period.label}`} />
         </SectionCard>
@@ -274,10 +287,6 @@ function CompactMetric({ label, value, animationKey, tone = "text-on-surface" }:
 
 function HealthMetric({ icon, label, value, animationKey }: { icon: string; label: string; value: number; animationKey: string }) {
   return <div className="border-l border-outline-variant px-3 py-2.5 first:border-l-0"><span className="flex items-center gap-1.5 text-xs text-muted"><Icon name={icon} className="text-[14px] text-primary" />{label}</span><AnimatedNumber value={value} animationKey={animationKey} formatValue={(current) => `${Math.round(current)}%`} className="mt-1.5 block text-sm font-semibold text-on-surface" /></div>
-}
-
-function FlowBar({ label, value, max, tone, text }: { label: string; value: number; max: number; tone: string; text: string }) {
-  return <div><div className="mb-1.5 flex items-center justify-between text-sm"><span className="text-on-surface-variant">{label}</span><AnimatedNumber value={value} animationKey={`finance-dashboard-flow-${label.toLocaleLowerCase("pt-BR")}`} formatValue={formatCurrency} className={cn("text-right font-medium", text)} /></div><div className="h-2.5 overflow-hidden rounded-full bg-surface-container-highest"><div className={cn("level-progress-fill h-full rounded-full", tone)} style={{ width: `${(value / max) * 100}%` }} /></div></div>
 }
 
 function EmptyState({ label }: { label: string }) {

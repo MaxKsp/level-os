@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom";
 import { Button } from "../../components/ui/button";
 import { AnimatedNumber } from "../../components/ui/AnimatedNumber";
 import { BankLogo } from "../../components/ui/BankLogo";
-import { LevelSelect } from "../../components/ui/LevelSelect";
 import { PersistentCollapsibleSection } from "../../components/ui/PersistentCollapsibleSection";
 import { ConfirmIconAction, IconAction } from "../../components/ui/IconAction";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -44,11 +43,6 @@ import { FinanceCards } from "./FinanceCards";
 import { FinancePanelSkeleton, FinanceSummarySkeleton } from "./FinanceSkeleton";
 
 type Tab = "contas" | "extrato" | "gastos" | "parcelamentos" | "dash" | "ir";
-const MORE_TABS: Array<{ value: Tab; label: string }> = [
-  { value: "parcelamentos", label: "Parcelamentos" },
-  { value: "gastos", label: "Gastos" },
-  { value: "ir", label: "Imposto de renda" },
-];
 const TYPE_LABEL: Record<string, string> = {
   conta: "Conta corrente",
   poupanca: "Poupança",
@@ -161,48 +155,43 @@ export function FinanceScreen() {
 
       {fin.syncStatus === "loading" ? <FinanceSummarySkeleton /> : <FinanceSummaryRow summary={summary} accountCount={accounts.length} cardCount={summary.cardsCount} />}
 
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="-mx-4 min-w-0 overflow-x-auto px-4 pb-1 sm:mx-0 sm:overflow-visible sm:px-0">
         <Tabs
           value={tab}
           onValueChange={(value) => changeTab(value as Tab)}
-          className="min-w-0 flex-1"
+          className="w-max min-w-full"
         >
           <TabsList
             variant="line"
             aria-label="Seções do financeiro"
-            className="w-full min-w-0 justify-stretch overflow-hidden sm:w-fit sm:justify-start"
+            className="w-max min-w-full justify-start overflow-visible"
           >
-          <TabsTrigger value="contas" className="min-w-0 flex-1 gap-1 px-2 text-xs sm:flex-none sm:gap-2 sm:px-3 sm:text-sm">
-            <WalletCards aria-hidden="true" />
-            Contas
-          </TabsTrigger>
-          <TabsTrigger value="extrato" className="min-w-0 flex-1 gap-1 px-2 text-xs sm:flex-none sm:gap-2 sm:px-3 sm:text-sm">
-            <ReceiptText aria-hidden="true" />
-            Extrato
-          </TabsTrigger>
-          <TabsTrigger value="dash" className="min-w-0 flex-1 gap-1 px-2 text-xs sm:flex-none sm:gap-2 sm:px-3 sm:text-sm">
-            <ChartNoAxesCombined aria-hidden="true" />
-            Dashboard
-          </TabsTrigger>
-          <TabsTrigger value="parcelamentos" className="hidden sm:inline-flex">
-            <CalendarRange aria-hidden="true" />
-            Parcelamentos
-          </TabsTrigger>
-          <TabsTrigger value="gastos" className="hidden sm:inline-flex">
-            <ChartPie aria-hidden="true" />
-            Gastos
-          </TabsTrigger>
-          <TabsTrigger value="ir" className="hidden sm:inline-flex">
-            <FileText aria-hidden="true" />
-            Imposto de renda
-          </TabsTrigger>
+            <TabsTrigger value="contas" className="shrink-0 gap-1.5 px-3 text-xs sm:gap-2 sm:text-sm">
+              <WalletCards aria-hidden="true" />
+              Contas
+            </TabsTrigger>
+            <TabsTrigger value="extrato" className="shrink-0 gap-1.5 px-3 text-xs sm:gap-2 sm:text-sm">
+              <ReceiptText aria-hidden="true" />
+              Extrato
+            </TabsTrigger>
+            <TabsTrigger value="dash" className="shrink-0 gap-1.5 px-3 text-xs sm:gap-2 sm:text-sm">
+              <ChartNoAxesCombined aria-hidden="true" />
+              Dashboard
+            </TabsTrigger>
+            <TabsTrigger value="parcelamentos" className="shrink-0 gap-1.5 px-3 text-xs sm:gap-2 sm:text-sm">
+              <CalendarRange aria-hidden="true" />
+              Parcelamentos
+            </TabsTrigger>
+            <TabsTrigger value="gastos" className="shrink-0 gap-1.5 px-3 text-xs sm:gap-2 sm:text-sm">
+              <ChartPie aria-hidden="true" />
+              Gastos
+            </TabsTrigger>
+            <TabsTrigger value="ir" className="shrink-0 gap-1.5 px-3 text-xs sm:gap-2 sm:text-sm">
+              <FileText aria-hidden="true" />
+              Imposto de renda
+            </TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="w-36 shrink-0 sm:hidden">
-          <LevelSelect aria-label="Mais seções financeiras" value={MORE_TABS.some((item) => item.value === tab) ? tab : ""}
-            onChange={(value) => changeTab(value as Tab)} placeholder="Mais"
-            options={[{ value: "", label: "Mais", disabled: true }, ...MORE_TABS.map((item) => ({ value: item.value, label: item.label }))]} />
-        </div>
       </div>
 
       {tab === "parcelamentos" ? (
@@ -420,33 +409,41 @@ export function FinanceScreen() {
 }
 
 const FinanceSummaryRow = memo(function FinanceSummaryRow({ summary, accountCount, cardCount }: { summary: ReturnType<typeof financeSummary>; accountCount: number; cardCount: number }) {
-  return <div data-testid="finance-summary-row" className="grid grid-cols-2 border-y border-outline-variant py-3 sm:grid-cols-4">
-    <SummaryCell label="Patrimônio" value={summary.netWorth} animationKey="finance-summary-net-worth" />
-    <SummaryCell label="Saldo" value={summary.totalBalance} animationKey="finance-summary-balance" sub={`${accountCount} contas`} />
-    <SummaryCell label="Fatura" value={summary.totalInvoice} animationKey="finance-summary-invoice" sub={`${cardCount} cartões`} />
-    <SummaryCell label="Crédito livre" value={summary.availableCredit} animationKey="finance-summary-credit" />
+  return <div data-testid="finance-summary-row" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <SummaryCell icon="account_balance_wallet" label="Patrimônio" value={summary.netWorth} animationKey="finance-summary-net-worth" />
+    <SummaryCell icon="account_balance" label="Saldo disponível" value={summary.totalBalance} animationKey="finance-summary-balance" sub={`${accountCount} contas`} />
+    <SummaryCell icon="credit_card" label="Faturas" value={summary.totalInvoice} animationKey="finance-summary-invoice" sub={`${cardCount} cartões`} tone="danger" />
+    <SummaryCell icon="credit_score" label="Crédito livre" value={summary.availableCredit} animationKey="finance-summary-credit" tone="positive" />
   </div>
 });
 
 function SummaryCell({
+  icon,
   label,
   value,
   animationKey,
   sub,
+  tone = "neutral",
 }: {
+  icon: string;
   label: string;
   value: number;
   animationKey: string;
   sub?: string;
+  tone?: "neutral" | "positive" | "danger";
 }) {
+  const valueTone = tone === "positive" ? "text-tertiary" : tone === "danger" ? "text-error" : "text-on-surface";
   return (
-    <div className="level-metric-cell border-l border-outline-variant p-4 first:border-l-0">
-      <p className="text-sm text-muted">
-        {label}
-      </p>
-      <AnimatedNumber value={value} animationKey={animationKey} formatValue={formatCurrency} className="mt-1 block text-right text-lg font-semibold text-on-surface" />
-      {sub ? <p className="numeric-value text-[11px] text-muted">{sub}</p> : null}
-    </div>
+    <article className="group min-w-0 rounded-xl border border-outline-variant bg-surface-container/55 p-3.5 transition-colors hover:border-primary/30 hover:bg-surface-container-high/70">
+      <div className="flex items-center justify-between gap-2">
+        <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+          <Icon name={icon} className="text-[17px]" />
+        </span>
+        {sub ? <span className="numeric-value truncate text-[10px] text-muted">{sub}</span> : null}
+      </div>
+      <p className="mt-3 truncate text-xs font-medium text-muted">{label}</p>
+      <AnimatedNumber value={value} animationKey={animationKey} formatValue={formatCurrency} className={cn("mt-1 block truncate font-mono text-base font-semibold sm:text-lg", valueTone)} />
+    </article>
   );
 }
 function RowActions({

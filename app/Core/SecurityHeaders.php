@@ -12,7 +12,9 @@ function security_content_security_policy(): string
         "script-src 'self'",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
-        "img-src 'self' data: blob: https://lh3.googleusercontent.com https://avatars.githubusercontent.com",
+        "img-src 'self' data: blob: https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://wger.de https://raw.githubusercontent.com https://i.ytimg.com",
+        "media-src 'self' blob: https://wger.de",
+        "frame-src https://www.youtube-nocookie.com https://www.youtube.com",
         "connect-src 'self' https://*.supabase.co https://*.ingest.us.sentry.io",
         "worker-src 'self' blob:",
         "manifest-src 'self'",
@@ -31,7 +33,9 @@ function security_meta_content_security_policy(): string
         "script-src 'self'",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com",
-        "img-src 'self' data: blob: https://lh3.googleusercontent.com https://avatars.githubusercontent.com",
+        "img-src 'self' data: blob: https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://wger.de https://raw.githubusercontent.com https://i.ytimg.com",
+        "media-src 'self' blob: https://wger.de",
+        "frame-src https://www.youtube-nocookie.com https://www.youtube.com",
         "connect-src 'self' https://*.supabase.co https://*.ingest.us.sentry.io",
         "worker-src 'self' blob:",
         "manifest-src 'self'",
@@ -50,7 +54,7 @@ function security_apply_headers(): void
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: DENY');
     header('Referrer-Policy: strict-origin-when-cross-origin');
-    header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+    header('Permissions-Policy: camera=(self), microphone=(), geolocation=()');
     if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
         header('Strict-Transport-Security: max-age=31536000');
     }

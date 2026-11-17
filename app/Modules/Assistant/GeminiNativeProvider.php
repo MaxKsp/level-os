@@ -37,7 +37,8 @@ final class GeminiNativeProvider implements LlmProvider {
         }
         $request = self::buildRequest($payload, $this->model);
         $encoded = json_encode($request, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-        if (strlen($encoded) > 512 * 1024) {
+        $maxRequestBytes = str_contains($encoded, '"inlineData"') ? 3 * 1024 * 1024 : 512 * 1024;
+        if (strlen($encoded) > $maxRequestBytes) {
             throw new LlmProviderException('Provider request too large.', $this->providerName, 0, 'request');
         }
 
@@ -89,18 +90,33 @@ final class GeminiNativeProvider implements LlmProvider {
         $system = [];
         $contents = [];
         foreach ((array)($payload['messages'] ?? []) as $message) {
-            if (!is_array($message) || !is_string($message['content'] ?? null)) continue;
-            $content = trim((string)$message['content']);
-            if ($content === '') continue;
+            if (!is_array($message)) continue;
             $role = (string)($message['role'] ?? 'user');
-            if ($role === 'system') {
-                $system[] = $content;
+            $rawContent = $message['content'] ?? null;
+            if ($role === 'system' && is_string($rawContent)) {
+                $content = trim($rawContent);
+                if ($content !== '') $system[] = $content;
                 continue;
             }
-            $contents[] = [
-                'role' => $role === 'assistant' ? 'model' : 'user',
-                'parts' => [['text' => $content]],
-            ];
+            $parts = [];
+            if (is_string($rawContent) && trim($rawContent) !== '') {
+                $parts[] = ['text'=>trim($rawContent)];
+            } elseif (is_array($rawContent)) {
+                foreach ($rawContent as $part) {
+                    if (!is_array($part)) continue;
+                    if (($part['type'] ?? '') === 'text' && is_string($part['text'] ?? null) && trim((string)$part['text']) !== '') {
+                        $parts[] = ['text'=>trim((string)$part['text'])];
+                        continue;
+                    }
+                    $image = is_array($part['image_url'] ?? null) ? ($part['image_url']['url'] ?? null) : null;
+                    if (($part['type'] ?? '') !== 'image_url' || !is_string($image)) continue;
+                    if (preg_match('/\Adata:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+\/=]+)\z/D', $image, $matches) !== 1) continue;
+                    $decoded = base64_decode($matches[2], true);
+                    if ($decoded === false || strlen($decoded) > 2_000_000) continue;
+                    $parts[] = ['inlineData'=>['mimeType'=>$matches[1], 'data'=>$matches[2]]];
+                }
+            }
+            if ($parts !== []) $contents[] = ['role'=>$role === 'assistant' ? 'model' : 'user', 'parts'=>$parts];
         }
         if ($contents === []) throw new InvalidArgumentException('Gemini request requires user content.');
 

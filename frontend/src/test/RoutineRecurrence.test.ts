@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { countTimelineByDate } from "../modules/calendar/selectors"
 import { buildScheduledTask } from "../modules/routine/TaskSchedulerForm"
-import { taskOccurrenceDates, taskRepeatLabel, tasksOn } from "../modules/routine/selectors"
+import { routineDaySummary, taskOccurrenceDates, taskRepeatLabel, tasksOn } from "../modules/routine/selectors"
 
 describe("recorrência de tarefas", () => {
   it("cria um único agendamento diário e projeta suas ocorrências", () => {
@@ -12,9 +12,11 @@ describe("recorrência de tarefas", () => {
       date: "2026-07-20",
       repeat: "daily",
       repeatDays: [],
+      durationMin: 45,
     }, "task-medicine")
 
     expect(task.title).toBe("Tomar medicamento")
+    expect(task.durationMin).toBe(45)
     expect(task.repeatDays).toEqual([0, 1, 2, 3, 4, 5, 6])
     expect(taskOccurrenceDates(task, "2026-07-20", "2026-07-24")).toEqual([
       "2026-07-20",
@@ -60,6 +62,30 @@ describe("recorrência de tarefas", () => {
 
     expect(tasksOn([task], "2026-07-21")[0]?.completed).toBe(true)
     expect(tasksOn([task], "2026-07-22")[0]?.completed).toBe(false)
+  })
+
+  it("resume a carga do dia para o painel de rotina", () => {
+    const tasks = [
+      buildScheduledTask({
+        title: "Planejar o dia", time: "08:00", subtitle: "Produtividade",
+        date: "2026-07-20", repeat: "none", repeatDays: [], durationMin: 30,
+        priority: "alta",
+      }, "task-plan"),
+      buildScheduledTask({
+        title: "Academia", time: "19:00", subtitle: "Saúde",
+        date: "2026-07-20", repeat: "none", repeatDays: [], durationMin: 60,
+      }, "task-gym"),
+    ]
+    const summary = routineDaySummary(tasks, "2026-07-20")
+    expect(summary).toMatchObject({
+      total: 2,
+      completed: 0,
+      pending: 2,
+      plannedMinutes: 90,
+      highPriorityPending: 1,
+      categories: 2,
+    })
+    expect(summary.nextTask?.id).toBe("task-plan")
   })
 
   it("contabiliza as ocorrências sem duplicar o registro persistido", () => {

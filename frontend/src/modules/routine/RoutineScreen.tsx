@@ -2,6 +2,7 @@ import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { Button } from "../../components/ui/button"
 import { Modal } from "../../components/ui/Modal"
+import { LevelSelect } from "../../components/ui/LevelSelect"
 import { useAssistant } from "../assistant/store"
 import { AssistantAvatar } from "../assistant/AssistantAvatar"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -10,7 +11,8 @@ import { cn } from "../../lib/cn"
 import { useApp } from "../../context/AppContext"
 import type { Task } from "../../context/AppContext"
 import { TODAY_ISO } from "./mock"
-import { PRIORITY_LABEL, PRIORITY_TONE, progressPercent, routineConsistency, taskRepeatLabel, tasksOn } from "./selectors"
+import { PRIORITY_LABEL, PRIORITY_TONE, progressPercent, routineConsistency, routineDaySummary, taskRepeatLabel, tasksOn } from "./selectors"
+import { routineFocus } from "./routineFocus"
 import { TaskActionModal } from "./TaskActionModal"
 import { RoutineFocusPanel } from "./RoutineFocusPanel"
 import type { CalendarView, GoogleCalendarConnection, GoogleCalendarEvent } from "../calendar/contracts"
@@ -60,6 +62,11 @@ export function RoutineScreen() {
     const start = addDays(parseISO(TODAY_ISO), -29)
     return routineConsistency(tasks, isoOf(start), isoOf(addDays(parseISO(TODAY_ISO), 1)), TODAY_ISO)
   }, [tasks])
+  const todaySummary = useMemo(() => routineDaySummary(tasks, TODAY_ISO, TODAY_ISO), [tasks])
+  const todayFocus = useMemo(() => routineFocus(tasks, TODAY_ISO, TODAY_ISO), [tasks])
+  const overdueCount = useMemo(() => tasks.filter((task) =>
+    !task.completed && (!task.repeat || task.repeat === "none") && Boolean(task.date && task.date < TODAY_ISO),
+  ).length, [tasks])
   const managedTask = managedOccurrence ? tasks.find((task) => task.id === managedOccurrence.taskId) ?? null : null
 
   const range = useMemo(() => calendarRangeForView(view, cursor), [cursor, view])
@@ -81,18 +88,27 @@ export function RoutineScreen() {
           <h1 className="level-page-title text-3xl font-semibold tracking-tight text-on-surface">Rotina</h1>
           <p className="mt-2 text-on-surface-variant">Agenda por dia, semana, mês e ano.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid w-full grid-cols-2 gap-2 sm:w-auto sm:flex sm:flex-wrap">
           <Button variant="secondary" size="md" onClick={() => setSchedulesOpen(true)}>
             <Icon name="event_repeat" className="text-[18px]" /> Agendamentos
           </Button>
           <Button variant="secondary" size="md" onClick={() => assistant.openFor("agenda")}>
             <AssistantAvatar module="agenda" className="size-4" /> Secretária Nina
           </Button>
-          <Button variant="primary" size="md" onClick={() => setIsTaskModalOpen(true)}>
+          <Button variant="primary" size="md" className="col-span-2 sm:col-auto" onClick={() => setIsTaskModalOpen(true)}>
             <Icon name="add" className="text-[18px]" /> Nova tarefa
           </Button>
         </div>
       </header>
+
+      <RoutineTodayOverview
+        summary={todaySummary}
+        conflicts={todayFocus.conflicts.length}
+        overdue={overdueCount}
+        onOpenToday={() => { setCursor(parseISO(TODAY_ISO)); setView("dia") }}
+        onNewTask={() => setIsTaskModalOpen(true)}
+        onManageNext={() => todaySummary.nextTask && setManagedOccurrence({ taskId: todaySummary.nextTask.id, date: TODAY_ISO })}
+      />
 
       <section aria-label="Consistência da rotina" className="grid grid-cols-2 gap-3 border-y border-outline-variant py-4 sm:grid-cols-4">
         <RoutineMetric label="Consistência · 30 dias" value={`${consistency.percent}%`} />
@@ -154,12 +170,30 @@ export function RoutineScreen() {
 
 /* ------------------------------------------------------------------ Dia */
 function DiaView({ date, setDate, tasks, events, toggle, manage, isToday }: { date: Date; setDate: (d: Date) => void; tasks: Task[]; events: GoogleCalendarEvent[]; toggle: ToggleTask; manage: ManageTask; isToday: (d: Date) => boolean }) {
+  const [query, setQuery] = useState("")
+  const [status, setStatus] = useState<"all" | "pending" | "done">("all")
+  const [priority, setPriority] = useState<"" | "alta" | "media" | "baixa">("")
   const dayTasks = tasksOn(tasks, isoOf(date), TODAY_ISO)
   const items = timelineOnDate(tasks, events, isoOf(date), TODAY_ISO)
   const done = dayTasks.filter((t) => t.completed).length
   const googleCount = items.filter((item) => item.source === "google").length
   const pct = progressPercent(done, dayTasks.length)
   const label = date.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })
+  const needle = query.trim().toLocaleLowerCase("pt-BR")
+  const filteredItems = items.filter((item) => {
+    if (item.source === "google") {
+      if (priority) return false
+      const ended = googleEventEnded(item.event)
+      if (status === "pending" && ended) return false
+      if (status === "done" && !ended) return false
+      return !needle || (item.event.title + " " + (item.event.location || "")).toLocaleLowerCase("pt-BR").includes(needle)
+    }
+    const task = item.task
+    if (status === "pending" && task.completed) return false
+    if (status === "done" && !task.completed) return false
+    if (priority && task.priority !== priority) return false
+    return !needle || (task.title + " " + task.subtitle + " " + (task.category || "")).toLocaleLowerCase("pt-BR").includes(needle)
+  })
 
   return (
     <div className="flex flex-col gap-4">
@@ -170,13 +204,37 @@ function DiaView({ date, setDate, tasks, events, toggle, manage, isToday }: { da
         onToday={() => setDate(parseISO(TODAY_ISO))}
         badge={isToday(date) ? "Hoje" : undefined}
       />
+      <div className="grid gap-2 rounded-xl border border-outline-variant bg-surface-container-low p-3 sm:grid-cols-3">
+        <label className="flex min-h-11 items-center gap-2 rounded-lg border border-outline-variant bg-surface px-3">
+          <Icon name="search" className="text-[18px] text-muted" />
+          <input
+            aria-label="Buscar na rotina"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Buscar tarefa, categoria ou evento"
+            className="min-w-0 flex-1 bg-transparent text-sm text-on-surface outline-none placeholder:text-muted"
+          />
+        </label>
+        <LevelSelect
+          aria-label="Filtrar por status"
+          value={status}
+          onChange={(value) => setStatus(value as "all" | "pending" | "done")}
+          options={[{ value: "all", label: "Todos" }, { value: "pending", label: "Pendentes" }, { value: "done", label: "Concluídos" }]}
+        />
+        <LevelSelect
+          aria-label="Filtrar por prioridade"
+          value={priority}
+          onChange={(value) => setPriority(value as "" | "alta" | "media" | "baixa")}
+          options={[{ value: "", label: "Todas prioridades" }, { value: "alta", label: "Alta" }, { value: "media", label: "Média" }, { value: "baixa", label: "Baixa" }]}
+        />
+      </div>
       <SectionCard title="Tarefas do dia" description={`${done} de ${dayTasks.length} concluídas${googleCount ? ` · ${googleCount} do Google` : ""}`} bodyClassName="p-0"
         action={<div className="h-1.5 w-24 overflow-hidden rounded-full bg-surface-container-highest"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} /></div>}>
-        {items.length === 0 ? (
-          <Empty label="Nenhuma tarefa ou evento neste dia." />
+        {filteredItems.length === 0 ? (
+          <Empty label={items.length ? "Nenhum item corresponde aos filtros." : "Nenhuma tarefa ou evento neste dia."} />
         ) : (
           <ul className="divide-y divide-outline-variant">
-            {items.map((item) => <li key={item.key}><TimelineRow item={item} toggle={toggle} manage={manage} /></li>)}
+            {filteredItems.map((item) => <li key={item.key}><TimelineRow item={item} toggle={toggle} manage={manage} /></li>)}
           </ul>
         )}
       </SectionCard>
@@ -434,6 +492,75 @@ function TaskRow({ task, toggle, manage, showTime }: { task: Task; toggle: Toggl
       </button>
     </div>
   )
+}
+
+function RoutineTodayOverview({ summary, conflicts, overdue, onOpenToday, onNewTask, onManageNext }: {
+  summary: ReturnType<typeof routineDaySummary>
+  conflicts: number
+  overdue: number
+  onOpenToday: () => void
+  onNewTask: () => void
+  onManageNext: () => void
+}) {
+  const hours = Math.floor(summary.plannedMinutes / 60)
+  const minutes = summary.plannedMinutes % 60
+  const durationLabel = hours ? `${hours}h${minutes ? ` ${minutes}min` : ""}` : `${minutes} min`
+  return (
+    <section aria-label="Resumo de hoje" className="overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-low">
+      <div className="grid gap-0 lg:grid-cols-2">
+        <div className="p-4 sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+                <Icon name="today" className="text-[16px]" /> Hoje
+              </span>
+              <h2 className="mt-1 text-xl font-semibold text-on-surface">Seu plano do dia</h2>
+              <p className="mt-1 text-sm text-muted">
+                {summary.total ? `${summary.completed} de ${summary.total} concluídas · ${durationLabel} planejados` : "Nenhuma tarefa planejada ainda."}
+              </p>
+            </div>
+            <div className="grid size-16 place-items-center rounded-full border-4 border-primary/20 bg-surface">
+              <span className="font-mono text-sm font-bold text-primary">{summary.progress}%</span>
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <TodayStat icon="schedule" label="Carga" value={durationLabel} />
+            <TodayStat icon="priority_high" label="Alta prioridade" value={String(summary.highPriorityPending)} />
+            <TodayStat icon="event_repeat" label="Recorrentes" value={String(summary.recurring)} />
+            <TodayStat icon="warning" label="Conflitos" value={String(conflicts)} attention={conflicts > 0} />
+          </div>
+        </div>
+        <div className="border-t border-outline-variant bg-surface p-4 sm:p-5 lg:border-l lg:border-t-0">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Próxima ação</p>
+          {summary.nextTask ? (
+            <button type="button" onClick={onManageNext} className="mt-2 w-full rounded-xl border border-outline-variant bg-surface-container p-3 text-left transition-colors hover:border-primary/40">
+              <div className="flex items-start gap-3">
+                <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><Icon name="play_arrow" className="text-[20px]" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold text-on-surface">{summary.nextTask.title}</span>
+                  <span className="mt-1 block text-xs text-muted">{summary.nextTask.time} · {summary.nextTask.durationMin ?? 30} min · {summary.nextTask.subtitle || "Geral"}</span>
+                </span>
+                <Icon name="chevron_right" className="text-[18px] text-muted" />
+              </div>
+            </button>
+          ) : <p className="mt-2 text-sm text-muted">Tudo concluído por hoje.</p>}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button variant="secondary" size="sm" onClick={onOpenToday}><Icon name="calendar_today" className="text-[16px]" />Ver hoje</Button>
+            <Button size="sm" onClick={onNewTask}><Icon name="add" className="text-[16px]" />Nova tarefa</Button>
+          </div>
+          {overdue > 0 ? <p className="mt-3 flex items-center gap-1.5 text-xs text-warning"><Icon name="event_busy" className="text-[15px]" />{overdue} tarefa(s) atrasada(s) fora do plano de hoje.</p> : null}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function TodayStat({ icon, label, value, attention = false }: { icon: string; label: string; value: string; attention?: boolean }) {
+  return <div className="rounded-xl border border-outline-variant bg-surface p-3">
+    <Icon name={icon} className={cn("text-[18px]", attention ? "text-warning" : "text-primary")} />
+    <p className="mt-2 font-mono text-base font-semibold text-on-surface">{value}</p>
+    <p className="mt-0.5 text-[10px] font-medium text-muted">{label}</p>
+  </div>
 }
 
 function RoutineMetric({ label, value }: { label: string; value: string }) {

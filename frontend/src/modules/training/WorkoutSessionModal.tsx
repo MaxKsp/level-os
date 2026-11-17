@@ -90,7 +90,7 @@ export function WorkoutSessionModal({ workout, onClose, onSave }: Props) {
           <span className="text-xs text-muted">Ficha vinculada ao histórico</span>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <label className="text-xs font-medium text-on-surface-variant">Data<LevelDateInput className="mt-1" value={date} max={today()} onChange={(e) => setDate(e.target.value)} /></label>
+          <div><LevelDateInput label="Data" value={date} max={today()} onChange={(e) => setDate(e.target.value)} /></div>
           <label className="text-xs font-medium text-on-surface-variant"><Timer className="mr-1 inline size-3.5" />Duração total (min)<input inputMode="numeric" value={duration} onChange={(e) => setDuration(e.target.value)} className={field + " mt-1"} /></label>
         </div>
         <div className="space-y-2">

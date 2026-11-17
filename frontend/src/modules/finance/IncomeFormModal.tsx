@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react"
 import { TrendingUp } from "lucide-react"
 import { Modal } from "../../components/ui/Modal"
 import { Button } from "../../components/ui/button"
+import { LevelSelect } from "../../components/ui/LevelSelect"
 import { describeApiError } from "../../lib/apiErrors"
 import { formatCurrency } from "../../lib/format"
 import type { AccountV2, IfoodEntry, IncomeLine } from "./contracts"
@@ -37,6 +38,11 @@ function defaultEffectiveMonth(income: IncomeLine | null | undefined): string {
   return start && now <= start ? nextMonth(start) : now
 }
 
+const MONTH_OPTIONS = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+].map((label, index) => ({ value: String(index + 1).padStart(2, "0"), label }))
+
 export function IncomeFormModal({ open, initial, accounts, onClose, onSave, onSaveVariable, onVersion }: Props) {
   const canVersion = Boolean(initial && initial.type === "fixa" && !initial.endDate && onVersion)
   const [raiseOpen, setRaiseOpen] = useState(false)
@@ -51,6 +57,12 @@ export function IncomeFormModal({ open, initial, accounts, onClose, onSave, onSa
     return { ...initial.salaryDetails, grossSalary: raiseNumeric }
   }, [initial, raiseNumeric])
   const revisedNet = revisedSalary ? calculateSalary(revisedSalary).netSalary : raiseNumeric
+  const currentYear = new Date().getFullYear()
+  const yearOptions = Array.from({ length: 12 }, (_, index) => {
+    const year = currentYear - 1 + index
+    return { value: String(year), label: String(year) }
+  })
+  const [raiseYear = String(currentYear), raiseMonthNumber = "01"] = raiseMonth.split("-")
 
   useEffect(() => {
     if (!open) return
@@ -114,15 +126,23 @@ export function IncomeFormModal({ open, initial, accounts, onClose, onSave, onSa
                   className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
                 />
               </label>
-              <label className="text-xs text-muted">
-                A partir de
-                <input
-                  type="month"
-                  value={raiseMonth}
-                  onChange={(e) => setRaiseMonth(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm text-on-surface outline-none focus:border-primary"
-                />
-              </label>
+              <div className="text-xs text-muted">
+                <span>A partir de</span>
+                <div className="mt-1 grid grid-cols-[1fr_6.5rem] gap-2">
+                  <LevelSelect
+                    aria-label="Mês de início do reajuste"
+                    value={raiseMonthNumber}
+                    onChange={(month) => setRaiseMonth(`${raiseYear}-${month}`)}
+                    options={MONTH_OPTIONS}
+                  />
+                  <LevelSelect
+                    aria-label="Ano de início do reajuste"
+                    value={raiseYear}
+                    onChange={(year) => setRaiseMonth(`${year}-${raiseMonthNumber}`)}
+                    options={yearOptions}
+                  />
+                </div>
+              </div>
               <Button type="button" variant="primary" size="md" onClick={applyRaise} disabled={!(raiseNumeric > 0) || isApplyingRaise}>
                 {isApplyingRaise ? "Aplicando…" : "Aplicar"}
               </Button>

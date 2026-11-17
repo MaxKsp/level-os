@@ -55,4 +55,25 @@ return static function (): void {
         'mealChecks'=>['1:0'=>'skipped'],'cartIndices'=>[0]]);
     test_assert_same('consumed',$saved['mealChecks'][$active['id']]['1:0'],'Legacy import cannot replace synchronized data.');
     test_assert_same(0,count($service->load(8)['diary']),'Other user records remain isolated.');
+    // Edição e baixa usam o mesmo identificador, sob revisão otimista da conta.
+    $saved = $service->save(7,['operation'=>'save_pantry','revision'=>8,'items'=>[
+        ['id'=>'p1','name'=>'Frango','quantity'=>1,'unit'=>'kg','category'=>'proteina','expiresOn'=>'2026-10-03']]]);
+    test_assert_same('p1',$saved['pantry'][0]['id'],'Consumption never creates a duplicate stock row.');
+    test_assert_same(1.0,$saved['pantry'][0]['quantity'],'Explicit partial stock deduction persists.');
+    $rejected = false;
+    try { $service->save(7,['operation'=>'save_pantry','revision'=>9,'items'=>[
+        ['id'=>'p1','name'=>'Frango','quantity'=>-0.1,'unit'=>'kg','category'=>'proteina','expiresOn'=>null]]]); }
+    catch (InvalidArgumentException) { $rejected = true; }
+    test_assert_true($rejected,'Negative inventory cannot be persisted even by direct API calls.');
+    test_assert_same(9,$service->load(7)['revision'],'Invalid stock updates cannot change workspace revision.');
+    $rejected = false;
+    try { $service->save(7,['operation'=>'save_pantry','revision'=>9,'items'=>[
+        ['id'=>'p1','name'=>'Frango','quantity'=>1,'unit'=>'kg','category'=>'proteina','expiresOn'=>null],
+        ['id'=>'p1','name'=>'Frango','quantity'=>1,'unit'=>'kg','category'=>'proteina','expiresOn'=>null]]]); }
+    catch (InvalidArgumentException) { $rejected = true; }
+    test_assert_true($rejected,'Duplicate item identifiers are rejected by the backend.');
+    test_assert_same(0,count($service->load(8)['pantry']),'Stock changes cannot cross account boundaries.');
+    $saved = $service->save(7,['operation'=>'reset_cart','revision'=>9,'planId'=>$active['id']]);
+    test_assert_true(empty($saved['cartChecks'][$active['id']] ?? []),'Reset shopping cart must clear all marks in one revision.');
+    test_assert_same(10,$saved['revision'],'Atomic cart reset increments revision once, not for every item.');
 };

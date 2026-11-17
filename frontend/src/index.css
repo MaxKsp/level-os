@@ -207,11 +207,36 @@ html[data-theme="light"] .text-primary { color: #087c72; }
   z-index: 1;
 }
 
+.level-app-main {
+  min-width: 0;
+  width: 100%;
+}
+
+.level-app-main .level-page {
+  width: 100%;
+  padding-top: max(7rem, calc(5.5rem + env(safe-area-inset-top, 0px)));
+}
+
 .level-trial-active .level-page { padding-top: 8.25rem; }
 
 @media (min-width: 768px) {
-  .level-app-main .level-page { padding-top: 3rem; }
+  .level-app-main {
+    margin-left: var(--level-sidebar-width);
+    width: calc(100% - var(--level-sidebar-width));
+    transition: margin-left 200ms ease, width 200ms ease;
+  }
+
+  .level-app-main .level-page {
+    margin-left: auto;
+    margin-right: auto;
+    padding-top: 3rem;
+  }
+
   .level-trial-active .level-app-main .level-page { padding-top: 5.75rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .level-app-main { transition: none; }
 }
 
 .level-shader-background {
@@ -663,4 +688,64 @@ textarea:focus-visible,
   .level-tax-report [class*="bg-warning"] {
     background: #f8fafc !important;
   }
+}
+
+/* PWA instalado: shell com comportamento mais próximo de app nativo. */
+@media (display-mode: standalone) {
+  html,
+  body,
+  #root {
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+  }
+
+  body {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .level-app-shell,
+  .level-app-content {
+    min-height: 100dvh;
+  }
+
+  .level-topbar {
+    height: calc(4rem + env(safe-area-inset-top, 0px));
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .level-app-main .level-page {
+    padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  .level-bottom-nav {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.35rem);
+  }
+}
+
+/* Neutraliza cromos nativos restantes e mantém os controles no padrão Level OS. */
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--color-on-surface);
+  box-shadow: 0 0 0 1000px var(--color-surface-container) inset;
+  caret-color: var(--color-on-surface);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-outline-variant) transparent;
 }

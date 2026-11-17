@@ -1,5 +1,5 @@
 import * as Dialog from "@radix-ui/react-dialog"
-import { forwardRef, useId, useMemo, useRef, useState, type ChangeEvent, type InputHTMLAttributes } from "react"
+import { forwardRef, useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type InputHTMLAttributes } from "react"
 import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, X } from "lucide-react"
 import { cn } from "../../lib/cn"
 
@@ -33,7 +33,7 @@ const formatDisplay = (value: string, type: PickerType) => {
 /** Modal de calendario/horario 100% Level OS: nenhum picker nativo é exibido. */
 export const LevelDateInput = forwardRef<HTMLInputElement, Props>(function LevelDateInput({
   type = "date", value, label, className, disabled, readOnly, onChange, id, name,
-  min, max, required, placeholder, "aria-label": ariaLabel, onInvalid, ...rest
+  min, max, required, placeholder, "aria-label": ariaLabel, ...rest
 }, forwardedRef) {
   const pickerType = type as PickerType
   const generatedId = useId()
@@ -75,6 +75,22 @@ export const LevelDateInput = forwardRef<HTMLInputElement, Props>(function Level
     setHours(h); setMinutes(m)
     setOpen(true)
   }
+  // O valor real de formulário é oculto (nunca um input date/time nativo).
+  // Como campos hidden não participam da validação HTML, o requisito de
+  // preenchimento é verificado antes de o formulário receber o submit.
+  useEffect(() => {
+    if (!required || disabled) return
+    const form = nativeRef.current?.form
+    if (!form) return
+    const enforceRequired = (event: Event) => {
+      if (value) return
+      event.preventDefault()
+      event.stopPropagation()
+      start()
+    }
+    form.addEventListener("submit", enforceRequired, true)
+    return () => form.removeEventListener("submit", enforceRequired, true)
+  }, [required, disabled, value, type, min, max])
   const calendar = useMemo(() => {
     const year = view.getFullYear(), month = view.getMonth()
     const first = new Date(year, month, 1)
@@ -97,10 +113,8 @@ export const LevelDateInput = forwardRef<HTMLInputElement, Props>(function Level
         nativeRef.current = node
         if (typeof forwardedRef === "function") forwardedRef(node)
         else if (forwardedRef) forwardedRef.current = node
-      }} type={type} value={value} name={name} min={lower || undefined} max={upper || undefined}
-        disabled={disabled} required={required} tabIndex={-1} aria-hidden="true" onChange={onChange}
-        onInvalid={(event) => { onInvalid?.(event); start() }}
-        className="pointer-events-none absolute size-px opacity-0" {...rest} />
+      }} type="hidden" value={value} name={name}
+        disabled={disabled} tabIndex={-1} aria-hidden="true" onChange={onChange} {...rest} />
       <Dialog.Trigger asChild>
         <button id={controlId} type="button" disabled={disabled || readOnly} onClick={start}
           aria-label={ariaLabel ?? label ?? title} aria-required={required || undefined}

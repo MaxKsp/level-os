@@ -91,7 +91,7 @@ function AppRoutes() {
     <ShaderBackground opacity={0.2} />
     <div className="level-app-content">
       <TopNavBar />
-      <div id="level-main-content" tabIndex={-1} className="level-app-main min-h-screen scroll-mt-20 transition-[padding] duration-200 outline-none motion-reduce:transition-none md:pl-[var(--level-sidebar-width)]">
+      <div id="level-main-content" tabIndex={-1} className="level-app-main min-h-screen scroll-mt-20 outline-none">
         {!blocked ? <TrialBanner /> : null}
         {blocked ? <ExpiredPaywall /> : <AnimatePresence mode="wait" initial={false}>
           <m.div

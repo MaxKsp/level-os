@@ -4,7 +4,7 @@ import { Button } from "../../components/ui/button"
 import { Icon } from "../../design-system"
 import type { Workout, WorkoutExercise } from "./contracts"
 import { wid } from "./store"
-import { findExerciseVideo } from "./exerciseVideos"
+import { ExerciseReferenceButton } from "./ExerciseReferenceButton"
 import { ExerciseLibraryPicker } from "./ExerciseLibraryPicker"
 
 const field = "w-full rounded-lg border border-outline-variant bg-surface-container px-3 py-2 text-sm text-on-surface outline-none transition-colors focus:border-primary"
@@ -95,7 +95,6 @@ export function WorkoutFormModal({ open, initial, onClose, onSave }: Props) {
           }} /></div> : null}
           <div className="flex flex-col gap-2">
             {exs.map((e, i) => {
-              const videoUrl = findExerciseVideo(e.name)
               return (
                 <div key={e.id} className="rounded-xl border border-outline-variant bg-surface/60 p-3">
                   <div className="mb-3 flex items-start gap-2">
@@ -103,9 +102,7 @@ export function WorkoutFormModal({ open, initial, onClose, onSave }: Props) {
                     <label className="min-w-0 flex-1 text-[11px] font-medium text-muted">Exercício
                       <input className={field + " mt-1 min-h-10"} value={e.name} onChange={(ev) => setEx(e.id, { name: ev.target.value })} placeholder={`Exercício ${i + 1}`} />
                     </label>
-                    {videoUrl ? <a href={videoUrl} target="_blank" rel="noreferrer" aria-label={`Tutorial de ${e.name}`} title="Ver tutorial" className="mt-5 grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-container-high hover:text-primary">
-                      <Icon name="play_circle" className="text-[18px]" />
-                    </a> : null}
+                    {e.name.trim() ? <span className="mt-5"><ExerciseReferenceButton name={e.name} /></span> : null}
                     <button type="button" aria-label={`Remover ${e.name || "exercício"}`} onClick={() => setExs((xs) => (xs.length > 1 ? xs.filter((x) => x.id !== e.id) : xs))} className="mt-5 grid size-9 shrink-0 place-items-center rounded-lg text-muted hover:bg-surface-container-high hover:text-error">
                       <Icon name="close" className="text-[18px]" />
                     </button>

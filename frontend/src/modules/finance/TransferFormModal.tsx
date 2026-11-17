@@ -65,7 +65,7 @@ export function TransferForm({ accounts, resetKey, onCancel, onSave }: { account
 
             <div className="grid grid-cols-2 gap-3">
               <div><label className={label}>Valor (R$)</label><input className={field} type="number" min="0" step="0.01" value={value} onChange={(event) => setValue(event.target.value)} placeholder="0,00" autoFocus /></div>
-              <div><label className={label}>Data</label><LevelDateInput value={date} onChange={(event) => setDate(event.target.value)} /></div>
+              <div><LevelDateInput label="Data" value={date} onChange={(event) => setDate(event.target.value)} /></div>
             </div>
 
             {source && destination ? (
