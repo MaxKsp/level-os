@@ -38,7 +38,7 @@ export function RoutineOverview({ tasks }: RoutineOverviewProps) {
             <AnimatedNumber value={summary.completed} animationKey="overview-routine-completed" formatValue={(value) => Math.round(value).toLocaleString("pt-BR")} /> de <AnimatedNumber value={summary.total} animationKey="overview-routine-total" formatValue={(value) => Math.round(value).toLocaleString("pt-BR")} /> tarefas concluídas.
           </p>
           <p className="mt-3 text-xs font-medium text-tertiary">
-            {summary.pending === 0 ? "Tudo em dia" : "Bom ritmo"}
+            {summary.total === 0 ? "Nada agendado para hoje" : summary.pending === 0 ? "Tudo em dia" : summary.completed > 0 ? "Bom ritmo" : "Comece pela próxima tarefa"}
           </p>
         </div>
       </div>
@@ -56,7 +56,7 @@ export function RoutineOverview({ tasks }: RoutineOverviewProps) {
             upcoming.map((task) => (
               <li
                 key={task.id}
-                className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-white/[0.025]"
+                className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-surface-container"
               >
                 <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md border border-outline">
                   <Icon

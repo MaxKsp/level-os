@@ -3,8 +3,9 @@ import type { DietPlan } from "./store"
 import type { NutritionWorkspace } from "./nutritionWorkspace"
 import { planWorkspaceId } from "./nutritionWorkspace"
 import { inventoryCoverage } from "./nutritionInventory"
+import { formatCount, formatCurrency as brl } from "../../lib/format"
+import { sumMoney } from "../../lib/money"
 
-const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 const isoDate = (d: Date) => [d.getFullYear(), String(d.getMonth() + 1).padStart(2, "0"),
   String(d.getDate()).padStart(2, "0")].join("-")
 const categoryName: Record<NutritionWorkspace["purchases"][number]["category"], string> = {
@@ -28,8 +29,8 @@ export function nutritionActions(workspace: NutritionWorkspace, plan: DietPlan |
   const weekly = workspace.purchases.filter((item) => item.date >= weekStart && item.date <= today)
   const categorySpent = (Object.keys(categoryName) as (keyof typeof categoryName)[])
     .map((category) => ({ category, label: categoryName[category],
-      amount: weekly.filter((item) => item.category === category).reduce((sum, item) => sum + item.amountBRL, 0) }))
-  const weekTotal = categorySpent.reduce((sum, item) => sum + item.amount, 0)
+      amount: sumMoney(weekly.filter((item) => item.category === category).map((item) => item.amountBRL)) }))
+  const weekTotal = sumMoney(categorySpent.map((item) => item.amount))
   const quickRecipes = workspace.recipes.filter((item) => item.prepMinutes <= workspace.preferences.prepMinutes)
     .slice().sort((a, b) => a.prepMinutes - b.prepMinutes).slice(0, 3)
   return { today, weekStart, expired, expiring, pending, possibleAtHome, weekTotal, categorySpent, quickRecipes,
@@ -73,7 +74,7 @@ export function NutritionActionCenter({ workspace, plan, onNavigate, askRita }: 
       <article className="rounded-xl border border-outline-variant bg-surface p-4">
         <div className="flex items-center gap-2 text-sm font-semibold text-on-surface"><ListChecks className="size-4 text-primary" /> Compras do plano</div>
         {plan ? <>
-          <p className="mt-1 text-xs text-muted">{data.inCart}/{data.shoppingTotal} marcados no carrinho · {data.pending.length} pendentes</p>
+          <p className="mt-1 text-xs text-muted">{data.inCart}/{data.shoppingTotal} marcados no carrinho · {formatCount(data.pending.length, "pendente", "pendentes")}</p>
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-outline-variant" role="progressbar" aria-label="Itens marcados no carrinho"
             aria-valuemin={0} aria-valuemax={data.shoppingTotal} aria-valuenow={data.inCart}>
             <div className="h-full rounded-full bg-primary transition-[width] motion-reduce:transition-none" style={{ width: progress + "%" }} />
@@ -82,7 +83,7 @@ export function NutritionActionCenter({ workspace, plan, onNavigate, askRita }: 
             <span className="truncate text-on-surface">{item.item}</span>
             <span className="shrink-0">{item.quantity}</span>
           </li>)}</ul>
-          {data.possibleAtHome.length ? <p className="mt-3 text-xs text-primary">{data.possibleAtHome.length} item(ns) pendente(s) têm estoque estimado suficiente em unidades compatíveis.</p> : null}
+          {data.possibleAtHome.length ? <p className="mt-3 text-xs text-primary">{data.possibleAtHome.length === 1 ? "1 item pendente tem" : `${data.possibleAtHome.length} itens pendentes têm`} estoque estimado suficiente em unidades compatíveis.</p> : null}
           <p className="mt-3 text-[11px] text-muted">Itens no carrinho não representam pagamentos ou estoque recebido.</p>
         </> : <p className="mt-3 text-xs text-muted">Crie um plano alimentar para acompanhar a lista de compras aqui.</p>}
         <div className="mt-4"><ActionButton onClick={() => onNavigate("pantry")}>Revisar o estoque</ActionButton></div>

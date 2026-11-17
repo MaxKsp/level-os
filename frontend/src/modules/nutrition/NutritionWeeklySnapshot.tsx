@@ -4,8 +4,9 @@ import type { DietPlan } from "./store"
 import type { NutritionWorkspace } from "./nutritionWorkspace"
 import { planWorkspaceId } from "./nutritionWorkspace"
 import { mealCheckinSummary } from "./nutritionCheckin"
+import { formatCount, formatCurrency } from "../../lib/format"
+import { sumMoney } from "../../lib/money"
 
-const brl = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
 const day = (date: Date) => [
   date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0"),
 ].join("-")
@@ -25,7 +26,7 @@ export function nutritionWeeklySummary(data: NutritionWorkspace, plan: DietPlan 
   })
   return {
     from, to, meals: diary.length, recordedDays: new Set(diary.map((item) => item.date)).size,
-    purchases: purchases.length, spent: purchases.reduce((sum, item) => sum + item.amountBRL, 0),
+    purchases: purchases.length, spent: sumMoney(purchases.map((item) => item.amountBRL)),
     expiring: expiring.length, checks, daily,
   }
 }
@@ -34,11 +35,11 @@ export function NutritionWeeklySnapshot({ plan, workspace }: { plan: DietPlan | 
   const report = useMemo(() => nutritionWeeklySummary(workspace, plan, new Date(), range), [workspace, plan, range])
   const peak = Math.max(1, ...report.daily.map((entry) => entry.meals))
   const stats = [
-    { label: "Refeicoes registradas", value: String(report.meals), detail: report.recordedDays + " dia(s) com registro", Icon: CalendarCheck2 },
-    { label: "Compras declaradas", value: brl(report.spent), detail: report.purchases + " compra(s) no período", Icon: ReceiptText },
-    { label: "Validade proxima", value: String(report.expiring), detail: "Itens vencidos ou ate 3 dias", Icon: PackageX },
+    { label: "Refeições registradas", value: String(report.meals), detail: `${formatCount(report.recordedDays, "dia", "dias")} com registro`, Icon: CalendarCheck2 },
+    { label: "Compras declaradas", value: formatCurrency(report.spent), detail: `${formatCount(report.purchases, "compra", "compras")} no período`, Icon: ReceiptText },
+    { label: "Validade próxima", value: String(report.expiring), detail: "Itens vencidos ou em até 3 dias", Icon: PackageX },
     { label: "Check-in do plano", value: report.checks ? report.checks.consumed + "/" + report.checks.total : "—",
-      detail: "Sequencia ativa; nao representa dias reais", Icon: CircleCheck },
+      detail: "Sequência ativa; não representa dias reais", Icon: CircleCheck },
   ]
   return (
     <section aria-label="Resumo alimentar" className="relative isolate overflow-hidden rounded-2xl border border-outline-variant bg-surface-container-low p-4 shadow-[var(--shadow-panel)] sm:p-6">
@@ -46,7 +47,7 @@ export function NutritionWeeklySnapshot({ plan, workspace }: { plan: DietPlan | 
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <span className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[.18em] text-primary">
-            <TrendingUp className="size-3.5" /> Nutrition / Workspace
+            <TrendingUp className="size-3.5" aria-hidden="true" /> Resumo alimentar
           </span>
           <h2 className="mt-2 text-xl font-semibold tracking-tight text-on-surface sm:text-2xl">Seu acompanhamento alimentar</h2>
           <p className="mt-2 text-xs text-muted">Registros de {report.from.split("-").reverse().join("/")} a {report.to.split("-").reverse().join("/")}.</p>
@@ -91,8 +92,8 @@ export function NutritionWeeklySnapshot({ plan, workspace }: { plan: DietPlan | 
         </div>
       </div>
       <p className="mt-4 text-[11px] leading-5 text-muted">
-        Acompanhamento voluntario. Compras declaradas nao sao conciliadas com o banco.
-        Check-ins refletem a sequencia de refeicoes do plano, nao consumo comprovado.
+        Acompanhamento voluntário. Compras declaradas não são conciliadas com o banco.
+        Check-ins refletem a sequência de refeições do plano, não consumo comprovado.
       </p>
     </section>
   )

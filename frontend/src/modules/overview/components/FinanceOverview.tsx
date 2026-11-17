@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom"
 import { AnimatedNumber } from "../../../components/ui/AnimatedNumber"
 import { BankLogo } from "../../../components/ui/BankLogo"
-import { Badge, Icon, SectionCard, Sparkline } from "../../../design-system"
-import { formatCurrency, formatSignedCurrency } from "../../../lib/format"
+import { Badge, EmptyState, Icon, SectionCard, Sparkline } from "../../../design-system"
+import { formatCount, formatCurrency, formatSignedCurrency } from "../../../lib/format"
+import { subtractMoney } from "../../../lib/money"
 import type { AccountV2, FinanceBootstrap } from "../../finance/contracts"
 import { financeSummary, isCard } from "../../finance/selectors"
 
@@ -33,7 +34,7 @@ export function FinanceOverview({ data, trend, detailsHref }: FinanceOverviewPro
   const trendValues = trend.map((t) => t.value)
   const trendDelta =
     trendValues.length > 1
-      ? trendValues[trendValues.length - 1] - trendValues[0]
+      ? subtractMoney(trendValues[trendValues.length - 1], trendValues[0])
       : 0
 
   return (
@@ -57,7 +58,7 @@ export function FinanceOverview({ data, trend, detailsHref }: FinanceOverviewPro
           label="Saldo total"
           value={summary.totalBalance}
           animationKey="overview-balance"
-          note={`${summary.accountsCount} contas`}
+          note={formatCount(summary.accountsCount, "conta", "contas")}
           icon="paid"
           tone="text-tertiary"
         />
@@ -65,7 +66,7 @@ export function FinanceOverview({ data, trend, detailsHref }: FinanceOverviewPro
           label="Fatura total"
           value={summary.totalInvoice}
           animationKey="overview-invoice"
-          note={`${summary.cardsCount} cartões`}
+          note={formatCount(summary.cardsCount, "cartão", "cartões")}
           icon="credit_card"
           tone="text-warning"
         />
@@ -113,7 +114,9 @@ export function FinanceOverview({ data, trend, detailsHref }: FinanceOverviewPro
         </article>
 
         <SectionCard title="Contas e cartões" description="Saldos e faturas atuais" className="h-full min-w-0" bodyClassName="p-0">
-          <ul className="divide-y divide-outline-variant">
+          {data.accounts_v2.length === 0 ? (
+            <EmptyState icon="account_balance_wallet" title="Nenhuma conta cadastrada" description="Cadastre uma conta ou cartão no Financeiro para ver saldos e faturas aqui." />
+          ) : <ul className="divide-y divide-outline-variant">
             {data.accounts_v2.slice(0, 4).map((account) => {
               const card = isCard(account)
               const type = accountType(account)
@@ -142,10 +145,10 @@ export function FinanceOverview({ data, trend, detailsHref }: FinanceOverviewPro
                 </li>
               )
             })}
-          </ul>
+          </ul>}
           {data.accounts_v2.length > 4 ? (
             <Link to="/financeiro" className="block border-t border-outline-variant px-1 py-3 text-center text-xs font-medium text-primary hover:bg-surface-container">
-              Ver mais {data.accounts_v2.length - 4} contas
+              Ver mais {formatCount(data.accounts_v2.length - 4, "conta", "contas")}
             </Link>
           ) : null}
         </SectionCard>

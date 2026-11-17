@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom"
-import { Icon, SectionCard } from "../../../design-system"
+import { EmptyState, Icon, SectionCard } from "../../../design-system"
 import { formatCurrency } from "../../../lib/format"
 import type { Vault } from "../../finance/contracts"
+import { vaultProgress } from "../../finance/selectors"
 
 interface VaultsOverviewProps {
   vaults: Vault[]
@@ -24,11 +25,11 @@ export function VaultsOverview({ vaults, className }: VaultsOverviewProps) {
         </Link>
       }
     >
-      <ul className="flex flex-col gap-4 px-5 py-5 sm:px-6">
+      {vaults.length === 0 ? (
+        <EmptyState icon="savings" title="Nenhum cofrinho criado" description="Crie um cofrinho no Financeiro para separar dinheiro para uma meta." />
+      ) : <ul className="flex flex-col gap-4 px-5 py-5 sm:px-6">
         {vaults.map((vault) => {
-          const meta = vault.meta ?? 0
-          const pct =
-            meta > 0 ? Math.min(100, Math.round((vault.saldo / meta) * 100)) : 0
+          const { target, percent } = vaultProgress(vault)
           return (
             <li key={vault.id}>
               <div className="mb-2 flex items-center justify-between">
@@ -40,26 +41,30 @@ export function VaultsOverview({ vaults, className }: VaultsOverviewProps) {
                   {formatCurrency(vault.saldo)}
                 </span>
               </div>
+              {percent === null ? (
+                <p className="text-xs text-muted">Sem meta definida</p>
+              ) : <>
               <div
                 className="h-2 overflow-hidden rounded-full bg-surface-container-highest"
                 role="progressbar"
                 aria-label={`Meta de ${vault.label}`}
                 aria-valuemin={0}
                 aria-valuemax={100}
-                aria-valuenow={pct}
+                aria-valuenow={percent}
               >
                 <div
                   className="h-full rounded-full bg-tertiary"
-                  style={{ width: `${pct}%` }}
+                  style={{ width: `${percent}%` }}
                 />
               </div>
               <p className="mt-1 text-xs text-muted">
-                <span className="numeric-value">{pct}%</span> de <span className="numeric-value">{formatCurrency(meta)}</span>
+                <span className="numeric-value">{percent}%</span> de <span className="numeric-value">{formatCurrency(target)}</span>
               </p>
+              </>}
             </li>
           )
         })}
-      </ul>
+      </ul>}
     </SectionCard>
   )
 }

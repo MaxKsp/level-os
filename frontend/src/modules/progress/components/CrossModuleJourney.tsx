@@ -13,6 +13,7 @@ import { tasksOn } from "../../routine/selectors"
 import { useAssistant, type AssistantModule } from "../../assistant/store"
 import { useProgress } from "../store"
 import { crossModuleTimeline, type TimelineModule } from "../crossModuleTimeline"
+import { formatCount, formatCurrency } from "../../../lib/format"
 
 const marker: Record<TimelineModule, typeof Activity> = {
   treinos: Dumbbell, rotina: CalendarCheck2, financeiro: Landmark, alimentacao: Utensils, progresso: Target,
@@ -43,11 +44,11 @@ export function CrossModuleJourney() {
     { name: "Alimentação", current: food?.totalEstimate ?? null, target: food?.budget ?? null, detail: "custo estimado / orçamento", path: "/alimentacao" },
   ]
   const suggestions: Array<{ module: AssistantModule; title: string; context: string; prompt: string }> = [
-    { module: "agenda", title: "Organizar prioridades", context: dayTasks.filter((item) => !item.completed).length + " tarefa(s) pendente(s)",
+    { module: "agenda", title: "Organizar prioridades", context: formatCount(dayTasks.filter((item) => !item.completed).length, "tarefa pendente", "tarefas pendentes"),
       prompt: "Analise minhas tarefas pendentes de hoje e proponha uma ordem de prioridade. Antes de criar ou alterar algo, apresente a proposta para minha revisão." },
-    { module: "treinos", title: "Revisar evolução de carga", context: training.sessions.length + " sessão(ões) no histórico",
+    { module: "treinos", title: "Revisar evolução de carga", context: `${formatCount(training.sessions.length, "sessão", "sessões")} no histórico`,
       prompt: "Revise meus registros disponíveis de treino, séries e cargas. Mostre minha evolução e sugira ajustes na minha ficha somente para eu analisar antes de confirmar." },
-    { module: "financeiro", title: "Revisar lançamentos", context: financial.unlinked.length + " despesa(s) sem conta válida",
+    { module: "financeiro", title: "Revisar lançamentos", context: `${formatCount(financial.unlinked.length, "despesa", "despesas")} sem conta válida`,
       prompt: "Ajude-me a revisar meus lançamentos e eventuais vínculos de conta ausentes. Não marque nenhum pagamento como confirmado nem altere dados sem minha aprovação." },
     { module: "alimentacao", title: "Avaliar o cardápio", context: nutrition.plan ? "Plano alimentar ativo" : "Plano ainda não configurado",
       prompt: "Ajude-me a rever meu cardápio, período e orçamento registrado. Apresente sugestões para revisão, considerando restrições que eu informar, antes de criar ou substituir um plano." },
@@ -78,7 +79,7 @@ export function CrossModuleJourney() {
           {goals.map((goal) => {
             const hasTarget = goal.target !== null && goal.target > 0
             const percent = hasTarget && goal.current !== null ? Math.min(100, Math.max(0, goal.current / goal.target! * 100)) : 0
-            const format = (number: number) => goal.name === "Alimentação" ? number.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : number.toLocaleString("pt-BR")
+            const format = (number: number) => goal.name === "Alimentação" ? formatCurrency(number) : number.toLocaleString("pt-BR")
             return <Link key={goal.name} to={goal.path} className="group block rounded-lg border border-outline-variant bg-surface/50 p-3 hover:border-primary/30">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs font-semibold text-on-surface">{goal.name}</span>
